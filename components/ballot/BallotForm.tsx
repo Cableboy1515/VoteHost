@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { cn } from "@/lib/utils"
 import {
   Dialog,
   DialogContent,
@@ -39,6 +40,7 @@ interface Question {
   text: string
   type: "SINGLE_CHOICE" | "MULTIPLE_CHOICE" | "RANKED_CHOICE" | "WRITE_IN"
   required: boolean
+  maxSelections?: number
   options: Option[]
 }
 
@@ -91,6 +93,8 @@ export default function BallotForm({ token, electionTitle, questions }: Props) {
   function handleMultipleChoice(questionId: string, optionId: string, checked: boolean) {
     setAnswers((a) => {
       const current = (a[questionId] as string[]) ?? []
+      const question = questions.find((q) => q.id === questionId)
+      if (checked && question?.maxSelections && current.length >= question.maxSelections) return a
       return {
         ...a,
         [questionId]: checked ? [...current, optionId] : current.filter((id) => id !== optionId),
@@ -218,17 +222,35 @@ export default function BallotForm({ token, electionTitle, questions }: Props) {
 
                 {q.type === "MULTIPLE_CHOICE" && (
                   <div className="space-y-2">
-                    {q.options.map((o) => (
-                      <label key={o.id} className="flex items-center gap-3 cursor-pointer">
-                        <input
-                          type="checkbox"
-                          value={o.id}
-                          checked={((answers[q.id] as string[]) ?? []).includes(o.id)}
-                          onChange={(e) => handleMultipleChoice(q.id, o.id, e.target.checked)}
-                        />
-                        <span className="text-sm">{o.text}</span>
-                      </label>
-                    ))}
+                    {q.maxSelections && (
+                      <p className="text-xs text-zinc-400">
+                        Select up to {q.maxSelections} option{q.maxSelections !== 1 ? "s" : ""}.
+                        {" "}({((answers[q.id] as string[]) ?? []).length} / {q.maxSelections} selected)
+                      </p>
+                    )}
+                    {q.options.map((o) => {
+                      const selected = (answers[q.id] as string[]) ?? []
+                      const isChecked = selected.includes(o.id)
+                      const atLimit = !!q.maxSelections && selected.length >= q.maxSelections
+                      return (
+                        <label
+                          key={o.id}
+                          className={cn(
+                            "flex items-center gap-3",
+                            atLimit && !isChecked ? "opacity-40 cursor-not-allowed" : "cursor-pointer"
+                          )}
+                        >
+                          <input
+                            type="checkbox"
+                            value={o.id}
+                            checked={isChecked}
+                            disabled={atLimit && !isChecked}
+                            onChange={(e) => handleMultipleChoice(q.id, o.id, e.target.checked)}
+                          />
+                          <span className="text-sm">{o.text}</span>
+                        </label>
+                      )
+                    })}
                   </div>
                 )}
 

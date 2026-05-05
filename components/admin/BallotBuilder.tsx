@@ -24,6 +24,7 @@ interface QuestionDraft {
   type: QuestionType
   order: number
   required: boolean
+  maxSelections?: number
   options: OptionDraft[]
 }
 
@@ -144,6 +145,7 @@ export default function BallotBuilder({ electionId, initialQuestions }: Props) {
                       if (v === null) return
                       updateQuestion(qIndex, {
                         type: v as QuestionType,
+                        maxSelections: v === "MULTIPLE_CHOICE" ? q.maxSelections : undefined,
                         options: v === "WRITE_IN" ? [] : q.options.length ? q.options : [{ text: "", order: 0 }, { text: "", order: 1 }],
                       })
                     }}
@@ -186,6 +188,25 @@ export default function BallotBuilder({ electionId, initialQuestions }: Props) {
                     <Button type="button" variant="outline" size="sm" onClick={() => addOption(qIndex)}>
                       + Add option
                     </Button>
+                    {q.type === "MULTIPLE_CHOICE" && (
+                      <div className="flex items-center gap-2 pt-1">
+                        <Label className="text-xs text-zinc-500 whitespace-nowrap">Max selections</Label>
+                        <Input
+                          type="number"
+                          min={1}
+                          max={q.options.length}
+                          placeholder="No limit"
+                          value={q.maxSelections ?? ""}
+                          onChange={(e) =>
+                            updateQuestion(qIndex, {
+                              maxSelections: e.target.value === "" ? undefined : Number(e.target.value),
+                            })
+                          }
+                          className="w-24 h-7 text-sm"
+                        />
+                        <span className="text-xs text-zinc-400">Leave blank for no limit</span>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>

@@ -13,6 +13,7 @@ export const QuestionSchema = z.object({
   type: z.enum(["SINGLE_CHOICE", "MULTIPLE_CHOICE", "RANKED_CHOICE", "WRITE_IN"]),
   order: z.number().int().min(0),
   required: z.boolean().default(true),
+  maxSelections: z.number().int().positive().optional(),
 })
 
 export const OptionSchema = z.object({

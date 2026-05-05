@@ -36,6 +36,7 @@ export default async function VotePage({ params }: { params: Promise<{ token: st
         text: q.text,
         type: q.type as "SINGLE_CHOICE" | "MULTIPLE_CHOICE" | "RANKED_CHOICE" | "WRITE_IN",
         required: q.required,
+        maxSelections: q.maxSelections ?? undefined,
         options: q.options.map((o) => ({ id: o.id, text: o.text })),
       }))}
     />
