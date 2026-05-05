@@ -32,12 +32,14 @@ export default async function BallotPage({ params }: { params: Promise<{ id: str
       </div>
       <BallotBuilder
         electionId={id}
+        electionStatus={election.status}
         initialQuestions={election.questions.map((q) => ({
           id: q.id,
           text: q.text,
           type: q.type,
           order: q.order,
           required: q.required,
+          maxSelections: q.maxSelections ?? undefined,
           options: q.options.map((o) => ({ id: o.id, text: o.text, order: o.order })),
         }))}
       />

@@ -30,6 +30,7 @@ interface QuestionDraft {
 
 interface Props {
   electionId: string
+  electionStatus: "DRAFT" | "ACTIVE" | "CLOSED"
   initialQuestions: QuestionDraft[]
 }
 
@@ -40,9 +41,10 @@ const TYPE_LABELS: Record<QuestionType, string> = {
   WRITE_IN: "Write-in",
 }
 
-export default function BallotBuilder({ electionId, initialQuestions }: Props) {
+export default function BallotBuilder({ electionId, electionStatus, initialQuestions }: Props) {
   const [questions, setQuestions] = useState<QuestionDraft[]>(initialQuestions)
   const [saving, setSaving] = useState(false)
+  const locked = electionStatus !== "DRAFT"
 
   function addQuestion() {
     setQuestions((qs) => [
@@ -127,6 +129,16 @@ export default function BallotBuilder({ electionId, initialQuestions }: Props) {
   return (
     <div className="space-y-4">
       <Toaster />
+      {electionStatus === "ACTIVE" && (
+        <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+          <strong>This election is live.</strong> The ballot cannot be edited while the election is active. Set the election to Draft to make changes.
+        </div>
+      )}
+      {electionStatus === "CLOSED" && (
+        <div className="rounded-lg border border-zinc-200 bg-zinc-100 px-4 py-3 text-sm text-zinc-600">
+          This election is closed. The ballot is read-only.
+        </div>
+      )}
       {questions.map((q, qIndex) => (
         <Card key={qIndex}>
           <CardContent className="pt-4 space-y-3">
@@ -138,9 +150,11 @@ export default function BallotBuilder({ electionId, initialQuestions }: Props) {
                     value={q.text}
                     onChange={(e) => updateQuestion(qIndex, { text: e.target.value })}
                     className="flex-1"
+                    disabled={locked}
                   />
                   <Select
                     value={q.type}
+                    disabled={locked}
                     onValueChange={(v) => {
                       if (v === null) return
                       updateQuestion(qIndex, {
@@ -159,7 +173,7 @@ export default function BallotBuilder({ electionId, initialQuestions }: Props) {
                       ))}
                     </SelectContent>
                   </Select>
-                  <Badge variant={q.required ? "default" : "secondary"} className="cursor-pointer select-none" onClick={() => updateQuestion(qIndex, { required: !q.required })}>
+                  <Badge variant={q.required ? "default" : "secondary"} className={locked ? "select-none opacity-50" : "cursor-pointer select-none"} onClick={() => !locked && updateQuestion(qIndex, { required: !q.required })}>
                     {q.required ? "Required" : "Optional"}
                   </Badge>
                 </div>
@@ -173,19 +187,20 @@ export default function BallotBuilder({ electionId, initialQuestions }: Props) {
                           value={o.text}
                           onChange={(e) => updateOption(qIndex, oIndex, e.target.value)}
                           className="flex-1"
+                          disabled={locked}
                         />
                         <Button
                           type="button"
                           variant="ghost"
                           size="sm"
                           onClick={() => removeOption(qIndex, oIndex)}
-                          disabled={q.options.length <= 2}
+                          disabled={locked || q.options.length <= 2}
                         >
                           ×
                         </Button>
                       </div>
                     ))}
-                    <Button type="button" variant="outline" size="sm" onClick={() => addOption(qIndex)}>
+                    <Button type="button" variant="outline" size="sm" onClick={() => addOption(qIndex)} disabled={locked}>
                       + Add option
                     </Button>
                     {q.type === "MULTIPLE_CHOICE" && (
@@ -203,6 +218,7 @@ export default function BallotBuilder({ electionId, initialQuestions }: Props) {
                             })
                           }
                           className="w-24 h-7 text-sm"
+                          disabled={locked}
                         />
                         <span className="text-xs text-zinc-400">Leave blank for no limit</span>
                       </div>
@@ -212,23 +228,25 @@ export default function BallotBuilder({ electionId, initialQuestions }: Props) {
               </div>
 
               <div className="flex flex-col gap-1 pt-1">
-                <Button type="button" variant="ghost" size="sm" onClick={() => moveQuestion(qIndex, -1)} disabled={qIndex === 0}>↑</Button>
-                <Button type="button" variant="ghost" size="sm" onClick={() => moveQuestion(qIndex, 1)} disabled={qIndex === questions.length - 1}>↓</Button>
-                <Button type="button" variant="ghost" size="sm" onClick={() => removeQuestion(qIndex)}>🗑</Button>
+                <Button type="button" variant="ghost" size="sm" onClick={() => moveQuestion(qIndex, -1)} disabled={locked || qIndex === 0}>↑</Button>
+                <Button type="button" variant="ghost" size="sm" onClick={() => moveQuestion(qIndex, 1)} disabled={locked || qIndex === questions.length - 1}>↓</Button>
+                <Button type="button" variant="ghost" size="sm" onClick={() => removeQuestion(qIndex)} disabled={locked}>🗑</Button>
               </div>
             </div>
           </CardContent>
         </Card>
       ))}
 
-      <div className="flex gap-2">
-        <Button type="button" variant="outline" onClick={addQuestion}>
-          + Add Question
-        </Button>
-        <Button onClick={handleSave} disabled={saving || questions.length === 0}>
-          {saving ? "Saving…" : "Save Ballot"}
-        </Button>
-      </div>
+      {!locked && (
+        <div className="flex gap-2">
+          <Button type="button" variant="outline" onClick={addQuestion}>
+            + Add Question
+          </Button>
+          <Button onClick={handleSave} disabled={saving || questions.length === 0}>
+            {saving ? "Saving…" : "Save Ballot"}
+          </Button>
+        </div>
+      )}
     </div>
   )
 }
