@@ -25,6 +25,7 @@ model Election {
   title       String
   description String?
   status      ElectionStatus @default(DRAFT)
+  archived    Boolean        @default(false)
   createdAt   DateTime       @default(now())
   startsAt    DateTime?
   endsAt      DateTime?

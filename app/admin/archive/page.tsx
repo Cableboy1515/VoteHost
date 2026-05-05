@@ -1,12 +1,12 @@
-import Link from "next/link"
 import { db } from "@/lib/db"
 import { Badge } from "@/components/ui/badge"
 import { buttonVariants } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { cn } from "@/lib/utils"
+import Link from "next/link"
 import type { ElectionStatus } from "@/lib/generated/prisma/client"
-import DeleteElectionButton from "@/components/admin/DeleteElectionButton"
 import ArchiveElectionButton from "@/components/admin/ArchiveElectionButton"
+import DeleteElectionButton from "@/components/admin/DeleteElectionButton"
 
 const STATUS_COLORS: Record<ElectionStatus, "secondary" | "default" | "outline"> = {
   DRAFT: "secondary",
@@ -14,9 +14,9 @@ const STATUS_COLORS: Record<ElectionStatus, "secondary" | "default" | "outline">
   CLOSED: "outline",
 }
 
-export default async function DashboardPage() {
+export default async function ArchivePage() {
   const elections = await db.election.findMany({
-    where: { archived: false },
+    where: { archived: true },
     orderBy: { createdAt: "desc" },
     include: { _count: { select: { voters: true } } },
   })
@@ -30,20 +30,17 @@ export default async function DashboardPage() {
 
   return (
     <div className="p-8">
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold">Elections</h1>
-        <Link href="/admin/elections/new" className={buttonVariants()}>
-          New Election
-        </Link>
+      <div className="mb-6">
+        <h1 className="text-2xl font-bold">Archived Elections</h1>
+        <p className="text-zinc-500 text-sm mt-1">
+          Elections moved here are hidden from the dashboard. Unarchive to restore them.
+        </p>
       </div>
 
       {electionsWithStats.length === 0 ? (
         <Card>
           <CardContent className="py-12 text-center text-zinc-500">
-            No elections yet.{" "}
-            <Link href="/admin/elections/new" className="underline">
-              Create one.
-            </Link>
+            No archived elections.
           </CardContent>
         </Card>
       ) : (
@@ -62,10 +59,13 @@ export default async function DashboardPage() {
                     {e.votedCount} / {e._count.voters} voted
                   </span>
                   <div className="flex gap-2">
-                    <Link href={`/admin/elections/${e.id}`} className={cn(buttonVariants({ variant: "outline", size: "sm" }))}>Edit</Link>
-                    <Link href={`/admin/elections/${e.id}/voters`} className={cn(buttonVariants({ variant: "outline", size: "sm" }))}>Voters</Link>
-                    <Link href={`/admin/elections/${e.id}/results`} className={cn(buttonVariants({ variant: "outline", size: "sm" }))}>Results</Link>
-                    <ArchiveElectionButton id={e.id} archived={false} />
+                    <Link
+                      href={`/admin/elections/${e.id}/results`}
+                      className={cn(buttonVariants({ variant: "outline", size: "sm" }))}
+                    >
+                      Results
+                    </Link>
+                    <ArchiveElectionButton id={e.id} archived={true} />
                     <DeleteElectionButton id={e.id} title={e.title} />
                   </div>
                 </div>

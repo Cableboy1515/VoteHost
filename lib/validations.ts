@@ -6,6 +6,7 @@ export const ElectionSchema = z.object({
   startsAt: z.string().datetime().optional().nullable(),
   endsAt: z.string().datetime().optional().nullable(),
   status: z.enum(["DRAFT", "ACTIVE", "CLOSED"]).optional(),
+  archived: z.boolean().optional(),
 })
 
 export const QuestionSchema = z.object({

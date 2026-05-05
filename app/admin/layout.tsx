@@ -34,6 +34,12 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             New Election
           </Link>
           <Link
+            href="/admin/archive"
+            className="block px-3 py-2 rounded hover:bg-zinc-700 text-sm"
+          >
+            Archive
+          </Link>
+          <Link
             href="/admin/settings"
             className="block px-3 py-2 rounded hover:bg-zinc-700 text-sm"
           >
