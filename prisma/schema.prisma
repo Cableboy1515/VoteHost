@@ -1,0 +1,109 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../lib/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum ElectionStatus {
+  DRAFT
+  ACTIVE
+  CLOSED
+}
+
+enum QuestionType {
+  SINGLE_CHOICE
+  MULTIPLE_CHOICE
+  RANKED_CHOICE
+  WRITE_IN
+}
+
+model Election {
+  id          String         @id @default(cuid())
+  title       String
+  description String?
+  status      ElectionStatus @default(DRAFT)
+  createdAt   DateTime       @default(now())
+  startsAt    DateTime?
+  endsAt      DateTime?
+
+  questions Question[]
+  voters    Voter[]
+  votes     Vote[]
+}
+
+model Question {
+  id         String       @id @default(cuid())
+  electionId String
+  text       String
+  type       QuestionType
+  order      Int
+  required   Boolean      @default(true)
+
+  election Election @relation(fields: [electionId], references: [id], onDelete: Cascade)
+  options  Option[]
+  votes    Vote[]
+
+  @@index([electionId, order])
+}
+
+model Option {
+  id         String @id @default(cuid())
+  questionId String
+  text       String
+  order      Int
+
+  question Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  votes    Vote[]
+
+  @@index([questionId, order])
+}
+
+model Voter {
+  id         String    @id @default(cuid())
+  electionId String
+  name       String
+  email      String
+  hasVoted   Boolean   @default(false)
+  token      String    @unique @default(uuid())
+  invitedAt  DateTime?
+  votedAt    DateTime?
+
+  election Election @relation(fields: [electionId], references: [id], onDelete: Cascade)
+
+  @@unique([electionId, email])
+  @@index([token])
+}
+
+// Vote has no voterId — anonymity by design.
+// WHO voted is on Voter.hasVoted; WHAT was voted is here with no voter linkage.
+model Vote {
+  id          String   @id @default(cuid())
+  electionId  String
+  questionId  String
+  optionId    String?
+  rank        Int?
+  writeInText String?
+  createdAt   DateTime @default(now())
+
+  election Election  @relation(fields: [electionId], references: [id], onDelete: Cascade)
+  question Question  @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  option   Option?   @relation(fields: [optionId], references: [id], onDelete: SetNull)
+
+  @@index([electionId, questionId])
+}
+
+model AdminUser {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  passwordHash String
+  createdAt    DateTime @default(now())
+}
+
+model Setting {
+  key       String   @id
+  value     String
+  updatedAt DateTime @updatedAt
+}
