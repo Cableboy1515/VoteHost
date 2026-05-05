@@ -6,6 +6,14 @@ import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
+import {
   DndContext,
   closestCenter,
   PointerSensor,
@@ -40,6 +48,12 @@ interface Props {
   questions: Question[]
 }
 
+interface AnswerSummary {
+  questionText: string
+  type: Question["type"]
+  lines: string[]
+}
+
 function SortableOption({ option, rank }: { option: Option; rank: number }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: option.id })
   return (
@@ -67,6 +81,8 @@ export default function BallotForm({ token, electionTitle, questions }: Props) {
   )
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState("")
+  const [showConfirm, setShowConfirm] = useState(false)
+  const [pendingPayload, setPendingPayload] = useState<unknown[]>([])
 
   function handleSingleChoice(questionId: string, optionId: string) {
     setAnswers((a) => ({ ...a, [questionId]: optionId }))
@@ -97,7 +113,29 @@ export default function BallotForm({ token, electionTitle, questions }: Props) {
     })
   }
 
-  async function handleSubmit(e: React.FormEvent) {
+  function buildSummary(): AnswerSummary[] {
+    return questions.map((q) => {
+      if (q.type === "SINGLE_CHOICE") {
+        const optionId = answers[q.id] as string | undefined
+        const option = q.options.find((o) => o.id === optionId)
+        return { questionText: q.text, type: q.type, lines: option ? [option.text] : ["(no selection)"] }
+      }
+      if (q.type === "MULTIPLE_CHOICE") {
+        const optionIds = (answers[q.id] as string[]) ?? []
+        const selected = q.options.filter((o) => optionIds.includes(o.id))
+        return { questionText: q.text, type: q.type, lines: selected.length > 0 ? selected.map((o) => o.text) : ["(no selection)"] }
+      }
+      if (q.type === "RANKED_CHOICE") {
+        const ranked = rankedOrders[q.id] ?? q.options
+        return { questionText: q.text, type: q.type, lines: ranked.map((o, i) => `${i + 1}. ${o.text}`) }
+      }
+      // WRITE_IN
+      const text = (answers[q.id] as string) ?? ""
+      return { questionText: q.text, type: q.type, lines: text.trim() ? [text.trim()] : ["(no response)"] }
+    })
+  }
+
+  function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     setError("")
 
@@ -121,21 +159,29 @@ export default function BallotForm({ token, electionTitle, questions }: Props) {
       }
     }
 
+    setPendingPayload(payload)
+    setShowConfirm(true)
+  }
+
+  async function handleConfirmSubmit() {
     setSubmitting(true)
     const res = await fetch("/api/vote", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ token, answers: payload }),
+      body: JSON.stringify({ token, answers: pendingPayload }),
     })
     setSubmitting(false)
 
     if (res.ok) {
       router.push(`/vote/${token}/confirmed`)
     } else {
+      setShowConfirm(false)
       const data = await res.json().catch(() => ({}))
       setError(data.error ?? "Submission failed. Please try again.")
     }
   }
+
+  const summary = showConfirm ? buildSummary() : []
 
   return (
     <div className="min-h-screen bg-zinc-50 py-10 px-4">
@@ -219,11 +265,44 @@ export default function BallotForm({ token, electionTitle, questions }: Props) {
             </div>
           )}
 
-          <Button type="submit" size="lg" className="w-full" disabled={submitting}>
-            {submitting ? "Submitting…" : "Submit Vote"}
+          <Button type="submit" size="lg" className="w-full">
+            Review &amp; Submit
           </Button>
         </form>
       </div>
+
+      <Dialog open={showConfirm} onOpenChange={setShowConfirm}>
+        <DialogContent showCloseButton={false} className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Review your ballot</DialogTitle>
+            <DialogDescription>
+              Please confirm your selections. Your vote cannot be changed after submission.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 max-h-96 overflow-y-auto pr-1">
+            {summary.map((item, i) => (
+              <div key={i} className="space-y-1">
+                <p className="text-sm font-medium text-zinc-700">{item.questionText}</p>
+                <div className="pl-3 border-l-2 border-zinc-200 space-y-0.5">
+                  {item.lines.map((line, j) => (
+                    <p key={j} className="text-sm text-zinc-600">{line}</p>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowConfirm(false)} disabled={submitting}>
+              Go back
+            </Button>
+            <Button onClick={handleConfirmSubmit} disabled={submitting}>
+              {submitting ? "Submitting…" : "Confirm & submit"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

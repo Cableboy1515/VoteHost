@@ -5,6 +5,7 @@ import { buttonVariants } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { cn } from "@/lib/utils"
 import type { ElectionStatus } from "@/lib/generated/prisma/client"
+import DeleteElectionButton from "@/components/admin/DeleteElectionButton"
 
 const STATUS_COLORS: Record<ElectionStatus, "secondary" | "default" | "outline"> = {
   DRAFT: "secondary",
@@ -62,6 +63,7 @@ export default async function DashboardPage() {
                     <Link href={`/admin/elections/${e.id}`} className={cn(buttonVariants({ variant: "outline", size: "sm" }))}>Edit</Link>
                     <Link href={`/admin/elections/${e.id}/voters`} className={cn(buttonVariants({ variant: "outline", size: "sm" }))}>Voters</Link>
                     <Link href={`/admin/elections/${e.id}/results`} className={cn(buttonVariants({ variant: "outline", size: "sm" }))}>Results</Link>
+                    <DeleteElectionButton id={e.id} title={e.title} />
                   </div>
                 </div>
               </CardContent>
