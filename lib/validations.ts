@@ -61,6 +61,17 @@ export const BallotSubmissionSchema = z.object({
   answers: z.array(BallotAnswerSchema),
 })
 
+export const CreateUserSchema = z.object({
+  email: z.string().email(),
+  password: z.string().min(8, "Password must be at least 8 characters"),
+  role: z.enum(["ADMIN", "ORGANIZER", "VIEWER"]),
+})
+
+export const UpdateUserSchema = z.object({
+  role: z.enum(["ADMIN", "ORGANIZER", "VIEWER"]).optional(),
+  password: z.string().min(8, "Password must be at least 8 characters").optional(),
+})
+
 export type ElectionInput = z.infer<typeof ElectionSchema>
 export type QuestionInput = z.infer<typeof QuestionSchema>
 export type OptionInput = z.infer<typeof OptionSchema>

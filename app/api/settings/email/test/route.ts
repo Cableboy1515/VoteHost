@@ -1,10 +1,10 @@
 import { NextResponse } from "next/server"
-import { getSession } from "@/lib/auth"
+import { requireRole } from "@/lib/auth"
 import { sendBallotInvitation } from "@/lib/email"
 
 export async function POST(req: Request) {
-  const session = await getSession()
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  const session = await requireRole("ADMIN")
+  if (!session) return NextResponse.json({ error: "Forbidden" }, { status: 403 })
 
   const { to } = await req.json().catch(() => ({}))
   if (!to) return NextResponse.json({ error: "Missing recipient email" }, { status: 400 })

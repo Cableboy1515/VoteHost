@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server"
-import { getSession } from "@/lib/auth"
+import { getSession, requireRole } from "@/lib/auth"
 import { db } from "@/lib/db"
 import { ElectionSchema } from "@/lib/validations"
 
@@ -25,8 +25,8 @@ export async function GET() {
 }
 
 export async function POST(req: Request) {
-  const session = await getSession()
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  const session = await requireRole("ORGANIZER")
+  if (!session) return NextResponse.json({ error: "Forbidden" }, { status: 403 })
 
   const body = await req.json()
   const parsed = ElectionSchema.safeParse(body)

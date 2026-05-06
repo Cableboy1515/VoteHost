@@ -7,13 +7,13 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Missing credentials" }, { status: 400 })
   }
 
-  const valid = await verifyAdminCredentials(email, password)
-  if (!valid) {
+  const user = await verifyAdminCredentials(email, password)
+  if (!user) {
     return NextResponse.json({ error: "Invalid email or password" }, { status: 401 })
   }
 
-  const token = await createSession()
-  const res = NextResponse.json({ ok: true })
+  const token = await createSession(user)
+  const res = NextResponse.json({ ok: true, mustChangePassword: user.mustChangePassword })
   res.cookies.set(COOKIE, token, {
     httpOnly: true,
     sameSite: "lax",

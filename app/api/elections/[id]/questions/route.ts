@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server"
-import { getSession } from "@/lib/auth"
+import { getSession, requireRole } from "@/lib/auth"
 import { db } from "@/lib/db"
 import { QuestionSchema, OptionSchema } from "@/lib/validations"
 import { z } from "zod"
@@ -25,8 +25,8 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
 }
 
 export async function PUT(req: Request, { params }: { params: Promise<{ id: string }> }) {
-  const session = await getSession()
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  const session = await requireRole("ORGANIZER")
+  if (!session) return NextResponse.json({ error: "Forbidden" }, { status: 403 })
 
   const { id: electionId } = await params
   const body = await req.json()

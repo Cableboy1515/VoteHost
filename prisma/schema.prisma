@@ -103,11 +103,19 @@ model Vote {
   @@index([electionId, questionId])
 }
 
+enum AdminRole {
+  ADMIN
+  ORGANIZER
+  VIEWER
+}
+
 model AdminUser {
-  id           String   @id @default(cuid())
-  email        String   @unique
-  passwordHash String
-  createdAt    DateTime @default(now())
+  id                 String    @id @default(cuid())
+  email              String    @unique
+  passwordHash       String
+  role               AdminRole @default(ORGANIZER)
+  mustChangePassword Boolean   @default(false)
+  createdAt          DateTime  @default(now())
 }
 
 model Setting {

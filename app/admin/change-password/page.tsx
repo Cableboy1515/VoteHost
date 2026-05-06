@@ -7,30 +7,34 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
 
-export default function LoginPage() {
+export default function ChangePasswordPage() {
   const router = useRouter()
-  const [email, setEmail] = useState("")
-  const [password, setPassword] = useState("")
+  const [newPassword, setNewPassword] = useState("")
+  const [confirmPassword, setConfirmPassword] = useState("")
   const [error, setError] = useState("")
   const [loading, setLoading] = useState(false)
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
+    if (newPassword !== confirmPassword) {
+      setError("Passwords do not match")
+      return
+    }
     setLoading(true)
     setError("")
 
-    const res = await fetch("/api/auth/login", {
+    const res = await fetch("/api/auth/change-password", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email, password }),
+      body: JSON.stringify({ newPassword, confirmPassword }),
     })
 
     setLoading(false)
     if (res.ok) {
-      const data = await res.json().catch(() => ({}))
-      router.push(data.mustChangePassword ? "/admin/change-password" : "/admin/dashboard")
+      router.push("/admin/dashboard")
     } else {
-      setError("Invalid email or password")
+      const data = await res.json().catch(() => ({}))
+      setError(data.error ?? "Failed to update password")
     }
   }
 
@@ -38,34 +42,36 @@ export default function LoginPage() {
     <div className="min-h-screen flex items-center justify-center bg-zinc-50">
       <Card className="w-full max-w-sm">
         <CardHeader>
-          <CardTitle>VoteHost Admin</CardTitle>
+          <CardTitle>Set your password</CardTitle>
+          <p className="text-sm text-zinc-500">Choose a new password to continue.</p>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-1">
-              <Label htmlFor="email">Email</Label>
+              <Label htmlFor="newPassword">New password</Label>
               <Input
-                id="email"
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                id="newPassword"
+                type="password"
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
                 required
+                minLength={8}
                 autoFocus
               />
             </div>
             <div className="space-y-1">
-              <Label htmlFor="password">Password</Label>
+              <Label htmlFor="confirmPassword">Confirm password</Label>
               <Input
-                id="password"
+                id="confirmPassword"
                 type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
                 required
               />
             </div>
             {error && <p className="text-sm text-red-500">{error}</p>}
             <Button type="submit" className="w-full" disabled={loading}>
-              {loading ? "Signing in…" : "Sign in"}
+              {loading ? "Saving…" : "Set password"}
             </Button>
           </form>
         </CardContent>
