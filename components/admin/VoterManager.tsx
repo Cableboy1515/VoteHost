@@ -32,13 +32,55 @@ interface CSVRow {
   Email?: string
 }
 
+type SortKey = "name" | "email" | "invited" | "voted"
+
+function SortHeader({
+  label, col, sortKey, sortDir, onSort,
+}: {
+  label: string
+  col: SortKey
+  sortKey: SortKey
+  sortDir: "asc" | "desc"
+  onSort: (col: SortKey) => void
+}) {
+  const active = sortKey === col
+  return (
+    <TableHead className="cursor-pointer select-none whitespace-nowrap" onClick={() => onSort(col)}>
+      {label}{" "}
+      {active
+        ? (sortDir === "asc" ? "↑" : "↓")
+        : <span className="text-zinc-300">↕</span>}
+    </TableHead>
+  )
+}
+
 export default function VoterManager({ electionId, electionStatus, initialVoters }: Props) {
   const [voters, setVoters] = useState<Voter[]>(initialVoters)
   const [name, setName] = useState("")
   const [email, setEmail] = useState("")
   const [csvPreview, setCsvPreview] = useState<{ name: string; email: string }[]>([])
   const [sending, setSending] = useState(false)
+  const [sortKey, setSortKey] = useState<SortKey>("name")
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("asc")
   const fileRef = useRef<HTMLInputElement>(null)
+
+  function toggleSort(key: SortKey) {
+    if (sortKey === key) {
+      setSortDir((d) => (d === "asc" ? "desc" : "asc"))
+    } else {
+      setSortKey(key)
+      setSortDir("asc")
+    }
+  }
+
+  const sorted = [...voters].sort((a, b) => {
+    let cmp = 0
+    if (sortKey === "name")    cmp = a.name.localeCompare(b.name)
+    if (sortKey === "email")   cmp = a.email.localeCompare(b.email)
+    if (sortKey === "invited") cmp = (a.invitedAt ? 1 : 0) - (b.invitedAt ? 1 : 0)
+    if (sortKey === "voted")   cmp = (a.hasVoted ? 1 : 0) - (b.hasVoted ? 1 : 0)
+    return sortDir === "asc" ? cmp : -cmp
+  })
 
   async function refreshVoters() {
     const res = await fetch(`/api/elections/${electionId}/voters`)
@@ -185,14 +227,14 @@ export default function VoterManager({ electionId, electionStatus, initialVoters
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Name</TableHead>
-                  <TableHead>Email</TableHead>
-                  <TableHead>Invited</TableHead>
-                  <TableHead>Voted</TableHead>
+                  <SortHeader label="Name"    col="name"    sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} />
+                  <SortHeader label="Email"   col="email"   sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} />
+                  <SortHeader label="Invited" col="invited" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} />
+                  <SortHeader label="Voted"   col="voted"   sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} />
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {voters.map((v) => (
+                {sorted.map((v) => (
                   <TableRow key={v.id}>
                     <TableCell>{v.name}</TableCell>
                     <TableCell>{v.email}</TableCell>
