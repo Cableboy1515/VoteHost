@@ -5,8 +5,12 @@ export const ElectionSchema = z.object({
   description: z.string().optional(),
   startsAt: z.string().datetime().optional().nullable(),
   endsAt: z.string().datetime().optional().nullable(),
-  status: z.enum(["DRAFT", "ACTIVE", "CLOSED"]).optional(),
+  status: z.enum(["DRAFT", "ACTIVE", "CLOSED", "COMPLETED"]).optional(),
   archived: z.boolean().optional(),
+  emailSubject: z.string().optional().nullable(),
+  emailMessage: z.string().optional().nullable(),
+  emailLogoUrl: z.string().url().optional().nullable(),
+  emailFooter: z.string().optional().nullable(),
 })
 
 export const QuestionSchema = z.object({

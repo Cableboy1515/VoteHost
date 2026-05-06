@@ -31,6 +31,10 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
         voterEmail: voter.email,
         electionTitle: election.title,
         magicLink: `${baseUrl}/vote/${voter.token}`,
+        emailSubject: election.emailSubject,
+        emailMessage: election.emailMessage,
+        emailLogoUrl: election.emailLogoUrl,
+        emailFooter: election.emailFooter,
       })
       await db.voter.update({ where: { id: voter.id }, data: { invitedAt: new Date() } })
       sent++

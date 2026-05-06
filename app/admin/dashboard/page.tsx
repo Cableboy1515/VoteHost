@@ -7,14 +7,18 @@ import { cn } from "@/lib/utils"
 import type { ElectionStatus } from "@/lib/generated/prisma/client"
 import DeleteElectionButton from "@/components/admin/DeleteElectionButton"
 import ArchiveElectionButton from "@/components/admin/ArchiveElectionButton"
+import ReopenElectionButton from "@/components/admin/ReopenElectionButton"
+import { autoCompleteElections } from "@/lib/autoCompleteElections"
 
 const STATUS_COLORS: Record<ElectionStatus, "secondary" | "default" | "outline"> = {
   DRAFT: "secondary",
   ACTIVE: "default",
   CLOSED: "outline",
+  COMPLETED: "secondary",
 }
 
 export default async function DashboardPage() {
+  await autoCompleteElections()
   const elections = await db.election.findMany({
     where: { archived: false },
     orderBy: { createdAt: "desc" },
@@ -53,7 +57,12 @@ export default async function DashboardPage() {
               <CardHeader className="pb-2">
                 <div className="flex items-center justify-between">
                   <CardTitle className="text-base">{e.title}</CardTitle>
-                  <Badge variant={STATUS_COLORS[e.status]}>{e.status}</Badge>
+                  <Badge
+                    variant={STATUS_COLORS[e.status]}
+                    className={e.status === "COMPLETED" ? "border-emerald-500 text-emerald-700 bg-emerald-50" : undefined}
+                  >
+                    {e.status}
+                  </Badge>
                 </div>
               </CardHeader>
               <CardContent>
@@ -65,6 +74,7 @@ export default async function DashboardPage() {
                     <Link href={`/admin/elections/${e.id}`} className={cn(buttonVariants({ variant: "outline", size: "sm" }))}>Edit</Link>
                     <Link href={`/admin/elections/${e.id}/voters`} className={cn(buttonVariants({ variant: "outline", size: "sm" }))}>Voters</Link>
                     <Link href={`/admin/elections/${e.id}/results`} className={cn(buttonVariants({ variant: "outline", size: "sm" }))}>Results</Link>
+                    {e.status === "COMPLETED" && <ReopenElectionButton id={e.id} />}
                     <ArchiveElectionButton id={e.id} archived={false} />
                     <DeleteElectionButton id={e.id} title={e.title} />
                   </div>

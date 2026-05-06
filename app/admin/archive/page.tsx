@@ -7,14 +7,18 @@ import Link from "next/link"
 import type { ElectionStatus } from "@/lib/generated/prisma/client"
 import ArchiveElectionButton from "@/components/admin/ArchiveElectionButton"
 import DeleteElectionButton from "@/components/admin/DeleteElectionButton"
+import ReopenElectionButton from "@/components/admin/ReopenElectionButton"
+import { autoCompleteElections } from "@/lib/autoCompleteElections"
 
 const STATUS_COLORS: Record<ElectionStatus, "secondary" | "default" | "outline"> = {
   DRAFT: "secondary",
   ACTIVE: "default",
   CLOSED: "outline",
+  COMPLETED: "secondary",
 }
 
 export default async function ArchivePage() {
+  await autoCompleteElections()
   const elections = await db.election.findMany({
     where: { archived: true },
     orderBy: { createdAt: "desc" },
@@ -50,7 +54,12 @@ export default async function ArchivePage() {
               <CardHeader className="pb-2">
                 <div className="flex items-center justify-between">
                   <CardTitle className="text-base">{e.title}</CardTitle>
-                  <Badge variant={STATUS_COLORS[e.status]}>{e.status}</Badge>
+                  <Badge
+                    variant={STATUS_COLORS[e.status]}
+                    className={e.status === "COMPLETED" ? "border-emerald-500 text-emerald-700 bg-emerald-50" : undefined}
+                  >
+                    {e.status}
+                  </Badge>
                 </div>
               </CardHeader>
               <CardContent>
@@ -65,6 +74,7 @@ export default async function ArchivePage() {
                     >
                       Results
                     </Link>
+                    {e.status === "COMPLETED" && <ReopenElectionButton id={e.id} />}
                     <ArchiveElectionButton id={e.id} archived={true} />
                     <DeleteElectionButton id={e.id} title={e.title} />
                   </div>

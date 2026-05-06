@@ -30,7 +30,7 @@ interface QuestionDraft {
 
 interface Props {
   electionId: string
-  electionStatus: "DRAFT" | "ACTIVE" | "CLOSED"
+  electionStatus: "DRAFT" | "ACTIVE" | "CLOSED" | "COMPLETED"
   initialQuestions: QuestionDraft[]
 }
 
@@ -137,6 +137,11 @@ export default function BallotBuilder({ electionId, electionStatus, initialQuest
       {electionStatus === "CLOSED" && (
         <div className="rounded-lg border border-zinc-200 bg-zinc-100 px-4 py-3 text-sm text-zinc-600">
           This election is closed. The ballot is read-only.
+        </div>
+      )}
+      {electionStatus === "COMPLETED" && (
+        <div className="rounded-lg border border-zinc-200 bg-zinc-100 px-4 py-3 text-sm text-zinc-600">
+          This election has completed. The ballot is read-only.
         </div>
       )}
       {questions.map((q, qIndex) => (

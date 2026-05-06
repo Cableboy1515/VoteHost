@@ -12,6 +12,7 @@ const STATUS_COLORS: Record<ElectionStatus, "secondary" | "default" | "outline">
   DRAFT: "secondary",
   ACTIVE: "default",
   CLOSED: "outline",
+  COMPLETED: "secondary",
 }
 
 export default async function ResultsPage({ params }: { params: Promise<{ id: string }> }) {

@@ -11,6 +11,7 @@ enum ElectionStatus {
   DRAFT
   ACTIVE
   CLOSED
+  COMPLETED
 }
 
 enum QuestionType {
@@ -29,6 +30,11 @@ model Election {
   createdAt   DateTime       @default(now())
   startsAt    DateTime?
   endsAt      DateTime?
+
+  emailSubject  String?
+  emailMessage  String?
+  emailLogoUrl  String?
+  emailFooter   String?
 
   questions Question[]
   voters    Voter[]
