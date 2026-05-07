@@ -31,7 +31,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
 
   for (const voter of voters) {
     try {
-      await sendBallotInvitation({
+      const { error } = await sendBallotInvitation({
         voterName: voter.name,
         voterEmail: voter.email,
         electionTitle: election.title,
@@ -41,6 +41,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
         emailLogoUrl: election.emailLogoUrl,
         emailFooter: election.emailFooter,
       })
+      if (error) { failed++; continue }
       await db.voter.update({ where: { id: voter.id }, data: { invitedAt: new Date() } })
       sent++
     } catch {
