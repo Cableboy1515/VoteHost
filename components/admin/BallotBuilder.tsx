@@ -4,6 +4,7 @@ import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { Textarea } from "@/components/ui/textarea"
 import { Card, CardContent } from "@/components/ui/card"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Badge } from "@/components/ui/badge"
@@ -16,11 +17,15 @@ interface OptionDraft {
   id?: string
   text: string
   order: number
+  bio?: string
+  photoUrl?: string
+  website?: string
 }
 
 interface QuestionDraft {
   id?: string
   text: string
+  description?: string
   type: QuestionType
   order: number
   required: boolean
@@ -88,13 +93,13 @@ export default function BallotBuilder({ electionId, electionStatus, initialQuest
     )
   }
 
-  function updateOption(qIndex: number, oIndex: number, text: string) {
+  function updateOption(qIndex: number, oIndex: number, patch: Partial<OptionDraft>) {
     setQuestions((qs) =>
       qs.map((q, i) =>
         i === qIndex
           ? {
               ...q,
-              options: q.options.map((o, j) => (j === oIndex ? { ...o, text } : o)),
+              options: q.options.map((o, j) => (j === oIndex ? { ...o, ...patch } : o)),
             }
           : q
       )
@@ -183,26 +188,76 @@ export default function BallotBuilder({ electionId, electionStatus, initialQuest
                   </Badge>
                 </div>
 
+                <Textarea
+                  placeholder="Voter explanation (optional) — shown to voters above the choices"
+                  value={q.description ?? ""}
+                  onChange={(e) => updateQuestion(qIndex, { description: e.target.value || undefined })}
+                  rows={2}
+                  className="text-sm resize-none"
+                  disabled={locked}
+                />
+
                 {q.type !== "WRITE_IN" && (
                   <div className="space-y-2 pl-2">
                     {q.options.map((o, oIndex) => (
-                      <div key={oIndex} className="flex gap-2">
-                        <Input
-                          placeholder={`Option ${oIndex + 1}`}
-                          value={o.text}
-                          onChange={(e) => updateOption(qIndex, oIndex, e.target.value)}
-                          className="flex-1"
-                          disabled={locked}
-                        />
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => removeOption(qIndex, oIndex)}
-                          disabled={locked || q.options.length <= 2}
-                        >
-                          ×
-                        </Button>
+                      <div key={oIndex} className="space-y-1">
+                        <div className="flex gap-2">
+                          <Input
+                            placeholder={`Option ${oIndex + 1}`}
+                            value={o.text}
+                            onChange={(e) => updateOption(qIndex, oIndex, { text: e.target.value })}
+                            className="flex-1"
+                            disabled={locked}
+                          />
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => removeOption(qIndex, oIndex)}
+                            disabled={locked || q.options.length <= 2}
+                          >
+                            ×
+                          </Button>
+                        </div>
+                        <details className="pl-1">
+                          <summary className="text-xs text-zinc-400 cursor-pointer select-none w-fit">
+                            Option details
+                          </summary>
+                          <div className="mt-2 space-y-2 pl-2 border-l border-zinc-200">
+                            <div className="space-y-1">
+                              <Label className="text-xs text-zinc-500">Description</Label>
+                              <Textarea
+                                placeholder="Short description shown to voters (max 500 chars)"
+                                value={o.bio ?? ""}
+                                onChange={(e) => updateOption(qIndex, oIndex, { bio: e.target.value || undefined })}
+                                rows={2}
+                                maxLength={500}
+                                className="text-sm resize-none"
+                                disabled={locked}
+                              />
+                            </div>
+                            <div className="space-y-1">
+                              <Label className="text-xs text-zinc-500">Photo URL</Label>
+                              <Input
+                                placeholder="https://..."
+                                value={o.photoUrl ?? ""}
+                                onChange={(e) => updateOption(qIndex, oIndex, { photoUrl: e.target.value || undefined })}
+                                className="text-sm"
+                                disabled={locked}
+                              />
+                            </div>
+                            <div className="space-y-1">
+                              <Label className="text-xs text-zinc-500">Website</Label>
+                              <Input
+                                placeholder="https://..."
+                                value={o.website ?? ""}
+                                onChange={(e) => updateOption(qIndex, oIndex, { website: e.target.value || undefined })}
+                                className="text-sm"
+                                disabled={locked}
+                              />
+                            </div>
+                          </div>
+                        </details>
                       </div>
                     ))}
                     <Button type="button" variant="outline" size="sm" onClick={() => addOption(qIndex)} disabled={locked}>

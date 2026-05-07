@@ -45,6 +45,7 @@ model Question {
   id         String       @id @default(cuid())
   electionId String
   text       String
+  description   String?
   type       QuestionType
   order         Int
   required      Boolean      @default(true)
@@ -62,6 +63,9 @@ model Option {
   questionId String
   text       String
   order      Int
+  bio        String?
+  photoUrl   String?
+  website    String?
 
   question Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
   votes    Vote[]

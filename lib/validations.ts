@@ -15,15 +15,21 @@ export const ElectionSchema = z.object({
 
 export const QuestionSchema = z.object({
   text: z.string().min(1, "Question text is required"),
+  description: z.string().max(1000).optional().nullable(),
   type: z.enum(["SINGLE_CHOICE", "MULTIPLE_CHOICE", "RANKED_CHOICE", "WRITE_IN"]),
   order: z.number().int().min(0),
   required: z.boolean().default(true),
   maxSelections: z.number().int().positive().nullish(),
 })
 
+const urlField = z.string().regex(/^https?:\/\//, "URL must use http:// or https://")
+
 export const OptionSchema = z.object({
   text: z.string().min(1, "Option text is required"),
   order: z.number().int().min(0),
+  bio: z.string().max(500).optional().nullable(),
+  photoUrl: urlField.optional().nullable(),
+  website: urlField.optional().nullable(),
 })
 
 export const VoterSchema = z.object({

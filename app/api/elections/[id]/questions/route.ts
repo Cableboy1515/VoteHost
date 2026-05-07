@@ -40,6 +40,7 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
         data: {
           electionId,
           text: q.text,
+          description: q.description ?? null,
           type: q.type,
           order: q.order,
           required: q.required ?? true,
@@ -52,6 +53,9 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
             questionId: question.id,
             text: o.text,
             order: o.order,
+            bio: o.bio ?? null,
+            photoUrl: o.photoUrl ?? null,
+            website: o.website ?? null,
           })),
         })
       }

@@ -31,13 +31,21 @@ export default async function VotePage({ params }: { params: Promise<{ token: st
     <BallotForm
       token={token}
       electionTitle={voter.election.title}
+      electionDescription={voter.election.description ?? undefined}
       questions={voter.election.questions.map((q) => ({
         id: q.id,
         text: q.text,
+        description: q.description ?? undefined,
         type: q.type as "SINGLE_CHOICE" | "MULTIPLE_CHOICE" | "RANKED_CHOICE" | "WRITE_IN",
         required: q.required,
         maxSelections: q.maxSelections ?? undefined,
-        options: q.options.map((o) => ({ id: o.id, text: o.text })),
+        options: q.options.map((o) => ({
+          id: o.id,
+          text: o.text,
+          bio: o.bio ?? undefined,
+          photoUrl: o.photoUrl ?? undefined,
+          website: o.website ?? undefined,
+        })),
       }))}
     />
   )
