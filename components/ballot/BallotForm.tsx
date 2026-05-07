@@ -1,432 +1,629 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useRef } from "react"
 import { useRouter } from "next/navigation"
-import { Button } from "@/components/ui/button"
+import { BrandMark } from "@/components/ui/brand-mark"
+import { OptionCard } from "@/components/ui/option-card"
 import { Textarea } from "@/components/ui/textarea"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { cn } from "@/lib/utils"
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog"
-import {
-  DndContext,
-  closestCenter,
-  PointerSensor,
-  useSensor,
-  useSensors,
-  DragEndEvent,
-} from "@dnd-kit/core"
-import {
-  SortableContext,
-  verticalListSortingStrategy,
-  useSortable,
-  arrayMove,
-} from "@dnd-kit/sortable"
-import { CSS } from "@dnd-kit/utilities"
 
 interface Option {
   id: string
   text: string
-  bio?: string
-  photoUrl?: string
-  website?: string
+  bio?: string | null
+  photoUrl?: string | null
+  website?: string | null
 }
 
 interface Question {
   id: string
   text: string
-  description?: string
+  description?: string | null
   type: "SINGLE_CHOICE" | "MULTIPLE_CHOICE" | "RANKED_CHOICE" | "WRITE_IN"
   required: boolean
-  maxSelections?: number
+  maxSelections?: number | null
   options: Option[]
 }
 
 interface Props {
   token: string
   electionTitle: string
-  electionDescription?: string
+  electionDescription?: string | null
   questions: Question[]
-}
-
-interface AnswerSummary {
-  questionText: string
-  type: Question["type"]
-  lines: string[]
-}
-
-function hasInfo(o: Option) {
-  return !!(o.bio || o.photoUrl || o.website)
-}
-
-function OptionInfoPanel({ option }: { option: Option }) {
-  return (
-    <div className="mt-2 ml-6 p-3 bg-zinc-50 border border-zinc-200 rounded-md space-y-2 text-sm">
-      {option.photoUrl && (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img src={option.photoUrl} alt="" className="max-w-[140px] rounded object-cover" />
-      )}
-      {option.bio && <p className="text-zinc-700 leading-relaxed">{option.bio}</p>}
-      {option.website && (
-        <a
-          href={option.website}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="text-blue-600 hover:underline break-all"
-        >
-          {option.website}
-        </a>
-      )}
-    </div>
-  )
-}
-
-function SortableOption({
-  option,
-  rank,
-  expanded,
-  onToggle,
-}: {
-  option: Option
-  rank: number
-  expanded: boolean
-  onToggle: () => void
-}) {
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: option.id })
-  return (
-    <div>
-      <div
-        ref={setNodeRef}
-        style={{ transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.5 : 1 }}
-        className="flex items-center gap-3 p-3 bg-white border rounded"
-        {...attributes}
-      >
-        <span className="text-zinc-400 font-mono text-sm w-6 text-right">{rank}.</span>
-        <span className="text-sm flex-1">{option.text}</span>
-        {hasInfo(option) && (
-          <button
-            type="button"
-            onClick={onToggle}
-            className="text-xs text-blue-600 hover:underline shrink-0"
-          >
-            {expanded ? "Hide info" : "Read more"}
-          </button>
-        )}
-        <span
-          className="text-zinc-300 cursor-grab active:cursor-grabbing"
-          {...listeners}
-        >
-          ⣿
-        </span>
-      </div>
-      {expanded && hasInfo(option) && <OptionInfoPanel option={option} />}
-    </div>
-  )
 }
 
 export default function BallotForm({ token, electionTitle, electionDescription, questions }: Props) {
   const router = useRouter()
-  const sensors = useSensors(useSensor(PointerSensor))
 
+  // 0..questions.length-1 = ballot step; questions.length = review
+  const [step, setStep] = useState(0)
   const [answers, setAnswers] = useState<Record<string, unknown>>({})
-  const [rankedOrders, setRankedOrders] = useState<Record<string, Option[]>>(
-    Object.fromEntries(questions.filter((q) => q.type === "RANKED_CHOICE").map((q) => [q.id, [...q.options]]))
+  // Ranked choice: ordered array of selected option IDs (starts empty — users tap to add)
+  const [rankedOrders, setRankedOrders] = useState<Record<string, string[]>>(
+    Object.fromEntries(questions.filter((q) => q.type === "RANKED_CHOICE").map((q) => [q.id, []]))
   )
-  const [expanded, setExpanded] = useState<Set<string>>(new Set())
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState("")
-  const [showConfirm, setShowConfirm] = useState(false)
-  const [pendingPayload, setPendingPayload] = useState<unknown[]>([])
 
-  function toggleExpanded(optionId: string) {
-    setExpanded((prev) => {
-      const next = new Set(prev)
-      if (next.has(optionId)) next.delete(optionId)
-      else next.add(optionId)
-      return next
-    })
+  const questionRefs = useRef<Record<string, HTMLElement | null>>({})
+
+  // ── Ranked choice handlers ──────────────────────────────────────────────
+
+  function addToRanked(questionId: string, optionId: string) {
+    setRankedOrders((prev) => ({ ...prev, [questionId]: [...prev[questionId], optionId] }))
   }
 
-  function handleSingleChoice(questionId: string, optionId: string) {
-    setAnswers((a) => ({ ...a, [questionId]: optionId }))
+  function removeFromRanked(questionId: string, optionId: string) {
+    setRankedOrders((prev) => ({ ...prev, [questionId]: prev[questionId].filter((id) => id !== optionId) }))
   }
 
-  function handleMultipleChoice(questionId: string, optionId: string, checked: boolean) {
-    setAnswers((a) => {
-      const current = (a[questionId] as string[]) ?? []
-      const question = questions.find((q) => q.id === questionId)
-      if (checked && question?.maxSelections && current.length >= question.maxSelections) return a
-      return {
-        ...a,
-        [questionId]: checked ? [...current, optionId] : current.filter((id) => id !== optionId),
-      }
-    })
-  }
-
-  function handleWriteIn(questionId: string, text: string) {
-    setAnswers((a) => ({ ...a, [questionId]: text }))
-  }
-
-  function handleDragEnd(questionId: string, event: DragEndEvent) {
-    const { active, over } = event
-    if (!over || active.id === over.id) return
+  function moveRanked(questionId: string, index: number, dir: -1 | 1) {
     setRankedOrders((prev) => {
-      const opts = prev[questionId]
-      const oldIndex = opts.findIndex((o) => o.id === active.id)
-      const newIndex = opts.findIndex((o) => o.id === over.id)
-      return { ...prev, [questionId]: arrayMove(opts, oldIndex, newIndex) }
+      const next = [...prev[questionId]]
+      const target = index + dir
+      if (target < 0 || target >= next.length) return prev
+      ;[next[index], next[target]] = [next[target], next[index]]
+      return { ...prev, [questionId]: next }
     })
   }
 
-  function buildSummary(): AnswerSummary[] {
-    return questions.map((q) => {
-      if (q.type === "SINGLE_CHOICE") {
-        const optionId = answers[q.id] as string | undefined
-        const option = q.options.find((o) => o.id === optionId)
-        return { questionText: q.text, type: q.type, lines: option ? [option.text] : ["(no selection)"] }
-      }
-      if (q.type === "MULTIPLE_CHOICE") {
-        const optionIds = (answers[q.id] as string[]) ?? []
-        const selected = q.options.filter((o) => optionIds.includes(o.id))
-        return { questionText: q.text, type: q.type, lines: selected.length > 0 ? selected.map((o) => o.text) : ["(no selection)"] }
-      }
-      if (q.type === "RANKED_CHOICE") {
-        const ranked = rankedOrders[q.id] ?? q.options
-        return { questionText: q.text, type: q.type, lines: ranked.map((o, i) => `${i + 1}. ${o.text}`) }
-      }
-      // WRITE_IN
-      const text = (answers[q.id] as string) ?? ""
-      return { questionText: q.text, type: q.type, lines: text.trim() ? [text.trim()] : ["(no response)"] }
-    })
+  // ── Validation ──────────────────────────────────────────────────────────
+
+  function isAnswered(q: Question): boolean {
+    if (q.type === "SINGLE_CHOICE") return !!(answers[q.id])
+    if (q.type === "MULTIPLE_CHOICE") return ((answers[q.id] as string[]) ?? []).length > 0
+    if (q.type === "RANKED_CHOICE") return (rankedOrders[q.id] ?? []).length > 0
+    if (q.type === "WRITE_IN") return !!((answers[q.id] as string) ?? "").trim()
+    return true
   }
 
-  function handleSubmit(e: React.FormEvent) {
-    e.preventDefault()
-    setError("")
-
+  function buildPayload():
+    | { ok: true; payload: unknown[] }
+    | { ok: false; error: string; questionIndex: number } {
     const payload: unknown[] = []
-    for (const q of questions) {
+    for (let i = 0; i < questions.length; i++) {
+      const q = questions[i]
       if (q.type === "SINGLE_CHOICE") {
         const optionId = answers[q.id] as string | undefined
-        if (!optionId && q.required) { setError(`Please answer: ${q.text}`); return }
+        if (!optionId && q.required)
+          return { ok: false, error: `Please answer: "${q.text}"`, questionIndex: i }
         if (optionId) payload.push({ questionId: q.id, type: "SINGLE_CHOICE", optionId })
       } else if (q.type === "MULTIPLE_CHOICE") {
         const optionIds = (answers[q.id] as string[]) ?? []
-        if (optionIds.length === 0 && q.required) { setError(`Please answer: ${q.text}`); return }
+        if (optionIds.length === 0 && q.required)
+          return { ok: false, error: `Please answer: "${q.text}"`, questionIndex: i }
         if (optionIds.length > 0) payload.push({ questionId: q.id, type: "MULTIPLE_CHOICE", optionIds })
       } else if (q.type === "RANKED_CHOICE") {
-        const ranked = rankedOrders[q.id] ?? q.options
-        payload.push({ questionId: q.id, type: "RANKED_CHOICE", rankedOptionIds: ranked.map((o) => o.id) })
+        const rankedIds = rankedOrders[q.id] ?? []
+        if (rankedIds.length === 0 && q.required)
+          return { ok: false, error: `Please rank at least one option for: "${q.text}"`, questionIndex: i }
+        if (rankedIds.length > 0)
+          payload.push({ questionId: q.id, type: "RANKED_CHOICE", rankedOptionIds: rankedIds })
       } else if (q.type === "WRITE_IN") {
         const text = (answers[q.id] as string) ?? ""
-        if (!text.trim() && q.required) { setError(`Please answer: ${q.text}`); return }
+        if (!text.trim() && q.required)
+          return { ok: false, error: `Please answer: "${q.text}"`, questionIndex: i }
         if (text.trim()) payload.push({ questionId: q.id, type: "WRITE_IN", text: text.trim() })
       }
     }
+    return { ok: true, payload }
+  }
 
-    setPendingPayload(payload)
-    setShowConfirm(true)
+  function goToReview() {
+    const result = buildPayload()
+    if (!result.ok) {
+      setError(result.error)
+      setStep(result.questionIndex)
+      questionRefs.current[questions[result.questionIndex].id]?.scrollIntoView({
+        behavior: "smooth",
+        block: "center",
+      })
+      return
+    }
+    setError("")
+    setStep(questions.length)
   }
 
   async function handleConfirmSubmit() {
+    const result = buildPayload()
+    if (!result.ok) { setError(result.error); return }
     setSubmitting(true)
     const res = await fetch("/api/vote", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ token, answers: pendingPayload }),
+      body: JSON.stringify({ token, answers: result.payload }),
     })
     setSubmitting(false)
-
     if (res.ok) {
       router.push(`/vote/${token}/confirmed`)
     } else {
-      setShowConfirm(false)
       const data = await res.json().catch(() => ({}))
       setError(data.error ?? "Submission failed. Please try again.")
     }
   }
 
-  const summary = showConfirm ? buildSummary() : []
+  // ── Summary lines (review) ──────────────────────────────────────────────
 
-  return (
-    <div className="min-h-screen bg-zinc-50 py-10 px-4">
-      <div className="max-w-2xl mx-auto">
-        <h1 className="text-2xl font-bold mb-1">{electionTitle}</h1>
-        {electionDescription && (
-          <p className="text-zinc-600 text-sm mb-3 whitespace-pre-wrap">{electionDescription}</p>
-        )}
-        <p className="text-zinc-400 text-sm mb-8">Complete all required questions and submit your vote.</p>
+  function getSummaryLines(q: Question): string[] {
+    if (q.type === "SINGLE_CHOICE") {
+      const option = q.options.find((o) => o.id === answers[q.id])
+      return option ? [option.text] : ["(no selection)"]
+    }
+    if (q.type === "MULTIPLE_CHOICE") {
+      const optionIds = (answers[q.id] as string[]) ?? []
+      const selected = q.options.filter((o) => optionIds.includes(o.id))
+      return selected.length > 0 ? selected.map((o) => o.text) : ["(no selection)"]
+    }
+    if (q.type === "RANKED_CHOICE") {
+      const rankedIds = rankedOrders[q.id] ?? []
+      if (rankedIds.length === 0) return ["(not ranked)"]
+      return rankedIds.map((id, i) => `${i + 1}. ${q.options.find((o) => o.id === id)?.text ?? id}`)
+    }
+    const text = (answers[q.id] as string) ?? ""
+    return text.trim() ? [text.trim()] : ["(no response)"]
+  }
 
-        <form onSubmit={handleSubmit} className="space-y-6">
-          {questions.map((q) => (
-            <Card key={q.id}>
-              <CardHeader>
-                <CardTitle className="text-base">
-                  {q.text}
-                  {q.required && <span className="text-red-400 ml-1">*</span>}
-                </CardTitle>
-                {q.description && (
-                  <p className="text-sm text-zinc-500 mt-1">{q.description}</p>
-                )}
-              </CardHeader>
-              <CardContent>
-                {q.type === "SINGLE_CHOICE" && (
-                  <div className="space-y-2">
-                    {q.options.map((o) => (
-                      <div key={o.id}>
-                        <label className="flex items-center gap-3 cursor-pointer">
-                          <input
-                            type="radio"
-                            name={q.id}
-                            value={o.id}
-                            checked={answers[q.id] === o.id}
-                            onChange={() => handleSingleChoice(q.id, o.id)}
-                          />
-                          <span className="text-sm flex-1">{o.text}</span>
-                          {hasInfo(o) && (
-                            <button
-                              type="button"
-                              onClick={() => toggleExpanded(o.id)}
-                              className="text-xs text-blue-600 hover:underline shrink-0"
-                            >
-                              {expanded.has(o.id) ? "Hide info" : "Read more"}
-                            </button>
-                          )}
-                        </label>
-                        {expanded.has(o.id) && hasInfo(o) && <OptionInfoPanel option={o} />}
-                      </div>
-                    ))}
-                  </div>
-                )}
+  // ── Question input renderer ─────────────────────────────────────────────
 
-                {q.type === "MULTIPLE_CHOICE" && (
-                  <div className="space-y-2">
-                    {q.maxSelections && (
-                      <p className="text-xs text-zinc-400">
-                        Select up to {q.maxSelections} option{q.maxSelections !== 1 ? "s" : ""}.
-                        {" "}({((answers[q.id] as string[]) ?? []).length} / {q.maxSelections} selected)
-                      </p>
-                    )}
-                    {q.options.map((o) => {
-                      const selected = (answers[q.id] as string[]) ?? []
-                      const isChecked = selected.includes(o.id)
-                      const atLimit = !!q.maxSelections && selected.length >= q.maxSelections
-                      return (
-                        <div key={o.id}>
-                          <label
-                            className={cn(
-                              "flex items-center gap-3",
-                              atLimit && !isChecked ? "opacity-40 cursor-not-allowed" : "cursor-pointer"
-                            )}
-                          >
-                            <input
-                              type="checkbox"
-                              value={o.id}
-                              checked={isChecked}
-                              disabled={atLimit && !isChecked}
-                              onChange={(e) => handleMultipleChoice(q.id, o.id, e.target.checked)}
-                            />
-                            <span className="text-sm flex-1">{o.text}</span>
-                            {hasInfo(o) && (
-                              <button
-                                type="button"
-                                onClick={() => toggleExpanded(o.id)}
-                                className="text-xs text-blue-600 hover:underline shrink-0"
-                              >
-                                {expanded.has(o.id) ? "Hide info" : "Read more"}
-                              </button>
-                            )}
-                          </label>
-                          {expanded.has(o.id) && hasInfo(o) && <OptionInfoPanel option={o} />}
-                        </div>
-                      )
-                    })}
-                  </div>
-                )}
-
-                {q.type === "RANKED_CHOICE" && (
-                  <div className="space-y-2">
-                    <p className="text-xs text-zinc-400 mb-3">Drag to rank from most preferred (1st) to least.</p>
-                    <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={(e) => handleDragEnd(q.id, e)}>
-                      <SortableContext items={(rankedOrders[q.id] ?? q.options).map((o) => o.id)} strategy={verticalListSortingStrategy}>
-                        <div className="space-y-2">
-                          {(rankedOrders[q.id] ?? q.options).map((o, i) => (
-                            <SortableOption
-                              key={o.id}
-                              option={o}
-                              rank={i + 1}
-                              expanded={expanded.has(o.id)}
-                              onToggle={() => toggleExpanded(o.id)}
-                            />
-                          ))}
-                        </div>
-                      </SortableContext>
-                    </DndContext>
-                  </div>
-                )}
-
-                {q.type === "WRITE_IN" && (
-                  <Textarea
-                    placeholder="Your response…"
-                    value={(answers[q.id] as string) ?? ""}
-                    onChange={(e) => handleWriteIn(q.id, e.target.value)}
-                    rows={3}
-                  />
-                )}
-              </CardContent>
-            </Card>
+  function renderQuestionInput(q: Question) {
+    if (q.type === "SINGLE_CHOICE") {
+      return (
+        <div className="space-y-2.5">
+          {q.options.map((o) => (
+            <OptionCard
+              key={o.id}
+              name={o.text}
+              bio={o.bio}
+              photoUrl={o.photoUrl}
+              website={o.website}
+              type="single"
+              checked={answers[q.id] === o.id}
+              onChange={() => setAnswers((a) => ({ ...a, [q.id]: o.id }))}
+            />
           ))}
+        </div>
+      )
+    }
 
-          {error && (
-            <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded p-3">
-              {error}
+    if (q.type === "MULTIPLE_CHOICE") {
+      const selected = (answers[q.id] as string[]) ?? []
+      const atLimit = !!q.maxSelections && selected.length >= q.maxSelections
+      return (
+        <div className="space-y-2.5">
+          {q.options.map((o) => {
+            const isChecked = selected.includes(o.id)
+            return (
+              <OptionCard
+                key={o.id}
+                name={o.text}
+                bio={o.bio}
+                photoUrl={o.photoUrl}
+                website={o.website}
+                type="multi"
+                checked={isChecked}
+                disabled={!isChecked && atLimit}
+                onChange={() => {
+                  if (!isChecked && atLimit) return
+                  setAnswers((a) => ({
+                    ...a,
+                    [q.id]: isChecked
+                      ? selected.filter((id) => id !== o.id)
+                      : [...selected, o.id],
+                  }))
+                }}
+              />
+            )
+          })}
+        </div>
+      )
+    }
+
+    if (q.type === "RANKED_CHOICE") {
+      const rankedIds = rankedOrders[q.id] ?? []
+      const rankedOptions = rankedIds.map((id) => q.options.find((o) => o.id === id)).filter(Boolean) as Option[]
+      const unrankedOptions = q.options.filter((o) => !rankedIds.includes(o.id))
+
+      return (
+        <div className="space-y-3">
+          {rankedOptions.length > 0 && (
+            <div>
+              <p className="text-[11px] font-semibold text-vh-muted uppercase tracking-wider mb-2">Ranked</p>
+              <div className="space-y-2">
+                {rankedOptions.map((o, i) => (
+                  <div
+                    key={o.id}
+                    className="flex items-center gap-3 px-4 py-3 rounded-[12px] border"
+                    style={{ background: "var(--vh-accent-soft)", borderColor: "oklch(0.85 0.05 255)" }}
+                  >
+                    <span
+                      className="w-9 h-9 flex-shrink-0 inline-grid place-items-center rounded-full text-white text-sm font-semibold"
+                      style={{ background: "var(--vh-accent)" }}
+                    >
+                      {i + 1}
+                    </span>
+                    <span className="flex-1 text-sm font-medium text-vh-ink">{o.text}</span>
+                    <div className="flex items-center gap-1 flex-shrink-0">
+                      <button
+                        type="button"
+                        disabled={i === 0}
+                        onClick={() => moveRanked(q.id, i, -1)}
+                        className="w-7 h-7 inline-grid place-items-center rounded-[6px] text-sm text-vh-muted hover:bg-vh-surface-3 disabled:opacity-30 transition-colors"
+                      >↑</button>
+                      <button
+                        type="button"
+                        disabled={i === rankedOptions.length - 1}
+                        onClick={() => moveRanked(q.id, i, 1)}
+                        className="w-7 h-7 inline-grid place-items-center rounded-[6px] text-sm text-vh-muted hover:bg-vh-surface-3 disabled:opacity-30 transition-colors"
+                      >↓</button>
+                      <button
+                        type="button"
+                        onClick={() => removeFromRanked(q.id, o.id)}
+                        className="w-7 h-7 inline-grid place-items-center rounded-[6px] text-sm text-vh-muted hover:bg-vh-surface-3 transition-colors"
+                      >×</button>
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
           )}
 
-          <Button type="submit" size="lg" className="w-full">
-            Review &amp; Submit
-          </Button>
-        </form>
+          {unrankedOptions.length > 0 && (
+            <div>
+              {rankedOptions.length > 0 && (
+                <p className="text-[11px] font-semibold text-vh-muted uppercase tracking-wider mb-2">Not ranked</p>
+              )}
+              <div className="space-y-2">
+                {unrankedOptions.map((o) => (
+                  <button
+                    key={o.id}
+                    type="button"
+                    onClick={() => addToRanked(q.id, o.id)}
+                    className="w-full flex items-center gap-3 px-4 py-3 border-2 border-dashed rounded-[12px] text-left transition-colors"
+                    style={{ borderColor: "var(--vh-line-strong)" }}
+                    onMouseEnter={(e) => ((e.currentTarget as HTMLElement).style.borderColor = "var(--vh-accent)")}
+                    onMouseLeave={(e) => ((e.currentTarget as HTMLElement).style.borderColor = "var(--vh-line-strong)")}
+                  >
+                    <span
+                      className="w-9 h-9 flex-shrink-0 inline-grid place-items-center rounded-full border border-dashed text-xl text-vh-muted"
+                      style={{ borderColor: "var(--vh-line-strong)" }}
+                    >+</span>
+                    <span className="text-sm text-vh-ink-soft">{o.text}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {rankedIds.length === 0 && (
+            <p className="text-xs text-vh-muted">Tap options above to rank them in order of preference.</p>
+          )}
+        </div>
+      )
+    }
+
+    if (q.type === "WRITE_IN") {
+      const text = (answers[q.id] as string) ?? ""
+      return (
+        <div className="relative">
+          <Textarea
+            placeholder="Your response…"
+            value={text}
+            onChange={(e) => {
+              const v = e.target.value
+              if (v.length <= 500) setAnswers((a) => ({ ...a, [q.id]: v }))
+            }}
+            rows={4}
+            className="resize-none pr-14"
+          />
+          <span className="absolute bottom-2.5 right-3 text-[11px] text-vh-muted pointer-events-none tabular-nums">
+            {text.length}/500
+          </span>
+        </div>
+      )
+    }
+
+    return null
+  }
+
+  // ── Review step ─────────────────────────────────────────────────────────
+
+  if (step === questions.length) {
+    return (
+      <div className="min-h-screen bg-vh-bg">
+        <header className="sticky top-0 z-10 bg-vh-surface border-b border-vh-line">
+          <div className="max-w-xl mx-auto px-4 py-4 flex items-center gap-3">
+            <button
+              type="button"
+              onClick={() => { setStep(questions.length - 1); setError("") }}
+              className="text-vh-muted hover:text-vh-ink transition-colors p-1 leading-none"
+            >
+              ←
+            </button>
+            <BrandMark size={20} />
+            <p className="flex-1 text-sm font-semibold text-vh-ink">Review your ballot</p>
+          </div>
+        </header>
+
+        <div className="max-w-xl mx-auto px-4 py-8 space-y-3">
+          <p className="text-[13px] text-vh-muted pb-1">
+            Check your answers below. Use Edit to change any response before submitting.
+          </p>
+
+          {questions.map((q, i) => (
+            <div key={q.id} className="bg-vh-surface border border-vh-line rounded-card p-4">
+              <div className="flex items-start justify-between gap-3 mb-2">
+                <div>
+                  <span
+                    className="inline-flex items-center text-[11px] font-semibold rounded-pill px-2 py-0.5 mb-1.5"
+                    style={{ background: "var(--vh-accent-soft)", color: "var(--vh-accent-strong)" }}
+                  >
+                    Q{i + 1}
+                  </span>
+                  <p className="text-[14px] font-medium text-vh-ink">{q.text}</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => { setStep(i); setError("") }}
+                  className="shrink-0 text-xs text-vh-ink-soft border border-vh-line px-2.5 py-1 rounded-[8px] hover:bg-vh-surface-2 transition-colors"
+                >
+                  Edit
+                </button>
+              </div>
+              <div className="space-y-0.5">
+                {getSummaryLines(q).map((line, j) => (
+                  <p key={j} className="text-[13px] text-vh-muted">{line}</p>
+                ))}
+              </div>
+            </div>
+          ))}
+
+          <p className="text-[12px] text-vh-muted text-center py-1">
+            🔒 Once submitted, your ballot is final and recorded anonymously.
+          </p>
+
+          {error && <p className="text-sm text-center" style={{ color: "var(--vh-danger)" }}>{error}</p>}
+
+          <button
+            type="button"
+            onClick={handleConfirmSubmit}
+            disabled={submitting}
+            className="w-full py-3.5 font-semibold text-white text-[15px] rounded-[var(--vh-radius-sm)] transition-opacity disabled:opacity-60"
+            style={{ background: "var(--vh-accent)" }}
+          >
+            {submitting ? "Submitting…" : "Submit my ballot"}
+          </button>
+        </div>
+      </div>
+    )
+  }
+
+  // ── Ballot view ─────────────────────────────────────────────────────────
+
+  return (
+    <div className="min-h-screen bg-vh-bg">
+
+      {/* ── Mobile sticky header ── */}
+      <header className="md:hidden fixed top-0 left-0 right-0 z-20 bg-vh-surface border-b border-vh-line">
+        <div className="flex items-center justify-between px-4 h-12">
+          <BrandMark size={20} />
+          <span
+            className="inline-flex items-center gap-1 text-[11px] font-medium rounded-pill px-2.5 py-1"
+            style={{ background: "var(--vh-surface-3)", color: "var(--vh-muted)" }}
+          >
+            🔒 Encrypted
+          </span>
+          <span className="text-xs tabular-nums text-vh-muted font-medium">
+            {step + 1}/{questions.length}
+          </span>
+        </div>
+        {/* Segmented progress bar */}
+        <div className="flex gap-0.5 px-4 pb-2.5">
+          {questions.map((_, i) => (
+            <div
+              key={i}
+              className="h-[2px] flex-1 rounded-pill transition-colors duration-300"
+              style={{ background: i <= step ? "var(--vh-accent)" : "var(--vh-surface-3)" }}
+            />
+          ))}
+        </div>
+      </header>
+
+      {/* ── Desktop 2-column layout ── */}
+      <div className="hidden md:flex min-h-screen">
+        {/* Left rail */}
+        <aside
+          className="w-[260px] flex-shrink-0 sticky top-0 h-screen border-r border-vh-line bg-vh-surface overflow-y-auto flex flex-col"
+          style={{ padding: "28px 20px" }}
+        >
+          <BrandMark size={22} className="mb-8" />
+          <p className="text-[11px] font-semibold text-vh-muted uppercase tracking-wider mb-3 truncate">
+            {electionTitle}
+          </p>
+          <nav className="space-y-1 flex-1">
+            {questions.map((q, i) => {
+              const done = isAnswered(q)
+              return (
+                <button
+                  key={q.id}
+                  type="button"
+                  onClick={() => questionRefs.current[q.id]?.scrollIntoView({ behavior: "smooth", block: "start" })}
+                  className="w-full text-left flex items-center gap-2.5 px-3 py-2 rounded-[var(--vh-radius-sm)] text-sm transition-colors hover:bg-vh-surface-2"
+                >
+                  <span
+                    className="w-5 h-5 flex-shrink-0 inline-grid place-items-center rounded-full text-[11px] font-semibold"
+                    style={{
+                      background: done ? "var(--vh-accent)" : "var(--vh-surface-3)",
+                      color: done ? "white" : "var(--vh-muted)",
+                    }}
+                  >
+                    {done ? "✓" : i + 1}
+                  </span>
+                  <span className="truncate text-vh-ink-soft">{q.text}</span>
+                </button>
+              )
+            })}
+          </nav>
+
+          <div className="pt-6">
+            <button
+              type="button"
+              onClick={goToReview}
+              className="w-full py-2.5 text-sm font-semibold text-white rounded-[var(--vh-radius-sm)] transition-colors"
+              style={{ background: "var(--vh-accent)" }}
+              onMouseEnter={(e) => ((e.currentTarget as HTMLElement).style.background = "var(--vh-accent-strong)")}
+              onMouseLeave={(e) => ((e.currentTarget as HTMLElement).style.background = "var(--vh-accent)")}
+            >
+              Review &amp; submit →
+            </button>
+          </div>
+        </aside>
+
+        {/* Right column — all questions */}
+        <main className="flex-1 py-12 px-10 overflow-y-auto">
+          <div className="max-w-[720px]">
+            <h1 className="text-2xl font-semibold text-vh-ink mb-1">{electionTitle}</h1>
+            {electionDescription && (
+              <p className="text-sm text-vh-muted mb-10 whitespace-pre-wrap">{electionDescription}</p>
+            )}
+
+            <div className="space-y-10">
+              {questions.map((q, i) => (
+                <section
+                  key={q.id}
+                  ref={(el) => { questionRefs.current[q.id] = el }}
+                >
+                  <div className="mb-4">
+                    <div className="flex items-center gap-2 mb-2">
+                      <span
+                        className="inline-flex items-center text-[11px] font-semibold rounded-pill px-2 py-0.5"
+                        style={{ background: "var(--vh-accent-soft)", color: "var(--vh-accent-strong)" }}
+                      >
+                        Q{i + 1}
+                      </span>
+                      {q.required && (
+                        <span className="text-xs" style={{ color: "var(--vh-danger)" }}>Required</span>
+                      )}
+                    </div>
+                    <h3 className="text-[18px] font-semibold text-vh-ink">{q.text}</h3>
+                    {q.description && (
+                      <p className="text-sm text-vh-muted mt-1">{q.description}</p>
+                    )}
+                    {q.type === "MULTIPLE_CHOICE" && q.maxSelections && (
+                      <p className="text-xs text-vh-muted mt-1.5">
+                        Pick up to {q.maxSelections}{" "}
+                        <span className="tabular-nums">
+                          ({((answers[q.id] as string[]) ?? []).length}/{q.maxSelections})
+                        </span>
+                      </p>
+                    )}
+                  </div>
+                  {renderQuestionInput(q)}
+                </section>
+              ))}
+            </div>
+
+            {error && (
+              <p className="mt-6 text-sm" style={{ color: "var(--vh-danger)" }}>{error}</p>
+            )}
+
+            <div
+              className="mt-12 -mx-10 px-10 py-6 border-t border-vh-line flex items-center justify-between"
+              style={{ background: "var(--vh-ink)" }}
+            >
+              <p className="text-sm text-white/70">Review your answers before submitting.</p>
+              <button
+                type="button"
+                onClick={goToReview}
+                className="px-5 py-2.5 text-[15px] font-semibold rounded-[var(--vh-radius-sm)] transition-colors"
+                style={{ background: "white", color: "var(--vh-ink)" }}
+                onMouseEnter={(e) => ((e.currentTarget as HTMLElement).style.background = "var(--vh-surface-2)")}
+                onMouseLeave={(e) => ((e.currentTarget as HTMLElement).style.background = "white")}
+              >
+                Review &amp; submit →
+              </button>
+            </div>
+          </div>
+        </main>
       </div>
 
-      <Dialog open={showConfirm} onOpenChange={setShowConfirm}>
-        <DialogContent showCloseButton={false} className="sm:max-w-lg">
-          <DialogHeader>
-            <DialogTitle>Review your ballot</DialogTitle>
-            <DialogDescription>
-              Please confirm your selections. Your vote cannot be changed after submission.
-            </DialogDescription>
-          </DialogHeader>
+      {/* ── Mobile: single question at a time ── */}
+      <div className="md:hidden pt-[88px] pb-[104px] px-4">
+        <div className="mb-5">
+          <p className="text-xs font-medium text-vh-muted mb-1.5">
+            Question {step + 1} of {questions.length}
+          </p>
+          <h2 className="text-[22px] font-semibold text-vh-ink leading-snug">
+            {questions[step].text}
+            {questions[step].required && (
+              <span className="ml-1 text-base" style={{ color: "var(--vh-danger)" }}>*</span>
+            )}
+          </h2>
+          {questions[step].description && (
+            <p className="text-sm text-vh-muted mt-2">{questions[step].description}</p>
+          )}
+          {questions[step].type === "MULTIPLE_CHOICE" && questions[step].maxSelections && (
+            <p className="text-xs text-vh-muted mt-2">
+              Pick up to {questions[step].maxSelections}{" "}
+              <span className="tabular-nums">
+                ({((answers[questions[step].id] as string[]) ?? []).length}/{questions[step].maxSelections})
+              </span>
+            </p>
+          )}
+        </div>
 
-          <div className="space-y-4 max-h-96 overflow-y-auto pr-1">
-            {summary.map((item, i) => (
-              <div key={i} className="space-y-1">
-                <p className="text-sm font-medium text-zinc-700">{item.questionText}</p>
-                <div className="pl-3 border-l-2 border-zinc-200 space-y-0.5">
-                  {item.lines.map((line, j) => (
-                    <p key={j} className="text-sm text-zinc-600">{line}</p>
-                  ))}
-                </div>
-              </div>
-            ))}
-          </div>
+        {renderQuestionInput(questions[step])}
 
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowConfirm(false)} disabled={submitting}>
-              Go back
-            </Button>
-            <Button onClick={handleConfirmSubmit} disabled={submitting}>
-              {submitting ? "Submitting…" : "Confirm & submit"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+        {error && (
+          <p className="mt-3 text-sm" style={{ color: "var(--vh-danger)" }}>{error}</p>
+        )}
+      </div>
+
+      {/* ── Mobile sticky footer ── */}
+      <div className="md:hidden fixed bottom-0 left-0 right-0 z-20 bg-vh-surface border-t border-vh-line px-4 py-3">
+        <div className="flex gap-3">
+          {step > 0 ? (
+            <button
+              type="button"
+              onClick={() => { setStep((s) => s - 1); setError("") }}
+              className="px-4 py-3 border border-vh-line-strong rounded-[var(--vh-radius-sm)] text-sm font-medium text-vh-ink transition-colors hover:bg-vh-surface-2 flex-none"
+            >
+              ← Back
+            </button>
+          ) : (
+            <div className="flex-none w-[72px]" />
+          )}
+
+          <button
+            type="button"
+            className={cn(
+              "flex-1 py-3 rounded-[var(--vh-radius-sm)] font-semibold text-white text-sm transition-opacity",
+              questions[step].required && !isAnswered(questions[step]) && "opacity-50"
+            )}
+            style={{ background: "var(--vh-accent)" }}
+            onClick={() => {
+              const q = questions[step]
+              if (q.required && !isAnswered(q)) {
+                setError("Answer this question to continue")
+                return
+              }
+              setError("")
+              if (step === questions.length - 1) {
+                goToReview()
+              } else {
+                setStep((s) => s + 1)
+              }
+            }}
+          >
+            {step === questions.length - 1 ? "Review →" : "Next question →"}
+          </button>
+        </div>
+
+        {questions[step].required && !isAnswered(questions[step]) && (
+          <p className="text-[11px] text-vh-muted text-center mt-1.5">
+            Answer required to continue
+          </p>
+        )}
+      </div>
     </div>
   )
 }

@@ -1,30 +1,53 @@
-const MESSAGES: Record<string, { title: string; body: string }> = {
+import { StateScreen } from "@/components/ui/state-screen"
+
+interface Config {
+  icon: string
+  iconBg: string
+  title: string
+  body: string
+  primaryLabel?: string
+  primaryHref?: string
+}
+
+const CONFIGS: Record<string, Config> = {
   invalid: {
+    icon: "⚠",
+    iconBg: "bg-vh-danger-soft",
     title: "Invalid voting link",
-    body: "This link is not valid. Please check your email for the correct link.",
+    body: "This link is not valid. Please check your email for the correct link, or request a new one from the election organizer.",
+    primaryLabel: "Contact organizer",
+    primaryHref: "mailto:",
   },
   "already-voted": {
+    icon: "🗳",
+    iconBg: "bg-vh-accent-soft",
     title: "Already voted",
-    body: "You have already submitted your vote for this election. Thank you for participating!",
+    body: "You've already submitted your vote for this election. Thank you for participating!",
   },
   closed: {
-    title: "Election closed",
+    icon: "✓",
+    iconBg: "bg-vh-success-soft",
+    title: "Voting has closed",
     body: "This election is no longer accepting votes.",
   },
   "not-open": {
-    title: "Election not open",
-    body: "This election has not started yet. Please check back later.",
+    icon: "🕐",
+    iconBg: "bg-vh-warn-soft",
+    title: "Election hasn't started yet",
+    body: "This election is not open for voting yet. Please check back when it opens.",
   },
 }
 
 export default function ErrorScreen({ type }: { type: string }) {
-  const msg = MESSAGES[type] ?? MESSAGES.invalid
+  const cfg = CONFIGS[type] ?? CONFIGS.invalid
   return (
-    <div className="min-h-screen flex items-center justify-center bg-zinc-50">
-      <div className="max-w-md text-center p-8">
-        <h1 className="text-xl font-bold mb-2">{msg.title}</h1>
-        <p className="text-zinc-500">{msg.body}</p>
-      </div>
-    </div>
+    <StateScreen
+      icon={cfg.icon}
+      iconBg={cfg.iconBg}
+      title={cfg.title}
+      body={cfg.body}
+      primaryLabel={cfg.primaryLabel}
+      primaryHref={cfg.primaryHref}
+    />
   )
 }
