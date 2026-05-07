@@ -17,9 +17,6 @@ export async function POST(req: Request) {
 
   const { currentPassword, newPassword, confirmPassword } = await req.json().catch(() => ({}))
 
-  if (!currentPassword) {
-    return NextResponse.json({ error: "Current password is required" }, { status: 400 })
-  }
   if (!newPassword || newPassword !== confirmPassword) {
     return NextResponse.json({ error: "Passwords do not match" }, { status: 400 })
   }
@@ -30,9 +27,16 @@ export async function POST(req: Request) {
   const existing = await db.adminUser.findUnique({ where: { id: session.sub } })
   if (!existing) return NextResponse.json({ error: "User not found" }, { status: 404 })
 
-  const currentValid = await bcrypt.compare(currentPassword, existing.passwordHash)
-  if (!currentValid) {
-    return NextResponse.json({ error: "Current password is incorrect" }, { status: 401 })
+  // Skip current-password check for first-sign-in temp password flow.
+  // Otherwise validate the current password before allowing a change.
+  if (!existing.mustChangePassword) {
+    if (!currentPassword) {
+      return NextResponse.json({ error: "Current password is required" }, { status: 400 })
+    }
+    const currentValid = await bcrypt.compare(currentPassword, existing.passwordHash)
+    if (!currentValid) {
+      return NextResponse.json({ error: "Current password is incorrect" }, { status: 401 })
+    }
   }
 
   const passwordHash = await bcrypt.hash(newPassword, 12)
