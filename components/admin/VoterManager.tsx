@@ -19,6 +19,7 @@ interface Voter {
 interface Props {
   electionId: string
   electionStatus: string
+  electionStartsAt: string | null
   initialVoters: Voter[]
 }
 
@@ -52,7 +53,7 @@ function Avatar({ name, size = 32 }: { name: string; size?: number }) {
   )
 }
 
-export default function VoterManager({ electionId, electionStatus, initialVoters }: Props) {
+export default function VoterManager({ electionId, electionStatus, electionStartsAt, initialVoters }: Props) {
   const [voters, setVoters] = useState<Voter[]>(initialVoters)
   const [name, setName] = useState("")
   const [email, setEmail] = useState("")
@@ -205,6 +206,8 @@ export default function VoterManager({ electionId, electionStatus, initialVoters
   }
 
   const canDelete = electionStatus !== "CLOSED" && electionStatus !== "COMPLETED"
+  // Invitations require either ACTIVE status or a scheduled start date in DRAFT.
+  const canInvite = electionStatus === "ACTIVE" || (electionStatus === "DRAFT" && !!electionStartsAt)
   const uninvited = voters.filter((v) => !v.invitedAt).length
   const voted = voters.filter((v) => v.hasVoted).length
   const invited = voters.filter((v) => v.invitedAt).length
@@ -255,6 +258,32 @@ export default function VoterManager({ electionId, electionStatus, initialVoters
         ))}
       </div>
 
+      {/* Draft invite banners */}
+      {electionStatus === "DRAFT" && !canInvite && (
+        <div
+          className="flex items-center gap-3 rounded-[14px] px-[18px] py-3.5"
+          style={{ background: "var(--vh-warn-soft)", border: "1px solid oklch(0.85 0.08 80)" }}
+        >
+          <span className="text-lg flex-shrink-0">📅</span>
+          <p className="text-[13.5px]" style={{ color: "oklch(0.4 0.12 65)" }}>
+            <strong>Set a start date</strong> before sending invitations — voters need to know when to come back.
+          </p>
+        </div>
+      )}
+      {electionStatus === "DRAFT" && canInvite && (
+        <div
+          className="flex items-center gap-3 rounded-[14px] px-[18px] py-3.5"
+          style={{ background: "var(--vh-accent-soft)", border: "1px solid oklch(0.85 0.05 255)" }}
+        >
+          <span className="text-lg flex-shrink-0">📨</span>
+          <p className="text-[13.5px]" style={{ color: "var(--vh-accent-strong)" }}>
+            <strong>Election is in Draft.</strong> Invited voters will see "Voting opens{" "}
+            {new Date(electionStartsAt!).toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" })}
+            " when they click their link.
+          </p>
+        </div>
+      )}
+
       {/* Uninvited alert */}
       {uninvited > 0 && (
         <div
@@ -267,7 +296,8 @@ export default function VoterManager({ electionId, electionStatus, initialVoters
           </div>
           <button
             onClick={handleSendInvites}
-            disabled={sending}
+            disabled={sending || !canInvite}
+            title={!canInvite ? "Set a start date before sending invitations" : undefined}
             className="px-3.5 py-2 rounded-[10px] text-[13px] font-medium text-white transition-colors disabled:opacity-60"
             style={{ background: "var(--vh-accent)" }}
           >
@@ -328,14 +358,15 @@ export default function VoterManager({ electionId, electionStatus, initialVoters
           >
             Import CSV
           </button>
-          {electionStatus === "ACTIVE" && (
+          {(electionStatus === "ACTIVE" || (electionStatus === "DRAFT" && canInvite)) && (
             <button
               onClick={handleSendInvites}
-              disabled={sending}
+              disabled={sending || !canInvite}
+              title={!canInvite ? "Set a start date before sending invitations" : undefined}
               className="px-3.5 py-1.5 rounded-[8px] text-[13px] transition-colors disabled:opacity-50"
               style={{ border: "1px solid var(--vh-line-strong)", background: "var(--vh-surface)", color: "var(--vh-ink-soft)" }}
             >
-              {sending ? "Sending…" : "Resend all"}
+              {sending ? "Sending…" : "Send invitations"}
             </button>
           )}
         </div>
@@ -397,7 +428,7 @@ export default function VoterManager({ electionId, electionStatus, initialVoters
 
                 {/* Actions */}
                 <div className="flex gap-1 justify-end">
-                  {v.invitedAt && !v.hasVoted && canDelete && (
+                  {v.invitedAt && !v.hasVoted && canDelete && canInvite && (
                     <button
                       disabled={resending.has(v.id)}
                       onClick={() => handleResend(v)}

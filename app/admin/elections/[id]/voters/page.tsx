@@ -47,6 +47,7 @@ export default async function VotersPage({ params }: { params: Promise<{ id: str
       <VoterManager
         electionId={id}
         electionStatus={election.status}
+        electionStartsAt={election.startsAt?.toISOString() ?? null}
         initialVoters={election.voters.map((v) => ({
           id: v.id,
           name: v.name,

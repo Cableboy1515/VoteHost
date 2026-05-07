@@ -19,6 +19,16 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   const election = await db.election.findUnique({ where: { id: electionId } })
   if (!election) return NextResponse.json({ error: "Election not found" }, { status: 404 })
 
+  if (election.status === "DRAFT" && !election.startsAt) {
+    return NextResponse.json(
+      { error: "Set a start date before sending invitations." },
+      { status: 409 }
+    )
+  }
+  if (election.status === "CLOSED" || election.status === "COMPLETED") {
+    return NextResponse.json({ error: "Election is closed." }, { status: 409 })
+  }
+
   const where = voterIds
     ? { electionId, id: { in: voterIds } }
     : { electionId, invitedAt: null }

@@ -38,14 +38,22 @@ const CONFIGS: Record<string, Config> = {
   },
 }
 
-export default function ErrorScreen({ type }: { type: string }) {
+export default function ErrorScreen({ type, startsAt }: { type: string; startsAt?: string }) {
   const cfg = CONFIGS[type] ?? CONFIGS.invalid
+  let body = cfg.body
+  if (type === "not-open" && startsAt) {
+    const formatted = new Date(startsAt).toLocaleString(undefined, {
+      weekday: "long", month: "long", day: "numeric", year: "numeric",
+      hour: "numeric", minute: "2-digit",
+    })
+    body = `Voting opens ${formatted}. Save this link — it will activate then.`
+  }
   return (
     <StateScreen
       icon={cfg.icon}
       iconBg={cfg.iconBg}
       title={cfg.title}
-      body={cfg.body}
+      body={body}
       primaryLabel={cfg.primaryLabel}
       primaryHref={cfg.primaryHref}
     />

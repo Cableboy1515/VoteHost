@@ -21,10 +21,14 @@ export default async function VotePage({ params }: { params: Promise<{ token: st
 
   if (!voter) return <ErrorScreen type="invalid" />
   if (voter.hasVoted) return <ErrorScreen type="already-voted" />
-  if (voter.election.status !== "ACTIVE") return <ErrorScreen type="closed" />
 
   const now = new Date()
-  if (voter.election.startsAt && now < voter.election.startsAt) return <ErrorScreen type="not-open" />
+  // Future start date — show "not-open" with the date, regardless of DRAFT/ACTIVE status.
+  // (DRAFT + future startsAt is the pre-invitation case; voters got a save-the-date.)
+  if (voter.election.startsAt && now < voter.election.startsAt) {
+    return <ErrorScreen type="not-open" startsAt={voter.election.startsAt.toISOString()} />
+  }
+  if (voter.election.status !== "ACTIVE") return <ErrorScreen type="closed" />
   if (voter.election.endsAt && now > voter.election.endsAt) return <ErrorScreen type="closed" />
 
   return (
