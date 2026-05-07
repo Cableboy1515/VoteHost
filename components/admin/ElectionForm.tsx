@@ -119,12 +119,12 @@ export default function ElectionForm({ electionId, initialValues }: Props) {
 
   return (
     <div className="space-y-4 max-w-xl">
-      <Card>
-        <CardHeader>
-          <CardTitle>{electionId ? "Edit Election" : "New Election"}</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-4">
+      <form onSubmit={handleSubmit} className="space-y-4">
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Details</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
             <div className="space-y-1">
               <Label htmlFor="title">Title</Label>
               <Input id="title" value={title} onChange={(e) => setTitle(e.target.value)} required />
@@ -172,83 +172,93 @@ export default function ElectionForm({ electionId, initialValues }: Props) {
                 />
               </div>
             </div>
-            <div className="space-y-3 pt-2">
-              <p className="text-sm font-medium">Voter reminders <span className="text-zinc-400 font-normal">(optional)</span></p>
-              <div className="space-y-1">
-                <Label htmlFor="firstReminderDays">First reminder (days before close)</Label>
-                <Input
-                  id="firstReminderDays"
-                  type="number"
-                  min={1}
-                  placeholder="Leave blank for no early reminder"
-                  value={firstReminderDays}
-                  onChange={(e) => setFirstReminderDays(e.target.value)}
-                />
-                <p className="text-xs text-zinc-400">
-                  Sends a &quot;you haven&apos;t voted yet&quot; email to non-voters this many days before the election ends. A second reminder always fires automatically 24 hours before close. Requires an end date.
-                </p>
-              </div>
-            </div>
+          </CardContent>
+        </Card>
 
-            <div className="space-y-3 pt-2">
-              <p className="text-sm font-medium">Email customization <span className="text-zinc-400 font-normal">(optional)</span></p>
-              <div className="space-y-1">
-                <Label htmlFor="emailSubject">Subject line</Label>
-                <Input
-                  id="emailSubject"
-                  placeholder={`You're invited to vote: ${title || "election title"}`}
-                  value={emailSubject}
-                  onChange={(e) => setEmailSubject(e.target.value)}
-                />
-              </div>
-              <div className="space-y-1">
-                <Label htmlFor="emailLogoUrl">Header image URL</Label>
-                <Input
-                  id="emailLogoUrl"
-                  type="url"
-                  placeholder="https://example.com/logo.png"
-                  value={emailLogoUrl}
-                  onChange={(e) => setEmailLogoUrl(e.target.value)}
-                />
-              </div>
-              <div className="space-y-1">
-                <Label htmlFor="emailMessage">Intro message</Label>
-                <Textarea
-                  id="emailMessage"
-                  placeholder="Custom text shown above the Vote Now button"
-                  rows={3}
-                  value={emailMessage}
-                  onChange={(e) => setEmailMessage(e.target.value)}
-                />
-              </div>
-              <div className="space-y-1">
-                <Label htmlFor="emailFooter">Footer text</Label>
-                <Textarea
-                  id="emailFooter"
-                  placeholder="e.g. Questions? Contact us at hello@example.com"
-                  rows={2}
-                  value={emailFooter}
-                  onChange={(e) => setEmailFooter(e.target.value)}
-                />
-              </div>
-              <Button type="button" variant="outline" size="sm" onClick={() => setShowPreview((v) => !v)}>
-                {showPreview ? "Hide preview" : "Preview email"}
-              </Button>
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Voter reminders</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-1">
+              <Label htmlFor="firstReminderDays">First reminder (days before close)</Label>
+              <Input
+                id="firstReminderDays"
+                type="number"
+                min={1}
+                placeholder="Leave blank for no early reminder"
+                value={firstReminderDays}
+                onChange={(e) => setFirstReminderDays(e.target.value)}
+              />
+              <p className="text-xs text-zinc-400">
+                Sends a &quot;you haven&apos;t voted yet&quot; email to non-voters this many days before the election ends. A second reminder always fires automatically 24 hours before close. Requires an end date.
+              </p>
             </div>
-            {error && <p className="text-sm text-red-500">{error}</p>}
-            <div className="flex gap-2">
-              <Button type="submit" disabled={saving}>
-                {saving ? "Saving…" : electionId ? "Save Changes" : "Create & Continue"}
-              </Button>
-              {electionId && (
-                <Button type="button" variant="outline" onClick={() => router.back()}>
-                  Cancel
-                </Button>
-              )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Email customization <span className="text-zinc-400 font-normal text-sm">(optional)</span></CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <div className="space-y-1">
+              <Label htmlFor="emailSubject">Subject line</Label>
+              <Input
+                id="emailSubject"
+                placeholder={`You're invited to vote: ${title || "election title"}`}
+                value={emailSubject}
+                onChange={(e) => setEmailSubject(e.target.value)}
+              />
             </div>
-          </form>
-        </CardContent>
-      </Card>
+            <div className="space-y-1">
+              <Label htmlFor="emailLogoUrl">Header image URL</Label>
+              <Input
+                id="emailLogoUrl"
+                type="url"
+                placeholder="https://example.com/logo.png"
+                value={emailLogoUrl}
+                onChange={(e) => setEmailLogoUrl(e.target.value)}
+              />
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="emailMessage">Intro message</Label>
+              <Textarea
+                id="emailMessage"
+                placeholder="Custom text shown above the Vote Now button"
+                rows={3}
+                value={emailMessage}
+                onChange={(e) => setEmailMessage(e.target.value)}
+              />
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="emailFooter">Footer text</Label>
+              <Textarea
+                id="emailFooter"
+                placeholder="e.g. Questions? Contact us at hello@example.com"
+                rows={2}
+                value={emailFooter}
+                onChange={(e) => setEmailFooter(e.target.value)}
+              />
+            </div>
+            <Button type="button" variant="outline" size="sm" onClick={() => setShowPreview((v) => !v)}>
+              {showPreview ? "Hide preview" : "Preview email"}
+            </Button>
+          </CardContent>
+        </Card>
+
+        {error && <p className="text-sm text-red-500">{error}</p>}
+        <div className="flex gap-2">
+          <Button type="submit" disabled={saving}>
+            {saving ? "Saving…" : electionId ? "Save Changes" : "Create & Continue"}
+          </Button>
+          {electionId && (
+            <Button type="button" variant="outline" onClick={() => router.back()}>
+              Cancel
+            </Button>
+          )}
+        </div>
+      </form>
 
       {showPreview && (
         <div className="space-y-2">
