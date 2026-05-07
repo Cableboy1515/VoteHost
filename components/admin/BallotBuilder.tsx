@@ -1,13 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
-import { Card, CardContent } from "@/components/ui/card"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Badge } from "@/components/ui/badge"
 import { Toaster } from "@/components/ui/sonner"
 import { toast } from "sonner"
 
@@ -39,16 +33,33 @@ interface Props {
   initialQuestions: QuestionDraft[]
 }
 
-const TYPE_LABELS: Record<QuestionType, string> = {
-  SINGLE_CHOICE: "Single choice",
-  MULTIPLE_CHOICE: "Multiple choice",
-  RANKED_CHOICE: "Ranked choice",
-  WRITE_IN: "Write-in",
+const TYPES: { value: QuestionType; label: string }[] = [
+  { value: "SINGLE_CHOICE", label: "Single choice" },
+  { value: "MULTIPLE_CHOICE", label: "Multiple" },
+  { value: "RANKED_CHOICE", label: "Ranked" },
+  { value: "WRITE_IN", label: "Write-in" },
+]
+
+const inputCls = "w-full text-sm rounded-[10px] px-3 py-2.5 transition-colors"
+const inputStyle = {
+  border: "1px solid var(--vh-line-strong)",
+  background: "var(--vh-surface)",
+  color: "var(--vh-ink)",
+  outline: "none",
+}
+function onFocusIn(e: React.FocusEvent<HTMLInputElement | HTMLTextAreaElement>) {
+  e.target.style.borderColor = "var(--vh-accent)"
+  e.target.style.boxShadow = "var(--vh-ring)"
+}
+function onFocusOut(e: React.FocusEvent<HTMLInputElement | HTMLTextAreaElement>) {
+  e.target.style.borderColor = "var(--vh-line-strong)"
+  e.target.style.boxShadow = "none"
 }
 
 export default function BallotBuilder({ electionId, electionStatus, initialQuestions }: Props) {
   const [questions, setQuestions] = useState<QuestionDraft[]>(initialQuestions)
   const [saving, setSaving] = useState(false)
+  const [expandedDetails, setExpandedDetails] = useState<Set<string>>(new Set())
   const locked = electionStatus !== "DRAFT"
 
   function addQuestion() {
@@ -97,10 +108,7 @@ export default function BallotBuilder({ electionId, electionStatus, initialQuest
     setQuestions((qs) =>
       qs.map((q, i) =>
         i === qIndex
-          ? {
-              ...q,
-              options: q.options.map((o, j) => (j === oIndex ? { ...o, ...patch } : o)),
-            }
+          ? { ...q, options: q.options.map((o, j) => (j === oIndex ? { ...o, ...patch } : o)) }
           : q
       )
     )
@@ -114,6 +122,15 @@ export default function BallotBuilder({ electionId, electionStatus, initialQuest
           : q
       )
     )
+  }
+
+  function toggleDetails(key: string) {
+    setExpandedDetails((prev) => {
+      const next = new Set(prev)
+      if (next.has(key)) next.delete(key)
+      else next.add(key)
+      return next
+    })
   }
 
   async function handleSave() {
@@ -132,180 +149,345 @@ export default function BallotBuilder({ electionId, electionStatus, initialQuest
   }
 
   return (
-    <div className="space-y-4">
+    <div className="flex flex-col gap-3">
       <Toaster />
+
+      {/* Status banners */}
       {electionStatus === "ACTIVE" && (
-        <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-          <strong>This election is live.</strong> The ballot cannot be edited while the election is active. Set the election to Draft to make changes.
+        <div
+          className="flex items-center gap-3 rounded-[14px] px-[18px] py-3.5"
+          style={{
+            background: "var(--vh-warn-soft)",
+            border: "1px solid oklch(0.85 0.08 80)",
+          }}
+        >
+          <div
+            className="w-8 h-8 rounded-[8px] flex items-center justify-center text-white font-semibold text-sm flex-shrink-0"
+            style={{ background: "oklch(0.65 0.12 75)" }}
+          >
+            !
+          </div>
+          <div className="text-[13.5px]" style={{ color: "oklch(0.4 0.12 65)" }}>
+            <strong>Election is live.</strong> Ballot is read-only. Set status to Draft to make changes.
+          </div>
         </div>
       )}
-      {electionStatus === "CLOSED" && (
-        <div className="rounded-lg border border-zinc-200 bg-zinc-100 px-4 py-3 text-sm text-zinc-600">
-          This election is closed. The ballot is read-only.
+      {(electionStatus === "CLOSED" || electionStatus === "COMPLETED") && (
+        <div
+          className="rounded-[14px] px-[18px] py-3.5 text-[13.5px]"
+          style={{
+            background: "var(--vh-surface-2)",
+            border: "1px solid var(--vh-line-strong)",
+            color: "var(--vh-ink-soft)",
+          }}
+        >
+          This election is {electionStatus === "CLOSED" ? "closed" : "completed"}. The ballot is read-only.
         </div>
       )}
-      {electionStatus === "COMPLETED" && (
-        <div className="rounded-lg border border-zinc-200 bg-zinc-100 px-4 py-3 text-sm text-zinc-600">
-          This election has completed. The ballot is read-only.
-        </div>
-      )}
+
+      {/* Question cards */}
       {questions.map((q, qIndex) => (
-        <Card key={qIndex}>
-          <CardContent className="pt-4 space-y-3">
-            <div className="flex items-start gap-2">
-              <div className="flex-1 space-y-2">
-                <div className="flex gap-2">
-                  <Input
-                    placeholder="Question text"
-                    value={q.text}
-                    onChange={(e) => updateQuestion(qIndex, { text: e.target.value })}
-                    className="flex-1"
-                    disabled={locked}
-                  />
-                  <Select
-                    value={q.type}
-                    disabled={locked}
-                    onValueChange={(v) => {
-                      if (v === null) return
-                      updateQuestion(qIndex, {
-                        type: v as QuestionType,
-                        maxSelections: v === "MULTIPLE_CHOICE" ? q.maxSelections : undefined,
-                        options: v === "WRITE_IN" ? [] : q.options.length ? q.options : [{ text: "", order: 0 }, { text: "", order: 1 }],
-                      })
-                    }}
-                  >
-                    <SelectTrigger className="w-44">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {Object.entries(TYPE_LABELS).map(([val, label]) => (
-                        <SelectItem key={val} value={val}>{label}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <Badge variant={q.required ? "default" : "secondary"} className={locked ? "select-none opacity-50" : "cursor-pointer select-none"} onClick={() => !locked && updateQuestion(qIndex, { required: !q.required })}>
-                    {q.required ? "Required" : "Optional"}
-                  </Badge>
-                </div>
+        <div
+          key={qIndex}
+          className="bg-vh-surface rounded-[16px] p-5"
+          style={{ border: "1px solid var(--vh-line)" }}
+        >
+          <div className="flex gap-3.5 items-start">
+            {/* Number badge */}
+            <div
+              className="w-9 h-9 rounded-[10px] flex items-center justify-center text-white font-semibold text-[14px] flex-shrink-0"
+              style={{ background: "var(--vh-accent)" }}
+            >
+              {qIndex + 1}
+            </div>
 
-                <Textarea
-                  placeholder="Voter explanation (optional) — shown to voters above the choices"
-                  value={q.description ?? ""}
-                  onChange={(e) => updateQuestion(qIndex, { description: e.target.value || undefined })}
-                  rows={2}
-                  className="text-sm resize-none"
+            <div className="flex-1 flex flex-col gap-2.5">
+              {/* Question text */}
+              <input
+                placeholder="Question text"
+                value={q.text}
+                onChange={(e) => updateQuestion(qIndex, { text: e.target.value })}
+                disabled={locked}
+                className={inputCls}
+                style={{ ...inputStyle, fontSize: 15, fontWeight: 500 }}
+                onFocus={onFocusIn}
+                onBlur={onFocusOut}
+              />
+
+              {/* Description */}
+              <Textarea
+                placeholder="Voter explanation (optional)"
+                value={q.description ?? ""}
+                onChange={(e) => updateQuestion(qIndex, { description: e.target.value || undefined })}
+                rows={2}
+                className="text-sm resize-none rounded-[10px]"
+                disabled={locked}
+                style={{
+                  border: "1px solid var(--vh-line-strong)",
+                  background: "var(--vh-surface)",
+                  color: "var(--vh-ink)",
+                  fontSize: 13,
+                }}
+              />
+
+              {/* Type + required toggles */}
+              <div className="flex gap-1.5 flex-wrap items-center">
+                {TYPES.map((t) => {
+                  const active = q.type === t.value
+                  return (
+                    <button
+                      key={t.value}
+                      type="button"
+                      disabled={locked}
+                      onClick={() => {
+                        if (locked) return
+                        updateQuestion(qIndex, {
+                          type: t.value,
+                          maxSelections: t.value === "MULTIPLE_CHOICE" ? q.maxSelections : undefined,
+                          options: t.value === "WRITE_IN" ? [] : q.options.length ? q.options : [{ text: "", order: 0 }, { text: "", order: 1 }],
+                        })
+                      }}
+                      className="px-2.5 py-1.5 rounded-[8px] text-[12.5px] transition-colors"
+                      style={{
+                        border: `1px solid ${active ? "var(--vh-accent)" : "var(--vh-line-strong)"}`,
+                        background: active ? "var(--vh-accent-soft)" : "var(--vh-surface)",
+                        color: active ? "var(--vh-accent-strong)" : "var(--vh-ink-soft)",
+                        fontWeight: active ? 500 : 400,
+                        cursor: locked ? "not-allowed" : "pointer",
+                        opacity: locked ? 0.6 : 1,
+                      }}
+                    >
+                      {t.label}
+                    </button>
+                  )
+                })}
+                <div className="flex-1" />
+                <button
+                  type="button"
                   disabled={locked}
-                />
+                  onClick={() => !locked && updateQuestion(qIndex, { required: !q.required })}
+                  className="px-2.5 py-1.5 rounded-[8px] text-[12.5px] transition-colors"
+                  style={{
+                    border: `1px solid ${q.required ? "var(--vh-accent)" : "var(--vh-line-strong)"}`,
+                    background: q.required ? "var(--vh-accent)" : "var(--vh-surface)",
+                    color: q.required ? "white" : "var(--vh-ink-soft)",
+                    cursor: locked ? "not-allowed" : "pointer",
+                  }}
+                >
+                  {q.required ? "Required" : "Optional"}
+                </button>
+              </div>
 
-                {q.type !== "WRITE_IN" && (
-                  <div className="space-y-2 pl-2">
-                    {q.options.map((o, oIndex) => (
-                      <div key={oIndex} className="space-y-1">
-                        <div className="flex gap-2">
-                          <Input
+              {/* Options */}
+              {q.type !== "WRITE_IN" && (
+                <div className="flex flex-col gap-1.5 pt-1">
+                  {q.options.map((o, oIndex) => {
+                    const detailKey = `${qIndex}-${oIndex}`
+                    const detailOpen = expandedDetails.has(detailKey)
+                    return (
+                      <div key={oIndex}>
+                        <div
+                          className="flex gap-2 items-center rounded-[10px] px-2 py-1.5"
+                          style={{ background: "var(--vh-surface-2)" }}
+                        >
+                          <span
+                            className="text-[14px] pl-1.5 select-none"
+                            style={{ color: "var(--vh-muted)", cursor: locked ? "default" : "grab" }}
+                          >
+                            ⋮⋮
+                          </span>
+                          <input
                             placeholder={`Option ${oIndex + 1}`}
                             value={o.text}
                             onChange={(e) => updateOption(qIndex, oIndex, { text: e.target.value })}
-                            className="flex-1"
                             disabled={locked}
+                            className="flex-1 text-sm px-2.5 py-1.5 rounded-[8px] transition-colors"
+                            style={{
+                              border: "1px solid var(--vh-line-strong)",
+                              background: "var(--vh-surface)",
+                              color: "var(--vh-ink)",
+                              outline: "none",
+                            }}
+                            onFocus={onFocusIn}
+                            onBlur={onFocusOut}
                           />
-                          <Button
+                          <button
                             type="button"
-                            variant="ghost"
-                            size="sm"
+                            onClick={() => toggleDetails(detailKey)}
+                            disabled={locked}
+                            className="text-[12px] px-2 py-1 rounded-[7px] transition-colors"
+                            style={{ color: "var(--vh-muted)", background: "transparent" }}
+                          >
+                            Details
+                          </button>
+                          <button
+                            type="button"
                             onClick={() => removeOption(qIndex, oIndex)}
                             disabled={locked || q.options.length <= 2}
+                            className="text-[16px] px-1.5 transition-colors"
+                            style={{
+                              color: "var(--vh-muted)",
+                              opacity: q.options.length <= 2 ? 0.35 : 1,
+                              cursor: q.options.length <= 2 ? "not-allowed" : "pointer",
+                            }}
                           >
                             ×
-                          </Button>
+                          </button>
                         </div>
-                        <details className="pl-1">
-                          <summary className="text-xs text-zinc-400 cursor-pointer select-none w-fit">
-                            Option details
-                          </summary>
-                          <div className="mt-2 space-y-2 pl-2 border-l border-zinc-200">
-                            <div className="space-y-1">
-                              <Label className="text-xs text-zinc-500">Description</Label>
+
+                        {detailOpen && (
+                          <div
+                            className="mt-1.5 ml-10 rounded-[10px] p-3 flex flex-col gap-2"
+                            style={{ background: "var(--vh-bg)", border: "1px solid var(--vh-line)" }}
+                          >
+                            <div>
+                              <label className="block text-[11.5px] font-medium mb-1" style={{ color: "var(--vh-muted)" }}>Description</label>
                               <Textarea
-                                placeholder="Short description shown to voters (max 500 chars)"
+                                placeholder="Short bio shown to voters (max 500 chars)"
                                 value={o.bio ?? ""}
                                 onChange={(e) => updateOption(qIndex, oIndex, { bio: e.target.value || undefined })}
                                 rows={2}
                                 maxLength={500}
-                                className="text-sm resize-none"
+                                className="text-sm resize-none rounded-[8px]"
                                 disabled={locked}
                               />
                             </div>
-                            <div className="space-y-1">
-                              <Label className="text-xs text-zinc-500">Photo URL</Label>
-                              <Input
+                            <div>
+                              <label className="block text-[11.5px] font-medium mb-1" style={{ color: "var(--vh-muted)" }}>Photo URL</label>
+                              <input
                                 placeholder="https://..."
                                 value={o.photoUrl ?? ""}
                                 onChange={(e) => updateOption(qIndex, oIndex, { photoUrl: e.target.value || undefined })}
-                                className="text-sm"
                                 disabled={locked}
+                                className="w-full text-sm px-2.5 py-1.5 rounded-[8px]"
+                                style={{ border: "1px solid var(--vh-line-strong)", background: "var(--vh-surface)", color: "var(--vh-ink)", outline: "none" }}
                               />
                             </div>
-                            <div className="space-y-1">
-                              <Label className="text-xs text-zinc-500">Website</Label>
-                              <Input
+                            <div>
+                              <label className="block text-[11.5px] font-medium mb-1" style={{ color: "var(--vh-muted)" }}>Website</label>
+                              <input
                                 placeholder="https://..."
                                 value={o.website ?? ""}
                                 onChange={(e) => updateOption(qIndex, oIndex, { website: e.target.value || undefined })}
-                                className="text-sm"
                                 disabled={locked}
+                                className="w-full text-sm px-2.5 py-1.5 rounded-[8px]"
+                                style={{ border: "1px solid var(--vh-line-strong)", background: "var(--vh-surface)", color: "var(--vh-ink)", outline: "none" }}
                               />
                             </div>
                           </div>
-                        </details>
+                        )}
                       </div>
-                    ))}
-                    <Button type="button" variant="outline" size="sm" onClick={() => addOption(qIndex)} disabled={locked}>
-                      + Add option
-                    </Button>
-                    {q.type === "MULTIPLE_CHOICE" && (
-                      <div className="flex items-center gap-2 pt-1">
-                        <Label className="text-xs text-zinc-500 whitespace-nowrap">Max selections</Label>
-                        <Input
-                          type="number"
-                          min={1}
-                          max={q.options.length}
-                          placeholder="No limit"
-                          value={q.maxSelections ?? ""}
-                          onChange={(e) =>
-                            updateQuestion(qIndex, {
-                              maxSelections: e.target.value === "" ? undefined : Number(e.target.value),
-                            })
-                          }
-                          className="w-24 h-7 text-sm"
-                          disabled={locked}
-                        />
-                        <span className="text-xs text-zinc-400">Leave blank for no limit</span>
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
+                    )
+                  })}
 
-              <div className="flex flex-col gap-1 pt-1">
-                <Button type="button" variant="ghost" size="sm" onClick={() => moveQuestion(qIndex, -1)} disabled={locked || qIndex === 0}>↑</Button>
-                <Button type="button" variant="ghost" size="sm" onClick={() => moveQuestion(qIndex, 1)} disabled={locked || qIndex === questions.length - 1}>↓</Button>
-                <Button type="button" variant="ghost" size="sm" onClick={() => removeQuestion(qIndex)} disabled={locked}>🗑</Button>
-              </div>
+                  <button
+                    type="button"
+                    onClick={() => addOption(qIndex)}
+                    disabled={locked}
+                    className="self-start text-[13px] px-2.5 py-1 transition-colors"
+                    style={{ color: "var(--vh-accent)", background: "transparent", opacity: locked ? 0.4 : 1 }}
+                  >
+                    + Add option
+                  </button>
+
+                  {q.type === "MULTIPLE_CHOICE" && (
+                    <div className="flex items-center gap-2 mt-1">
+                      <label className="text-[12.5px] whitespace-nowrap" style={{ color: "var(--vh-muted)" }}>Max selections</label>
+                      <input
+                        type="number"
+                        min={1}
+                        max={q.options.length}
+                        placeholder="No limit"
+                        value={q.maxSelections ?? ""}
+                        onChange={(e) =>
+                          updateQuestion(qIndex, {
+                            maxSelections: e.target.value === "" ? undefined : Number(e.target.value),
+                          })
+                        }
+                        disabled={locked}
+                        className="w-20 text-sm px-2 py-1.5 rounded-[8px]"
+                        style={{ border: "1px solid var(--vh-line-strong)", background: "var(--vh-surface)", color: "var(--vh-ink)", outline: "none" }}
+                      />
+                      <span className="text-[12px]" style={{ color: "var(--vh-muted)" }}>Leave blank for no limit</span>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
-          </CardContent>
-        </Card>
+
+            {/* Move / delete controls */}
+            <div className="flex flex-col gap-0.5 pt-0.5">
+              <button
+                type="button"
+                onClick={() => moveQuestion(qIndex, -1)}
+                disabled={locked || qIndex === 0}
+                className="w-7 h-7 flex items-center justify-center rounded-[7px] text-sm transition-colors disabled:opacity-30"
+                style={{ color: "var(--vh-muted)", background: "transparent" }}
+                onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = "var(--vh-surface-2)" }}
+                onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "transparent" }}
+              >
+                ↑
+              </button>
+              <button
+                type="button"
+                onClick={() => moveQuestion(qIndex, 1)}
+                disabled={locked || qIndex === questions.length - 1}
+                className="w-7 h-7 flex items-center justify-center rounded-[7px] text-sm transition-colors disabled:opacity-30"
+                style={{ color: "var(--vh-muted)", background: "transparent" }}
+                onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = "var(--vh-surface-2)" }}
+                onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "transparent" }}
+              >
+                ↓
+              </button>
+              <button
+                type="button"
+                onClick={() => removeQuestion(qIndex)}
+                disabled={locked}
+                className="w-7 h-7 flex items-center justify-center rounded-[7px] text-sm transition-colors disabled:opacity-30"
+                style={{ color: "var(--vh-danger)", background: "transparent" }}
+                onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = "var(--vh-danger-soft)" }}
+                onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "transparent" }}
+              >
+                ×
+              </button>
+            </div>
+          </div>
+        </div>
       ))}
 
+      {/* Add question + Save */}
       {!locked && (
-        <div className="flex gap-2">
-          <Button type="button" variant="outline" onClick={addQuestion}>
-            + Add Question
-          </Button>
-          <Button onClick={handleSave} disabled={saving || questions.length === 0}>
-            {saving ? "Saving…" : "Save Ballot"}
-          </Button>
-        </div>
+        <>
+          <button
+            type="button"
+            onClick={addQuestion}
+            className="w-full py-5 rounded-[16px] text-[14px] transition-colors"
+            style={{
+              border: "2px dashed var(--vh-line-strong)",
+              background: "transparent",
+              color: "var(--vh-muted)",
+              cursor: "pointer",
+            }}
+            onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.borderColor = "var(--vh-accent)"; (e.currentTarget as HTMLElement).style.color = "var(--vh-accent)" }}
+            onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.borderColor = "var(--vh-line-strong)"; (e.currentTarget as HTMLElement).style.color = "var(--vh-muted)" }}
+          >
+            + Add question
+          </button>
+
+          <div className="flex gap-2.5 pt-1">
+            <button
+              type="button"
+              onClick={handleSave}
+              disabled={saving || questions.length === 0}
+              className="px-5 py-2.5 rounded-[10px] text-[14px] font-medium text-white transition-colors disabled:opacity-50"
+              style={{ background: "var(--vh-accent)" }}
+              onMouseEnter={(e) => { if (!saving) (e.currentTarget as HTMLElement).style.background = "var(--vh-accent-strong)" }}
+              onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "var(--vh-accent)" }}
+            >
+              {saving ? "Saving…" : "Save ballot"}
+            </button>
+          </div>
+        </>
       )}
     </div>
   )

@@ -2,11 +2,6 @@
 
 import { useState } from "react"
 import { useRouter } from "next/navigation"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Textarea } from "@/components/ui/textarea"
-import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 
 interface Props {
@@ -38,24 +33,73 @@ function buildPreviewHtml(opts: {
   emailFooter: string
 }) {
   const { electionTitle, emailLogoUrl, emailMessage, emailFooter } = opts
-  return `<!DOCTYPE html><html><body style="margin:0;padding:0;background:#f4f4f5;">
-    <div style="font-family: sans-serif; max-width: 600px; margin: 24px auto; padding: 24px; background: #fff; border-radius: 8px; box-shadow: 0 1px 4px rgba(0,0,0,0.08);">
-      ${emailLogoUrl ? `<img src="${emailLogoUrl}" alt="" style="max-width: 100%; margin-bottom: 24px; display: block;" />` : ""}
-      <h1 style="font-size: 24px; margin-bottom: 8px; margin-top: 0;">You're invited to vote</h1>
-      <p style="color: #555; margin-bottom: 24px;">Hi [Voter Name],</p>
-      <p style="margin-bottom: 24px;">
-        You've been invited to participate in the election: <strong>${electionTitle || "[Election Title]"}</strong>
-      </p>
-      ${emailMessage ? `<p style="margin-bottom: 24px;">${emailMessage}</p>` : ""}
-      <a href="#" style="display: inline-block; background: #111; color: #fff; padding: 12px 24px; border-radius: 6px; text-decoration: none; font-weight: 600;">
-        Vote Now
-      </a>
-      <p style="color: #888; font-size: 12px; margin-top: 32px;">
-        This link is unique to you. Do not share it with others. It can only be used once.
-      </p>
-      ${emailFooter ? `<p style="color: #888; font-size: 12px; margin-top: 8px;">${emailFooter}</p>` : ""}
+  return `<!DOCTYPE html><html><body style="margin:0;padding:0;background:oklch(0.985 0.003 250);">
+    <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;max-width:600px;margin:24px auto;padding:0 16px;">
+      <div style="background:#fff;border-radius:16px;padding:32px;border:1px solid oklch(0.92 0.006 250);">
+        ${emailLogoUrl ? `<img src="${emailLogoUrl}" alt="" style="max-width:100%;margin-bottom:24px;display:block;border-radius:8px;" />` : ""}
+        <h1 style="font-size:22px;font-weight:600;margin:0 0 8px;letter-spacing:-0.02em;color:oklch(0.18 0.012 255);">You're invited to vote</h1>
+        <p style="color:oklch(0.52 0.008 255);margin:0 0 20px;font-size:14px;">
+          You've been invited to vote in <strong style="color:oklch(0.32 0.012 255);">${electionTitle || "[Election Title]"}</strong>
+        </p>
+        ${emailMessage ? `<p style="margin-bottom:20px;font-size:14px;color:oklch(0.32 0.012 255);">${emailMessage}</p>` : ""}
+        <a href="#" style="display:inline-block;background:oklch(0.36 0.10 255);color:#fff;padding:12px 22px;border-radius:10px;text-decoration:none;font-weight:600;font-size:15px;">
+          Vote now →
+        </a>
+        <p style="color:oklch(0.52 0.008 255);font-size:12px;margin-top:28px;padding-top:20px;border-top:1px solid oklch(0.92 0.006 250);">
+          This link is unique to you. Do not share it. It can only be used once.
+        </p>
+        ${emailFooter ? `<p style="color:oklch(0.52 0.008 255);font-size:12px;margin-top:8px;">${emailFooter}</p>` : ""}
+      </div>
     </div>
   </body></html>`
+}
+
+const STATUSES = ["DRAFT", "ACTIVE", "CLOSED", "COMPLETED"] as const
+type Status = typeof STATUSES[number]
+const STATUS_LABEL: Record<Status, string> = {
+  DRAFT: "Draft", ACTIVE: "Active", CLOSED: "Closed", COMPLETED: "Completed",
+}
+
+const inputCls = "w-full text-sm rounded-[10px] px-3 py-2.5 transition-colors"
+const inputStyle = {
+  border: "1px solid var(--vh-line-strong)",
+  background: "var(--vh-surface)",
+  color: "var(--vh-ink)",
+  outline: "none",
+}
+function onFocusIn(e: React.FocusEvent<HTMLInputElement | HTMLTextAreaElement>) {
+  e.target.style.borderColor = "var(--vh-accent)"
+  e.target.style.boxShadow = "var(--vh-ring)"
+}
+function onFocusOut(e: React.FocusEvent<HTMLInputElement | HTMLTextAreaElement>) {
+  e.target.style.borderColor = "var(--vh-line-strong)"
+  e.target.style.boxShadow = "none"
+}
+
+function VhLabel({ children, htmlFor }: { children: React.ReactNode; htmlFor?: string }) {
+  return (
+    <label
+      htmlFor={htmlFor}
+      className="block text-[13px] font-medium mb-1.5"
+      style={{ color: "var(--vh-ink-soft)" }}
+    >
+      {children}
+    </label>
+  )
+}
+
+function VhCard({ children, title }: { children: React.ReactNode; title?: string }) {
+  return (
+    <div
+      className="bg-vh-surface rounded-[16px] p-[22px]"
+      style={{ border: "1px solid var(--vh-line)" }}
+    >
+      {title && (
+        <h3 className="text-[14px] font-semibold mb-3.5">{title}</h3>
+      )}
+      {children}
+    </div>
+  )
 }
 
 export default function ElectionForm({ electionId, initialValues }: Props) {
@@ -118,158 +162,238 @@ export default function ElectionForm({ electionId, initialValues }: Props) {
   }
 
   return (
-    <div className="space-y-4 max-w-xl">
-      <form onSubmit={handleSubmit} className="space-y-4">
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Details</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="space-y-1">
-              <Label htmlFor="title">Title</Label>
-              <Input id="title" value={title} onChange={(e) => setTitle(e.target.value)} required />
+    <div className="max-w-[800px]">
+      <form onSubmit={handleSubmit} className="flex flex-col gap-3.5">
+        {/* Basics */}
+        <VhCard title="Basics">
+          <div className="flex flex-col gap-3.5">
+            <div>
+              <VhLabel htmlFor="title">Title</VhLabel>
+              <input
+                id="title"
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                required
+                placeholder="Election title"
+                className={inputCls}
+                style={inputStyle}
+                onFocus={onFocusIn}
+                onBlur={onFocusOut}
+              />
             </div>
-            <div className="space-y-1">
-              <Label htmlFor="description">Description (optional)</Label>
-              <Textarea
+            <div>
+              <VhLabel htmlFor="description">Description (optional)</VhLabel>
+              <textarea
                 id="description"
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
                 rows={3}
+                placeholder="Shown to voters at the top of their ballot"
+                className={inputCls}
+                style={{ ...inputStyle, resize: "none" }}
+                onFocus={onFocusIn}
+                onBlur={onFocusOut}
               />
             </div>
-            <div className="space-y-1">
-              <Label>Status</Label>
-              <Select value={status} onValueChange={(v) => { if (v !== null) setStatus(v) }}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="DRAFT">Draft</SelectItem>
-                  <SelectItem value="ACTIVE">Active</SelectItem>
-                  <SelectItem value="CLOSED">Closed</SelectItem>
-                  <SelectItem value="COMPLETED">Completed</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-1">
-                <Label htmlFor="startsAt">Starts at (optional)</Label>
-                <Input
-                  id="startsAt"
-                  type="datetime-local"
-                  value={startsAt}
-                  onChange={(e) => setStartsAt(e.target.value)}
-                />
-              </div>
-              <div className="space-y-1">
-                <Label htmlFor="endsAt">Ends at (optional)</Label>
-                <Input
-                  id="endsAt"
-                  type="datetime-local"
-                  value={endsAt}
-                  onChange={(e) => setEndsAt(e.target.value)}
-                />
+            <div>
+              <VhLabel>Status</VhLabel>
+              <div className="flex gap-1.5 flex-wrap">
+                {STATUSES.map((s) => {
+                  const active = status === s
+                  return (
+                    <button
+                      key={s}
+                      type="button"
+                      onClick={() => setStatus(s)}
+                      className="px-3.5 py-2 rounded-full text-[12.5px] font-medium cursor-pointer transition-colors"
+                      style={{
+                        border: `1px solid ${active ? "var(--vh-accent)" : "var(--vh-line-strong)"}`,
+                        background: active ? "var(--vh-accent)" : "var(--vh-surface)",
+                        color: active ? "white" : "var(--vh-ink-soft)",
+                      }}
+                    >
+                      {STATUS_LABEL[s]}
+                    </button>
+                  )
+                })}
               </div>
             </div>
-          </CardContent>
-        </Card>
+          </div>
+        </VhCard>
 
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Voter reminders</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-1">
-              <Label htmlFor="firstReminderDays">First reminder (days before close)</Label>
-              <Input
-                id="firstReminderDays"
-                type="number"
-                min={1}
-                placeholder="Leave blank for no early reminder"
-                value={firstReminderDays}
-                onChange={(e) => setFirstReminderDays(e.target.value)}
+        {/* Schedule */}
+        <VhCard title="Schedule">
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <VhLabel htmlFor="startsAt">Opens</VhLabel>
+              <input
+                id="startsAt"
+                type="datetime-local"
+                value={startsAt}
+                onChange={(e) => setStartsAt(e.target.value)}
+                className={inputCls}
+                style={inputStyle}
+                onFocus={onFocusIn}
+                onBlur={onFocusOut}
               />
-              <p className="text-xs text-zinc-400">
-                Sends a &quot;you haven&apos;t voted yet&quot; email to non-voters this many days before the election ends. A second reminder always fires automatically 24 hours before close. Requires an end date.
-              </p>
             </div>
-          </CardContent>
-        </Card>
+            <div>
+              <VhLabel htmlFor="endsAt">Closes</VhLabel>
+              <input
+                id="endsAt"
+                type="datetime-local"
+                value={endsAt}
+                onChange={(e) => setEndsAt(e.target.value)}
+                className={inputCls}
+                style={inputStyle}
+                onFocus={onFocusIn}
+                onBlur={onFocusOut}
+              />
+            </div>
+          </div>
+        </VhCard>
 
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Email customization <span className="text-zinc-400 font-normal text-sm">(optional)</span></CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            <div className="space-y-1">
-              <Label htmlFor="emailSubject">Subject line</Label>
-              <Input
+        {/* Reminders */}
+        <VhCard title="Voter reminders">
+          <div>
+            <VhLabel htmlFor="firstReminderDays">First reminder (days before close)</VhLabel>
+            <input
+              id="firstReminderDays"
+              type="number"
+              min={1}
+              placeholder="Leave blank for no early reminder"
+              value={firstReminderDays}
+              onChange={(e) => setFirstReminderDays(e.target.value)}
+              className={inputCls}
+              style={{ ...inputStyle, maxWidth: 200 }}
+              onFocus={onFocusIn}
+              onBlur={onFocusOut}
+            />
+            <p className="mt-2 text-[12.5px]" style={{ color: "var(--vh-muted)" }}>
+              Sends a reminder to non-voters this many days before close. A 24-hour final notice always fires automatically.
+            </p>
+          </div>
+        </VhCard>
+
+        {/* Email */}
+        <VhCard>
+          <h3 className="text-[14px] font-semibold mb-3.5">
+            Email customization{" "}
+            <span className="font-normal text-[13px]" style={{ color: "var(--vh-muted)" }}>(optional)</span>
+          </h3>
+          <div className="flex flex-col gap-3.5">
+            <div>
+              <VhLabel htmlFor="emailSubject">Subject line</VhLabel>
+              <input
                 id="emailSubject"
                 placeholder={`You're invited to vote: ${title || "election title"}`}
                 value={emailSubject}
                 onChange={(e) => setEmailSubject(e.target.value)}
+                className={inputCls}
+                style={inputStyle}
+                onFocus={onFocusIn}
+                onBlur={onFocusOut}
               />
             </div>
-            <div className="space-y-1">
-              <Label htmlFor="emailLogoUrl">Header image URL</Label>
-              <Input
+            <div>
+              <VhLabel htmlFor="emailLogoUrl">Header image URL</VhLabel>
+              <input
                 id="emailLogoUrl"
                 type="url"
                 placeholder="https://example.com/logo.png"
                 value={emailLogoUrl}
                 onChange={(e) => setEmailLogoUrl(e.target.value)}
+                className={inputCls}
+                style={inputStyle}
+                onFocus={onFocusIn}
+                onBlur={onFocusOut}
               />
             </div>
-            <div className="space-y-1">
-              <Label htmlFor="emailMessage">Intro message</Label>
-              <Textarea
+            <div>
+              <VhLabel htmlFor="emailMessage">Intro message</VhLabel>
+              <textarea
                 id="emailMessage"
                 placeholder="Custom text shown above the Vote Now button"
                 rows={3}
                 value={emailMessage}
                 onChange={(e) => setEmailMessage(e.target.value)}
+                className={inputCls}
+                style={{ ...inputStyle, resize: "none" }}
+                onFocus={onFocusIn}
+                onBlur={onFocusOut}
               />
             </div>
-            <div className="space-y-1">
-              <Label htmlFor="emailFooter">Footer text</Label>
-              <Textarea
+            <div>
+              <VhLabel htmlFor="emailFooter">Footer text</VhLabel>
+              <textarea
                 id="emailFooter"
                 placeholder="e.g. Questions? Contact us at hello@example.com"
                 rows={2}
                 value={emailFooter}
                 onChange={(e) => setEmailFooter(e.target.value)}
+                className={inputCls}
+                style={{ ...inputStyle, resize: "none" }}
+                onFocus={onFocusIn}
+                onBlur={onFocusOut}
               />
             </div>
-            <Button type="button" variant="outline" size="sm" onClick={() => setShowPreview((v) => !v)}>
+            <button
+              type="button"
+              onClick={() => setShowPreview((v) => !v)}
+              className="self-start px-3.5 py-2 rounded-[10px] text-[13px] transition-colors"
+              style={{
+                border: "1px solid var(--vh-line-strong)",
+                background: "var(--vh-surface)",
+                color: "var(--vh-ink-soft)",
+              }}
+            >
               {showPreview ? "Hide preview" : "Preview email"}
-            </Button>
-          </CardContent>
-        </Card>
+            </button>
+          </div>
+        </VhCard>
 
-        {error && <p className="text-sm text-red-500">{error}</p>}
-        <div className="flex gap-2">
-          <Button type="submit" disabled={saving}>
-            {saving ? "Saving…" : electionId ? "Save Changes" : "Create & Continue"}
-          </Button>
+        {error && (
+          <p className="text-[13px]" style={{ color: "var(--vh-danger)" }}>{error}</p>
+        )}
+
+        <div className="flex gap-2.5 pt-1">
+          <button
+            type="submit"
+            disabled={saving}
+            className="px-5 py-2.5 rounded-[10px] text-[14px] font-medium text-white transition-colors disabled:opacity-60"
+            style={{ background: "var(--vh-accent)" }}
+            onMouseEnter={(e) => { if (!saving) (e.currentTarget as HTMLElement).style.background = "var(--vh-accent-strong)" }}
+            onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "var(--vh-accent)" }}
+          >
+            {saving ? "Saving…" : electionId ? "Save changes" : "Create & continue"}
+          </button>
           {electionId && (
-            <Button type="button" variant="outline" onClick={() => router.back()}>
+            <button
+              type="button"
+              onClick={() => router.back()}
+              className="px-5 py-2.5 rounded-[10px] text-[14px] transition-colors"
+              style={{
+                border: "1px solid var(--vh-line-strong)",
+                background: "var(--vh-surface)",
+                color: "var(--vh-ink-soft)",
+              }}
+            >
               Cancel
-            </Button>
+            </button>
           )}
         </div>
       </form>
 
       {showPreview && (
-        <div className="space-y-2">
-          <div className="flex items-center justify-between">
-            <p className="text-sm font-medium text-zinc-700">Email preview</p>
-            <p className="text-xs text-zinc-400">Approximate — email clients may render slightly differently</p>
+        <div className="mt-5">
+          <div className="flex items-center justify-between mb-2">
+            <p className="text-[13px] font-medium" style={{ color: "var(--vh-ink-soft)" }}>Email preview</p>
+            <p className="text-[12px]" style={{ color: "var(--vh-muted)" }}>Approximate — clients may vary</p>
           </div>
           <iframe
             srcDoc={previewHtml}
-            className="w-full rounded-lg border bg-white"
-            style={{ height: 480 }}
+            className="w-full rounded-[14px]"
+            style={{ height: 480, border: "1px solid var(--vh-line)" }}
             sandbox=""
             title="Email preview"
           />

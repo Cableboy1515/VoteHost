@@ -1,12 +1,6 @@
 "use client"
 
 import { useState, useRef } from "react"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Badge } from "@/components/ui/badge"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import {
   Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog"
@@ -36,24 +30,25 @@ interface CSVRow {
 }
 
 type SortKey = "name" | "email" | "invited" | "voted"
+type FilterKey = "all" | "voted" | "pending"
 
-function SortHeader({
-  label, col, sortKey, sortDir, onSort,
-}: {
-  label: string
-  col: SortKey
-  sortKey: SortKey
-  sortDir: "asc" | "desc"
-  onSort: (col: SortKey) => void
-}) {
-  const active = sortKey === col
+function Avatar({ name, size = 32 }: { name: string; size?: number }) {
+  const parts = name.trim().split(/\s+/)
+  const initials = parts.length >= 2
+    ? (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
+    : name.slice(0, 2).toUpperCase()
+  const fontSize = Math.round(size * 0.38)
   return (
-    <TableHead className="cursor-pointer select-none whitespace-nowrap" onClick={() => onSort(col)}>
-      {label}{" "}
-      {active
-        ? (sortDir === "asc" ? "↑" : "↓")
-        : <span className="text-zinc-300">↕</span>}
-    </TableHead>
+    <span
+      className="inline-grid place-items-center flex-shrink-0 font-semibold"
+      style={{
+        width: size, height: size, borderRadius: "50%",
+        background: "var(--vh-surface-3)", color: "var(--vh-ink-soft)",
+        border: "1px solid var(--vh-line)", fontSize,
+      }}
+    >
+      {initials}
+    </span>
   )
 }
 
@@ -67,19 +62,31 @@ export default function VoterManager({ electionId, electionStatus, initialVoters
   const [deleting, setDeleting] = useState(false)
   const [sortKey, setSortKey] = useState<SortKey>("name")
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc")
+  const [filter, setFilter] = useState<FilterKey>("all")
+  const [search, setSearch] = useState("")
   const [resending, setResending] = useState<Set<string>>(new Set())
+  const [showAddModal, setShowAddModal] = useState(false)
+  const [showCsvModal, setShowCsvModal] = useState(false)
   const fileRef = useRef<HTMLInputElement>(null)
 
   function toggleSort(key: SortKey) {
-    if (sortKey === key) {
-      setSortDir((d) => (d === "asc" ? "desc" : "asc"))
-    } else {
-      setSortKey(key)
-      setSortDir("asc")
-    }
+    if (sortKey === key) setSortDir((d) => (d === "asc" ? "desc" : "asc"))
+    else { setSortKey(key); setSortDir("asc") }
   }
 
-  const sorted = [...voters].sort((a, b) => {
+  const filtered = voters
+    .filter((v) => {
+      if (filter === "voted") return v.hasVoted
+      if (filter === "pending") return !v.hasVoted
+      return true
+    })
+    .filter((v) => {
+      if (!search) return true
+      const q = search.toLowerCase()
+      return v.name.toLowerCase().includes(q) || v.email.toLowerCase().includes(q)
+    })
+
+  const sorted = [...filtered].sort((a, b) => {
     let cmp = 0
     if (sortKey === "name")    cmp = a.name.localeCompare(b.name)
     if (sortKey === "email")   cmp = a.email.localeCompare(b.email)
@@ -101,8 +108,8 @@ export default function VoterManager({ electionId, electionStatus, initialVoters
       body: JSON.stringify({ name, email }),
     })
     if (res.ok) {
-      setName("")
-      setEmail("")
+      setName(""); setEmail("")
+      setShowAddModal(false)
       refreshVoters()
       toast.success("Voter added")
     } else {
@@ -138,6 +145,7 @@ export default function VoterManager({ electionId, electionStatus, initialVoters
       const { created, skipped } = await res.json()
       setCsvPreview([])
       if (fileRef.current) fileRef.current.value = ""
+      setShowCsvModal(false)
       refreshVoters()
       toast.success(`Imported ${created} voters${skipped ? ` (${skipped} skipped)` : ""}`)
     } else {
@@ -177,9 +185,7 @@ export default function VoterManager({ electionId, electionStatus, initialVoters
       }
     } finally {
       setResending((prev) => {
-        const next = new Set(prev)
-        next.delete(voter.id)
-        return next
+        const next = new Set(prev); next.delete(voter.id); return next
       })
     }
   }
@@ -190,8 +196,7 @@ export default function VoterManager({ electionId, electionStatus, initialVoters
     const res = await fetch(`/api/elections/${electionId}/voters/${deleteTarget.id}`, { method: "DELETE" })
     setDeleting(false)
     if (res.ok) {
-      setDeleteTarget(null)
-      refreshVoters()
+      setDeleteTarget(null); refreshVoters()
       toast.success(`${deleteTarget.name} removed`)
     } else {
       const { error } = await res.json().catch(() => ({}))
@@ -201,146 +206,354 @@ export default function VoterManager({ electionId, electionStatus, initialVoters
 
   const canDelete = electionStatus !== "CLOSED" && electionStatus !== "COMPLETED"
   const uninvited = voters.filter((v) => !v.invitedAt).length
+  const voted = voters.filter((v) => v.hasVoted).length
+  const invited = voters.filter((v) => v.invitedAt).length
+
+  const inputStyle = {
+    border: "1px solid var(--vh-line-strong)",
+    background: "var(--vh-surface)",
+    color: "var(--vh-ink)",
+    outline: "none",
+  }
+
+  const FILTERS: { key: FilterKey; label: string }[] = [
+    { key: "all", label: "All" },
+    { key: "voted", label: "Voted" },
+    { key: "pending", label: "Pending" },
+  ]
 
   return (
-    <div className="space-y-6">
+    <div className="flex flex-col gap-4">
       <Toaster />
 
-      <div className="grid grid-cols-2 gap-6">
-        <Card>
-          <CardHeader><CardTitle className="text-base">Add Voter Manually</CardTitle></CardHeader>
-          <CardContent>
-            <form onSubmit={handleAddVoter} className="space-y-3">
-              <div className="space-y-1">
-                <Label>Name</Label>
-                <Input value={name} onChange={(e) => setName(e.target.value)} required />
-              </div>
-              <div className="space-y-1">
-                <Label>Email</Label>
-                <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
-              </div>
-              <Button type="submit">Add Voter</Button>
-            </form>
-          </CardContent>
-        </Card>
+      {/* Stat tiles */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-2.5">
+        {[
+          { label: "Total", value: voters.length, dot: null },
+          { label: "Invited", value: invited, dot: "var(--vh-accent)" },
+          { label: "Voted", value: voted, dot: "var(--vh-success)" },
+          { label: "Not invited", value: uninvited, dot: uninvited > 0 ? "var(--vh-warn)" : null },
+        ].map((tile) => (
+          <div
+            key={tile.label}
+            className="bg-vh-surface rounded-[14px] p-3.5"
+            style={{ border: "1px solid var(--vh-line)" }}
+          >
+            <div className="text-[12.5px]" style={{ color: "var(--vh-muted)" }}>{tile.label}</div>
+            <div className="flex items-center gap-2 mt-1">
+              {tile.dot && (
+                <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: tile.dot }} />
+              )}
+              <span
+                className="text-[24px] font-semibold"
+                style={{ fontVariantNumeric: "tabular-nums" }}
+              >
+                {tile.value}
+              </span>
+            </div>
+          </div>
+        ))}
+      </div>
 
-        <Card>
-          <CardHeader><CardTitle className="text-base">Import from CSV</CardTitle></CardHeader>
-          <CardContent className="space-y-3">
-            <p className="text-sm text-zinc-500">CSV must have <code>name</code> and <code>email</code> columns.</p>
-            <Input ref={fileRef} type="file" accept=".csv" onChange={handleCSVFile} />
+      {/* Uninvited alert */}
+      {uninvited > 0 && (
+        <div
+          className="flex items-center gap-3 rounded-[14px] px-[18px] py-3.5"
+          style={{ background: "var(--vh-accent-soft)" }}
+        >
+          <span className="text-lg">📨</span>
+          <div className="flex-1 text-[13.5px]" style={{ color: "var(--vh-accent-strong)" }}>
+            <strong>{uninvited} voter{uninvited !== 1 ? "s" : ""}</strong> {uninvited !== 1 ? "haven't" : "hasn't"} been invited yet.
+          </div>
+          <button
+            onClick={handleSendInvites}
+            disabled={sending}
+            className="px-3.5 py-2 rounded-[10px] text-[13px] font-medium text-white transition-colors disabled:opacity-60"
+            style={{ background: "var(--vh-accent)" }}
+          >
+            {sending ? "Sending…" : `Send ${uninvited} invitation${uninvited !== 1 ? "s" : ""}`}
+          </button>
+        </div>
+      )}
+
+      {/* Voter table */}
+      <div
+        className="bg-vh-surface rounded-[16px] overflow-hidden"
+        style={{ border: "1px solid var(--vh-line)" }}
+      >
+        {/* Toolbar */}
+        <div
+          className="flex gap-2 items-center p-3.5"
+          style={{ borderBottom: "1px solid var(--vh-line)", background: "var(--vh-surface-2)" }}
+        >
+          <input
+            placeholder="Search by name or email…"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="flex-1 text-sm rounded-[10px] px-3 py-2"
+            style={inputStyle}
+          />
+          <div className="flex gap-1">
+            {FILTERS.map((f) => {
+              const active = filter === f.key
+              return (
+                <button
+                  key={f.key}
+                  onClick={() => setFilter(f.key)}
+                  className="px-3 py-1.5 rounded-[8px] text-[13px] transition-colors"
+                  style={{
+                    background: active ? "var(--vh-surface)" : "transparent",
+                    color: active ? "var(--vh-ink)" : "var(--vh-muted)",
+                    fontWeight: active ? 500 : 400,
+                    boxShadow: active ? "var(--vh-shadow-xs)" : "none",
+                    border: active ? "1px solid var(--vh-line-strong)" : "1px solid transparent",
+                  }}
+                >
+                  {f.label}
+                </button>
+              )
+            })}
+          </div>
+          <button
+            onClick={() => setShowAddModal(true)}
+            className="px-3.5 py-1.5 rounded-[8px] text-[13px] font-medium text-white transition-colors"
+            style={{ background: "var(--vh-accent)" }}
+          >
+            + Add voter
+          </button>
+          <button
+            onClick={() => setShowCsvModal(true)}
+            className="px-3.5 py-1.5 rounded-[8px] text-[13px] transition-colors"
+            style={{ border: "1px solid var(--vh-line-strong)", background: "var(--vh-surface)", color: "var(--vh-ink-soft)" }}
+          >
+            Import CSV
+          </button>
+          {electionStatus === "ACTIVE" && (
+            <button
+              onClick={handleSendInvites}
+              disabled={sending}
+              className="px-3.5 py-1.5 rounded-[8px] text-[13px] transition-colors disabled:opacity-50"
+              style={{ border: "1px solid var(--vh-line-strong)", background: "var(--vh-surface)", color: "var(--vh-ink-soft)" }}
+            >
+              {sending ? "Sending…" : "Resend all"}
+            </button>
+          )}
+        </div>
+
+        {voters.length === 0 ? (
+          <div className="py-14 text-center text-[14px]" style={{ color: "var(--vh-muted)" }}>
+            No voters yet. Add one above or import a CSV.
+          </div>
+        ) : sorted.length === 0 ? (
+          <div className="py-10 text-center text-[14px]" style={{ color: "var(--vh-muted)" }}>
+            No voters match this filter.
+          </div>
+        ) : (
+          <div>
+            {sorted.map((v, i) => (
+              <div
+                key={v.id}
+                className="grid items-center gap-4 px-[18px] py-3.5 text-[14px]"
+                style={{
+                  gridTemplateColumns: "1.5fr 2fr auto auto auto",
+                  borderTop: i === 0 ? "none" : "1px solid var(--vh-line)",
+                }}
+              >
+                {/* Name + avatar */}
+                <div className="flex items-center gap-3 min-w-0">
+                  <Avatar name={v.name} size={32} />
+                  <span className="font-medium truncate">{v.name}</span>
+                </div>
+
+                {/* Email */}
+                <div
+                  className="truncate text-[13px]"
+                  style={{ color: "var(--vh-muted)", fontFamily: "var(--vh-font-mono, monospace)" }}
+                >
+                  {v.email}
+                </div>
+
+                {/* Invited badge */}
+                <span
+                  className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[11.5px] font-medium border"
+                  style={v.invitedAt
+                    ? { background: "var(--vh-accent-soft)", color: "var(--vh-accent-strong)", borderColor: "oklch(0.85 0.05 255)" }
+                    : { background: "var(--vh-surface-3)", color: "var(--vh-muted)", borderColor: "var(--vh-line-strong)" }
+                  }
+                >
+                  {v.invitedAt ? "Invited" : "Pending"}
+                </span>
+
+                {/* Voted badge */}
+                <span
+                  className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[11.5px] font-medium border"
+                  style={v.hasVoted
+                    ? { background: "var(--vh-success-soft)", color: "oklch(0.35 0.10 155)", borderColor: "oklch(0.78 0.08 155)" }
+                    : { background: "var(--vh-surface-3)", color: "var(--vh-muted)", borderColor: "var(--vh-line-strong)" }
+                  }
+                >
+                  {v.hasVoted ? "Voted" : "Waiting"}
+                </span>
+
+                {/* Actions */}
+                <div className="flex gap-1 justify-end">
+                  {v.invitedAt && !v.hasVoted && canDelete && (
+                    <button
+                      disabled={resending.has(v.id)}
+                      onClick={() => handleResend(v)}
+                      className="px-2.5 py-1 rounded-[8px] text-[12.5px] transition-colors disabled:opacity-50"
+                      style={{ color: "var(--vh-ink-soft)", background: "transparent" }}
+                      onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = "var(--vh-surface-2)" }}
+                      onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "transparent" }}
+                    >
+                      {resending.has(v.id) ? "Sending…" : "Resend"}
+                    </button>
+                  )}
+                  <button
+                    disabled={v.hasVoted || !canDelete}
+                    title={
+                      v.hasVoted
+                        ? "Cannot remove a voter who has already voted"
+                        : !canDelete
+                        ? "Voter list cannot be modified after the election closes"
+                        : undefined
+                    }
+                    onClick={() => setDeleteTarget(v)}
+                    className="px-2.5 py-1 rounded-[8px] text-[12.5px] transition-colors disabled:opacity-30"
+                    style={{ color: "var(--vh-danger)", background: "transparent" }}
+                    onMouseEnter={(e) => { if (!v.hasVoted && canDelete) (e.currentTarget as HTMLElement).style.background = "var(--vh-danger-soft)" }}
+                    onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "transparent" }}
+                  >
+                    Remove
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Add voter modal */}
+      <Dialog open={showAddModal} onOpenChange={setShowAddModal}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Add voter</DialogTitle>
+          </DialogHeader>
+          <form onSubmit={handleAddVoter} className="flex flex-col gap-3 pt-1">
+            <div>
+              <label className="block text-[13px] font-medium mb-1.5" style={{ color: "var(--vh-ink-soft)" }}>Name</label>
+              <input
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                required
+                className="w-full text-sm rounded-[10px] px-3 py-2.5"
+                style={{ border: "1px solid var(--vh-line-strong)", background: "var(--vh-surface)", color: "var(--vh-ink)", outline: "none" }}
+                autoFocus
+              />
+            </div>
+            <div>
+              <label className="block text-[13px] font-medium mb-1.5" style={{ color: "var(--vh-ink-soft)" }}>Email</label>
+              <input
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+                className="w-full text-sm rounded-[10px] px-3 py-2.5"
+                style={{ border: "1px solid var(--vh-line-strong)", background: "var(--vh-surface)", color: "var(--vh-ink)", outline: "none" }}
+              />
+            </div>
+            <DialogFooter>
+              <button
+                type="button"
+                onClick={() => setShowAddModal(false)}
+                className="px-4 py-2 rounded-[10px] text-sm transition-colors"
+                style={{ border: "1px solid var(--vh-line-strong)", background: "var(--vh-surface)", color: "var(--vh-ink-soft)" }}
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                className="px-4 py-2 rounded-[10px] text-sm font-medium text-white transition-colors"
+                style={{ background: "var(--vh-accent)" }}
+              >
+                Add voter
+              </button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* CSV import modal */}
+      <Dialog open={showCsvModal} onOpenChange={(open) => { if (!open) { setCsvPreview([]); if (fileRef.current) fileRef.current.value = "" } setShowCsvModal(open) }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Import voters from CSV</DialogTitle>
+          </DialogHeader>
+          <div className="flex flex-col gap-3 pt-1">
+            <p className="text-[13px]" style={{ color: "var(--vh-muted)" }}>
+              CSV must have <code className="bg-vh-surface-2 px-1 rounded">name</code> and <code className="bg-vh-surface-2 px-1 rounded">email</code> columns.
+            </p>
+            <input ref={fileRef} type="file" accept=".csv" onChange={handleCSVFile} className="text-sm" />
             {csvPreview.length > 0 && (
               <div>
-                <p className="text-sm text-zinc-600 mb-2">{csvPreview.length} rows ready to import:</p>
-                <div className="max-h-40 overflow-y-auto text-xs border rounded p-2 space-y-1">
+                <p className="text-[13px] mb-2" style={{ color: "var(--vh-ink-soft)" }}>{csvPreview.length} rows ready to import:</p>
+                <div
+                  className="max-h-40 overflow-y-auto text-[12px] rounded-[10px] p-3 space-y-1"
+                  style={{ border: "1px solid var(--vh-line)", background: "var(--vh-surface-2)" }}
+                >
                   {csvPreview.map((r, i) => (
                     <div key={i}>{r.name} — {r.email}</div>
                   ))}
                 </div>
-                <Button className="mt-2" onClick={handleImportCSV}>Import {csvPreview.length} Voters</Button>
               </div>
             )}
-          </CardContent>
-        </Card>
-      </div>
-
-      {electionStatus === "ACTIVE" && uninvited > 0 && (
-        <div className="flex items-center gap-3 p-4 bg-blue-50 rounded border border-blue-200">
-          <span className="text-sm text-blue-700">{uninvited} voter{uninvited !== 1 ? "s" : ""} haven&apos;t been invited yet.</span>
-          <Button size="sm" onClick={handleSendInvites} disabled={sending}>
-            {sending ? "Sending…" : "Send Invitations"}
-          </Button>
-        </div>
-      )}
-
-      <Card>
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <CardTitle className="text-base">Voter List ({voters.length})</CardTitle>
-            {electionStatus === "ACTIVE" && (
-              <Button variant="outline" size="sm" onClick={handleSendInvites} disabled={sending}>
-                {sending ? "Sending…" : "Resend All Invites"}
-              </Button>
-            )}
           </div>
-        </CardHeader>
-        <CardContent>
-          {voters.length === 0 ? (
-            <p className="text-sm text-zinc-500">No voters yet.</p>
-          ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <SortHeader label="Name"    col="name"    sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} />
-                  <SortHeader label="Email"   col="email"   sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} />
-                  <SortHeader label="Invited" col="invited" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} />
-                  <SortHeader label="Voted"   col="voted"   sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} />
-                  <TableHead />
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {sorted.map((v) => (
-                  <TableRow key={v.id}>
-                    <TableCell>{v.name}</TableCell>
-                    <TableCell>{v.email}</TableCell>
-                    <TableCell>
-                      <Badge variant={v.invitedAt ? "default" : "secondary"}>
-                        {v.invitedAt ? "Yes" : "No"}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant={v.hasVoted ? "default" : "outline"}>
-                        {v.hasVoted ? "Voted" : "Pending"}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="text-right space-x-1">
-                      {v.invitedAt && !v.hasVoted && canDelete && (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          disabled={resending.has(v.id)}
-                          onClick={() => handleResend(v)}
-                        >
-                          {resending.has(v.id) ? "Sending…" : "Resend"}
-                        </Button>
-                      )}
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        disabled={v.hasVoted || !canDelete}
-                        title={
-                          v.hasVoted
-                            ? "Cannot remove a voter who has already voted"
-                            : !canDelete
-                            ? "Voter list cannot be modified after election is closed"
-                            : undefined
-                        }
-                        onClick={() => setDeleteTarget(v)}
-                      >
-                        Remove
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          )}
-        </CardContent>
-      </Card>
+          <DialogFooter>
+            <button
+              onClick={() => setShowCsvModal(false)}
+              className="px-4 py-2 rounded-[10px] text-sm transition-colors"
+              style={{ border: "1px solid var(--vh-line-strong)", background: "var(--vh-surface)", color: "var(--vh-ink-soft)" }}
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleImportCSV}
+              disabled={csvPreview.length === 0}
+              className="px-4 py-2 rounded-[10px] text-sm font-medium text-white transition-colors disabled:opacity-50"
+              style={{ background: "var(--vh-accent)" }}
+            >
+              Import {csvPreview.length > 0 ? `${csvPreview.length} voters` : ""}
+            </button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
+      {/* Delete confirm modal */}
       <Dialog open={deleteTarget !== null} onOpenChange={(open) => { if (!open) setDeleteTarget(null) }}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Remove {deleteTarget?.name}?</DialogTitle>
           </DialogHeader>
-          <p className="text-sm text-zinc-600">
+          <p className="text-[13px]" style={{ color: "var(--vh-ink-soft)" }}>
             This will permanently remove <strong>{deleteTarget?.name}</strong> ({deleteTarget?.email}) from the voter list. This cannot be undone.
           </p>
           <DialogFooter>
-            <Button variant="outline" disabled={deleting} onClick={() => setDeleteTarget(null)}>Cancel</Button>
-            <Button variant="destructive" onClick={handleDeleteVoter} disabled={deleting}>
-              {deleting ? "Removing…" : "Remove Voter"}
-            </Button>
+            <button
+              disabled={deleting}
+              onClick={() => setDeleteTarget(null)}
+              className="px-4 py-2 rounded-[10px] text-sm transition-colors"
+              style={{ border: "1px solid var(--vh-line-strong)", background: "var(--vh-surface)", color: "var(--vh-ink-soft)" }}
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleDeleteVoter}
+              disabled={deleting}
+              className="px-4 py-2 rounded-[10px] text-sm font-medium text-white transition-colors disabled:opacity-50"
+              style={{ background: "var(--vh-danger)" }}
+            >
+              {deleting ? "Removing…" : "Remove voter"}
+            </button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

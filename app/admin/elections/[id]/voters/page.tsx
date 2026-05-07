@@ -2,8 +2,6 @@ import { db } from "@/lib/db"
 import { notFound } from "next/navigation"
 import VoterManager from "@/components/admin/VoterManager"
 import Link from "next/link"
-import { buttonVariants } from "@/components/ui/button"
-import { cn } from "@/lib/utils"
 
 export default async function VotersPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
@@ -14,15 +12,36 @@ export default async function VotersPage({ params }: { params: Promise<{ id: str
   if (!election) notFound()
 
   return (
-    <div className="p-8">
-      <div className="flex items-center gap-4 mb-6">
+    <div className="p-8 max-w-[1040px]">
+      <div className="text-[13px] mb-3.5" style={{ color: "var(--vh-muted)" }}>
+        <Link href="/admin/dashboard">Elections</Link>
+        <span className="mx-1.5">›</span>
+        <Link href={`/admin/elections/${id}`}>{election.title}</Link>
+        <span className="mx-1.5">›</span>
+        <span>Voters</span>
+      </div>
+      <div className="flex items-end justify-between mb-5">
         <div>
-          <h1 className="text-2xl font-bold">Voters</h1>
-          <p className="text-zinc-500 text-sm">{election.title}</p>
+          <h1 className="text-[26px] font-semibold mb-1">Voters</h1>
+          <p className="text-[14px]" style={{ color: "var(--vh-muted)" }}>
+            {election.title} · {election.voters.length} voter{election.voters.length !== 1 ? "s" : ""}
+          </p>
         </div>
-        <div className="flex gap-2 ml-auto">
-          <Link href={`/admin/elections/${id}/ballot`} className={cn(buttonVariants({ variant: "outline", size: "sm" }))}>← Ballot</Link>
-          <Link href={`/admin/elections/${id}/results`} className={cn(buttonVariants({ variant: "outline", size: "sm" }))}>Results →</Link>
+        <div className="flex gap-2">
+          <Link
+            href={`/admin/elections/${id}/ballot`}
+            className="px-3.5 py-2 rounded-[10px] text-[13px] transition-colors"
+            style={{ border: "1px solid var(--vh-line-strong)", background: "var(--vh-surface)", color: "var(--vh-ink-soft)" }}
+          >
+            ← Ballot
+          </Link>
+          <Link
+            href={`/admin/elections/${id}/results`}
+            className="px-3.5 py-2 rounded-[10px] text-[13px] transition-colors"
+            style={{ border: "1px solid var(--vh-line-strong)", background: "var(--vh-surface)", color: "var(--vh-ink-soft)" }}
+          >
+            Results →
+          </Link>
         </div>
       </div>
       <VoterManager
