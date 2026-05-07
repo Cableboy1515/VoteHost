@@ -67,6 +67,7 @@ export default function VoterManager({ electionId, electionStatus, initialVoters
   const [deleting, setDeleting] = useState(false)
   const [sortKey, setSortKey] = useState<SortKey>("name")
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc")
+  const [resending, setResending] = useState<Set<string>>(new Set())
   const fileRef = useRef<HTMLInputElement>(null)
 
   function toggleSort(key: SortKey) {
@@ -158,6 +159,28 @@ export default function VoterManager({ electionId, electionStatus, initialVoters
       toast.success(`Sent ${sent} invitation${sent !== 1 ? "s" : ""}${failed ? `, ${failed} failed` : ""}`)
     } else {
       toast.error("Failed to send invitations")
+    }
+  }
+
+  async function handleResend(voter: Voter) {
+    setResending((prev) => new Set(prev).add(voter.id))
+    try {
+      const res = await fetch(`/api/elections/${electionId}/voters/${voter.id}/invite`, { method: "POST" })
+      if (res.status === 429) {
+        toast.error("Slow down — try again in a few minutes")
+      } else if (!res.ok) {
+        const { error } = await res.json().catch(() => ({}))
+        toast.error(error ?? "Failed to resend invitation")
+      } else {
+        toast.success(`Invitation resent to ${voter.email}`)
+        refreshVoters()
+      }
+    } finally {
+      setResending((prev) => {
+        const next = new Set(prev)
+        next.delete(voter.id)
+        return next
+      })
     }
   }
 
@@ -270,7 +293,17 @@ export default function VoterManager({ electionId, electionStatus, initialVoters
                         {v.hasVoted ? "Voted" : "Pending"}
                       </Badge>
                     </TableCell>
-                    <TableCell className="text-right">
+                    <TableCell className="text-right space-x-1">
+                      {v.invitedAt && !v.hasVoted && canDelete && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          disabled={resending.has(v.id)}
+                          onClick={() => handleResend(v)}
+                        >
+                          {resending.has(v.id) ? "Sending…" : "Resend"}
+                        </Button>
+                      )}
                       <Button
                         variant="ghost"
                         size="sm"
