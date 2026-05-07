@@ -25,6 +25,7 @@ interface QuestionDraft {
   order: number
   required: boolean
   maxSelections?: number
+  randomizeOptions?: boolean
   options: OptionDraft[]
 }
 
@@ -72,6 +73,7 @@ export default function BallotBuilder({ electionId, electionStatus, initialQuest
         type: "SINGLE_CHOICE",
         order: qs.length,
         required: true,
+        randomizeOptions: false,
         options: [
           { text: "", order: 0 },
           { text: "", order: 1 },
@@ -282,6 +284,22 @@ export default function BallotBuilder({ electionId, electionStatus, initialQuest
                 >
                   {q.required ? "Required" : "Optional"}
                 </button>
+                {(q.type === "SINGLE_CHOICE" || q.type === "MULTIPLE_CHOICE") && (
+                  <button
+                    type="button"
+                    disabled={locked}
+                    onClick={() => !locked && updateQuestion(qIndex, { randomizeOptions: !q.randomizeOptions })}
+                    className="px-2.5 py-1.5 rounded-[8px] text-[12.5px] transition-colors"
+                    style={{
+                      border: `1px solid ${q.randomizeOptions ? "var(--vh-success)" : "var(--vh-line-strong)"}`,
+                      background: q.randomizeOptions ? "var(--vh-success-soft)" : "var(--vh-surface)",
+                      color: q.randomizeOptions ? "oklch(0.35 0.10 155)" : "var(--vh-ink-soft)",
+                      cursor: locked ? "not-allowed" : "pointer",
+                    }}
+                  >
+                    Randomize order
+                  </button>
+                )}
               </div>
 
               {/* Options */}
@@ -296,12 +314,6 @@ export default function BallotBuilder({ electionId, electionStatus, initialQuest
                           className="flex gap-2 items-center rounded-[10px] px-2 py-1.5"
                           style={{ background: "var(--vh-surface-2)" }}
                         >
-                          <span
-                            className="text-[14px] pl-1.5 select-none"
-                            style={{ color: "var(--vh-muted)", cursor: locked ? "default" : "grab" }}
-                          >
-                            ⋮⋮
-                          </span>
                           <input
                             placeholder={`Option ${oIndex + 1}`}
                             value={o.text}

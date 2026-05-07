@@ -51,8 +51,9 @@ model Question {
   description   String?
   type       QuestionType
   order         Int
-  required      Boolean      @default(true)
-  maxSelections Int?
+  required         Boolean      @default(true)
+  maxSelections    Int?
+  randomizeOptions Boolean      @default(false)
 
   election Election @relation(fields: [electionId], references: [id], onDelete: Cascade)
   options  Option[]

@@ -1,11 +1,32 @@
 "use client"
 
-import { useState, useRef } from "react"
+import { useState, useRef, useMemo } from "react"
 import { useRouter } from "next/navigation"
 import { BrandMark } from "@/components/ui/brand-mark"
 import { OptionCard } from "@/components/ui/option-card"
 import { Textarea } from "@/components/ui/textarea"
 import { cn } from "@/lib/utils"
+
+// FNV-1a 32-bit hash → mulberry32 PRNG → Fisher-Yates stable shuffle.
+// Used for per-voter deterministic option ordering to eliminate primacy bias.
+function fnv1a32(str: string): number {
+  let h = 2166136261
+  for (let i = 0; i < str.length; i++) h = Math.imul(h ^ str.charCodeAt(i), 16777619)
+  return h >>> 0
+}
+
+function seededShuffle<T>(arr: T[], seed: string): T[] {
+  const copy = [...arr]
+  let a = fnv1a32(seed)
+  for (let i = copy.length - 1; i > 0; i--) {
+    a |= 0; a = a + 0x6D2B79F5 | 0
+    let t = Math.imul(a ^ a >>> 15, 1 | a)
+    t = (t + Math.imul(t ^ t >>> 7, 61 | t) ^ t) >>> 0
+    const j = t % (i + 1)
+    ;[copy[i], copy[j]] = [copy[j], copy[i]]
+  }
+  return copy
+}
 
 interface Option {
   id: string
@@ -22,6 +43,7 @@ interface Question {
   type: "SINGLE_CHOICE" | "MULTIPLE_CHOICE" | "RANKED_CHOICE" | "WRITE_IN"
   required: boolean
   maxSelections?: number | null
+  randomizeOptions?: boolean
   options: Option[]
 }
 
@@ -46,6 +68,19 @@ export default function BallotForm({ token, electionTitle, electionDescription, 
   const [error, setError] = useState("")
 
   const questionRefs = useRef<Record<string, HTMLElement | null>>({})
+
+  // Per-voter stable option order — same token+question → same shuffle on every render.
+  const shuffledOptionsMap = useMemo(() => {
+    const map: Record<string, Option[]> = {}
+    for (const q of questions) {
+      if (q.randomizeOptions && (q.type === "SINGLE_CHOICE" || q.type === "MULTIPLE_CHOICE")) {
+        map[q.id] = seededShuffle(q.options, `${token}:${q.id}`)
+      } else {
+        map[q.id] = q.options
+      }
+    }
+    return map
+  }, [token, questions])
 
   // ── Ranked choice handlers ──────────────────────────────────────────────
 
@@ -169,7 +204,7 @@ export default function BallotForm({ token, electionTitle, electionDescription, 
     if (q.type === "SINGLE_CHOICE") {
       return (
         <div className="space-y-2.5">
-          {q.options.map((o) => (
+          {shuffledOptionsMap[q.id].map((o) => (
             <OptionCard
               key={o.id}
               name={o.text}
@@ -190,7 +225,7 @@ export default function BallotForm({ token, electionTitle, electionDescription, 
       const atLimit = !!q.maxSelections && selected.length >= q.maxSelections
       return (
         <div className="space-y-2.5">
-          {q.options.map((o) => {
+          {shuffledOptionsMap[q.id].map((o) => {
             const isChecked = selected.includes(o.id)
             return (
               <OptionCard

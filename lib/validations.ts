@@ -39,6 +39,7 @@ export const QuestionSchema = z.object({
   order: z.number().int().min(0),
   required: z.boolean().default(true),
   maxSelections: z.number().int().positive().nullish(),
+  randomizeOptions: z.boolean().default(false),
 })
 
 const urlField = z.string().regex(/^https?:\/\//, "URL must use http:// or https://")
