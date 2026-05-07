@@ -63,6 +63,8 @@ async function getAllEmailConfig(): Promise<EmailConfig> {
   }
 }
 
+export type EmailMode = "invite" | "reminder-early" | "reminder-final"
+
 type Payload = {
   voterName: string
   voterEmail: string
@@ -83,20 +85,67 @@ function escapeHtml(str: string): string {
     .replace(/'/g, "&#39;")
 }
 
-function buildHtml(payload: Payload) {
+function buildSubject(mode: EmailMode, customSubject: string | null | undefined, electionTitle: string): string {
+  if (mode === "invite") {
+    return customSubject || `You're invited to vote: ${electionTitle}`
+  }
+  if (mode === "reminder-early") {
+    return customSubject
+      ? `Reminder: ${customSubject}`
+      : `Reminder — you haven't voted yet: ${electionTitle}`
+  }
+  // reminder-final
+  return customSubject
+    ? `Closing in 24 hours: ${customSubject}`
+    : `Closing in 24 hours: ${electionTitle}`
+}
+
+type ModeConfig = {
+  heading: string
+  intro: string
+  buttonText: string
+  buttonColor: string
+}
+
+function getModeConfig(mode: EmailMode, electionTitle: string): ModeConfig {
+  const title = escapeHtml(electionTitle)
+  if (mode === "reminder-early") {
+    return {
+      heading: "Reminder: you haven't voted yet",
+      intro: `We noticed you haven't cast your ballot for <strong>${title}</strong> yet. Don't miss your chance to have your say.`,
+      buttonText: "Vote Now",
+      buttonColor: "#111",
+    }
+  }
+  if (mode === "reminder-final") {
+    return {
+      heading: "Voting closes in 24 hours",
+      intro: `<strong>${title}</strong> is closing soon. This is your last chance to vote.`,
+      buttonText: "Vote before it closes",
+      buttonColor: "#dc2626",
+    }
+  }
+  return {
+    heading: "You're invited to vote",
+    intro: `You've been invited to participate in the election: <strong>${title}</strong>`,
+    buttonText: "Vote Now",
+    buttonColor: "#111",
+  }
+}
+
+function buildHtml(payload: Payload, mode: EmailMode) {
+  const cfg = getModeConfig(mode, payload.electionTitle)
   return `
     <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 24px;">
       ${payload.emailLogoUrl ? `<img src="${escapeHtml(payload.emailLogoUrl)}" alt="" style="max-width: 100%; margin-bottom: 24px; display: block;" />` : ""}
-      <h1 style="font-size: 24px; margin-bottom: 8px;">You're invited to vote</h1>
+      <h1 style="font-size: 24px; margin-bottom: 8px;">${cfg.heading}</h1>
       <p style="color: #555; margin-bottom: 24px;">Hi ${escapeHtml(payload.voterName)},</p>
-      <p style="margin-bottom: 24px;">
-        You've been invited to participate in the election: <strong>${escapeHtml(payload.electionTitle)}</strong>
-      </p>
+      <p style="margin-bottom: 24px;">${cfg.intro}</p>
       ${payload.emailMessage ? `<p style="margin-bottom: 24px;">${escapeHtml(payload.emailMessage)}</p>` : ""}
       <a href="${escapeHtml(payload.magicLink)}"
-         style="display: inline-block; background: #111; color: #fff; padding: 12px 24px;
+         style="display: inline-block; background: ${cfg.buttonColor}; color: #fff; padding: 12px 24px;
                 border-radius: 6px; text-decoration: none; font-weight: 600;">
-        Vote Now
+        ${cfg.buttonText}
       </a>
       <p style="color: #888; font-size: 12px; margin-top: 32px;">
         This link is unique to you. Do not share it with others. It can only be used once.
@@ -106,14 +155,14 @@ function buildHtml(payload: Payload) {
   `
 }
 
-async function sendViaResend(config: ResendConfig, payload: Payload): Promise<{ error: string | null }> {
+async function sendViaResend(config: ResendConfig, payload: Payload, mode: EmailMode): Promise<{ error: string | null }> {
   try {
     const resend = new Resend(config.apiKey)
     const { error } = await resend.emails.send({
       from: `${config.fromName} <${config.fromAddress}>`,
       to: payload.voterEmail,
-      subject: payload.emailSubject || `You're invited to vote: ${payload.electionTitle}`,
-      html: buildHtml(payload),
+      subject: buildSubject(mode, payload.emailSubject, payload.electionTitle),
+      html: buildHtml(payload, mode),
     })
     return { error: error ? String(error) : null }
   } catch (err) {
@@ -121,7 +170,7 @@ async function sendViaResend(config: ResendConfig, payload: Payload): Promise<{ 
   }
 }
 
-async function sendViaSmtp(config: SmtpConfig, payload: Payload): Promise<{ error: string | null }> {
+async function sendViaSmtp(config: SmtpConfig, payload: Payload, mode: EmailMode): Promise<{ error: string | null }> {
   try {
     const transporter = nodemailer.createTransport({
       host: config.host,
@@ -132,8 +181,8 @@ async function sendViaSmtp(config: SmtpConfig, payload: Payload): Promise<{ erro
     await transporter.sendMail({
       from: `${config.fromName} <${config.fromAddress}>`,
       to: payload.voterEmail,
-      subject: payload.emailSubject || `You're invited to vote: ${payload.electionTitle}`,
-      html: buildHtml(payload),
+      subject: buildSubject(mode, payload.emailSubject, payload.electionTitle),
+      html: buildHtml(payload, mode),
     })
     return { error: null }
   } catch (err) {
@@ -141,8 +190,8 @@ async function sendViaSmtp(config: SmtpConfig, payload: Payload): Promise<{ erro
   }
 }
 
-export async function sendBallotInvitation(payload: Payload): Promise<{ error: string | null }> {
+export async function sendBallotInvitation(payload: Payload, mode: EmailMode = "invite"): Promise<{ error: string | null }> {
   const config = await getAllEmailConfig()
-  if (config.provider === "smtp") return sendViaSmtp(config, payload)
-  return sendViaResend(config, payload)
+  if (config.provider === "smtp") return sendViaSmtp(config, payload, mode)
+  return sendViaResend(config, payload, mode)
 }

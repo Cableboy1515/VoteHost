@@ -36,6 +36,8 @@ model Election {
   emailLogoUrl  String?
   emailFooter   String?
 
+  firstReminderDays Int?
+
   questions Question[]
   voters    Voter[]
   votes     Vote[]
@@ -74,14 +76,16 @@ model Option {
 }
 
 model Voter {
-  id         String    @id @default(cuid())
-  electionId String
-  name       String
-  email      String
-  hasVoted   Boolean   @default(false)
-  token      String    @unique @default(uuid())
-  invitedAt  DateTime?
-  votedAt    DateTime?
+  id                   String    @id @default(cuid())
+  electionId           String
+  name                 String
+  email                String
+  hasVoted             Boolean   @default(false)
+  token                String    @unique @default(uuid())
+  invitedAt            DateTime?
+  votedAt              DateTime?
+  firstReminderSentAt  DateTime?
+  secondReminderSentAt DateTime?
 
   election Election @relation(fields: [electionId], references: [id], onDelete: Cascade)
 

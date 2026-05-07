@@ -1,6 +1,6 @@
 import { z } from "zod"
 
-export const ElectionSchema = z.object({
+export const ElectionBaseSchema = z.object({
   title: z.string().min(1, "Title is required"),
   description: z.string().optional(),
   startsAt: z.string().datetime().optional().nullable(),
@@ -11,7 +11,26 @@ export const ElectionSchema = z.object({
   emailMessage: z.string().optional().nullable(),
   emailLogoUrl: z.string().regex(/^https?:\/\//, "Logo URL must use http:// or https://").optional().nullable(),
   emailFooter: z.string().optional().nullable(),
+  firstReminderDays: z.number().int().positive().nullish(),
 })
+
+export const ElectionSchema = ElectionBaseSchema.refine(
+  (data) => {
+    if (data.firstReminderDays == null) return true
+    if (!data.endsAt) return false
+    if (data.startsAt) {
+      const start = new Date(data.startsAt).getTime()
+      const end = new Date(data.endsAt).getTime()
+      const offsetMs = data.firstReminderDays * 24 * 60 * 60 * 1000
+      if (end - start <= offsetMs) return false
+    }
+    return true
+  },
+  {
+    message: "First reminder requires an end date and must be less than the election duration",
+    path: ["firstReminderDays"],
+  }
+)
 
 export const QuestionSchema = z.object({
   text: z.string().min(1, "Question text is required"),
@@ -78,7 +97,7 @@ export const UpdateUserSchema = z.object({
   password: z.string().min(8, "Password must be at least 8 characters").optional(),
 })
 
-export type ElectionInput = z.infer<typeof ElectionSchema>
+export type ElectionInput = z.infer<typeof ElectionBaseSchema>
 export type QuestionInput = z.infer<typeof QuestionSchema>
 export type OptionInput = z.infer<typeof OptionSchema>
 export type VoterInput = z.infer<typeof VoterSchema>

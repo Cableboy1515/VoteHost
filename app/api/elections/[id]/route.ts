@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server"
 import { getSession, requireRole } from "@/lib/auth"
 import { db } from "@/lib/db"
-import { ElectionSchema } from "@/lib/validations"
+import { ElectionBaseSchema, ElectionSchema } from "@/lib/validations"
 
 export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
   const session = await getSession()
@@ -27,7 +27,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
 
   const { id } = await params
   const body = await req.json()
-  const parsed = ElectionSchema.partial().safeParse(body)
+  const parsed = ElectionBaseSchema.partial().safeParse(body)
   if (!parsed.success) return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 })
 
   const election = await db.election.update({ where: { id }, data: parsed.data })

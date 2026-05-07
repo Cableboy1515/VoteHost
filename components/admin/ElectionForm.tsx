@@ -21,6 +21,7 @@ interface Props {
     emailMessage?: string | null
     emailLogoUrl?: string | null
     emailFooter?: string | null
+    firstReminderDays?: number | null
   }
 }
 
@@ -68,6 +69,9 @@ export default function ElectionForm({ electionId, initialValues }: Props) {
   const [emailMessage, setEmailMessage] = useState(initialValues?.emailMessage ?? "")
   const [emailLogoUrl, setEmailLogoUrl] = useState(initialValues?.emailLogoUrl ?? "")
   const [emailFooter, setEmailFooter] = useState(initialValues?.emailFooter ?? "")
+  const [firstReminderDays, setFirstReminderDays] = useState(
+    initialValues?.firstReminderDays != null ? String(initialValues.firstReminderDays) : ""
+  )
   const [showPreview, setShowPreview] = useState(false)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState("")
@@ -89,6 +93,7 @@ export default function ElectionForm({ electionId, initialValues }: Props) {
       emailMessage: emailMessage || null,
       emailLogoUrl: emailLogoUrl || null,
       emailFooter: emailFooter || null,
+      firstReminderDays: firstReminderDays !== "" ? parseInt(firstReminderDays, 10) : null,
     }
 
     const url = electionId ? `/api/elections/${electionId}` : "/api/elections"
@@ -167,6 +172,24 @@ export default function ElectionForm({ electionId, initialValues }: Props) {
                 />
               </div>
             </div>
+            <div className="space-y-3 pt-2">
+              <p className="text-sm font-medium">Voter reminders <span className="text-zinc-400 font-normal">(optional)</span></p>
+              <div className="space-y-1">
+                <Label htmlFor="firstReminderDays">First reminder (days before close)</Label>
+                <Input
+                  id="firstReminderDays"
+                  type="number"
+                  min={1}
+                  placeholder="Leave blank for no early reminder"
+                  value={firstReminderDays}
+                  onChange={(e) => setFirstReminderDays(e.target.value)}
+                />
+                <p className="text-xs text-zinc-400">
+                  Sends a &quot;you haven&apos;t voted yet&quot; email to non-voters this many days before the election ends. A second reminder always fires automatically 24 hours before close. Requires an end date.
+                </p>
+              </div>
+            </div>
+
             <div className="space-y-3 pt-2">
               <p className="text-sm font-medium">Email customization <span className="text-zinc-400 font-normal">(optional)</span></p>
               <div className="space-y-1">
