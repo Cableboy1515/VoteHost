@@ -115,6 +115,8 @@ model AdminUser {
   passwordHash       String
   role               AdminRole @default(ORGANIZER)
   mustChangePassword Boolean   @default(false)
+  tokenVersion       Int       @default(0)
+  passwordChangedAt  DateTime?
   createdAt          DateTime  @default(now())
 }
 

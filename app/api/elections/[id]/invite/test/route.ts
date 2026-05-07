@@ -2,10 +2,14 @@ import { NextResponse } from "next/server"
 import { requireRole } from "@/lib/auth"
 import { db } from "@/lib/db"
 import { sendBallotInvitation } from "@/lib/email"
+import { rateLimit, rateLimitResponse } from "@/lib/rateLimit"
 
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const session = await requireRole("ORGANIZER")
   if (!session) return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+
+  const rl = rateLimit(`invite-test:${session.sub}`, { limit: 5, windowMs: 3_600_000 })
+  if (!rl.ok) return rateLimitResponse(rl.resetAt)
 
   const { id: electionId } = await params
   const body = await req.json().catch(() => ({}))
@@ -29,6 +33,9 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     emailFooter: election.emailFooter,
   })
 
-  if (error) return NextResponse.json({ error }, { status: 500 })
+  if (error) {
+    console.error("[invite/test]", error)
+    return NextResponse.json({ error: "Failed to send test email — check email settings" }, { status: 500 })
+  }
   return NextResponse.json({ sent: true })
 }

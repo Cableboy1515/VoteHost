@@ -2,9 +2,10 @@ import { NextResponse } from "next/server"
 import type { NextRequest } from "next/server"
 import { jwtVerify } from "jose"
 
-const SECRET = new TextEncoder().encode(
-  process.env.NEXTAUTH_SECRET ?? "fallback-dev-secret-change-in-production"
-)
+if (!process.env.NEXTAUTH_SECRET) {
+  throw new Error("NEXTAUTH_SECRET environment variable is required — set it in .env")
+}
+const SECRET = new TextEncoder().encode(process.env.NEXTAUTH_SECRET)
 const COOKIE = "vh_session"
 
 const BYPASS_PATHS = ["/admin/login", "/admin/setup", "/admin/change-password"]

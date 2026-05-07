@@ -9,7 +9,7 @@ export const ElectionSchema = z.object({
   archived: z.boolean().optional(),
   emailSubject: z.string().optional().nullable(),
   emailMessage: z.string().optional().nullable(),
-  emailLogoUrl: z.string().url().optional().nullable(),
+  emailLogoUrl: z.string().regex(/^https?:\/\//, "Logo URL must use http:// or https://").optional().nullable(),
   emailFooter: z.string().optional().nullable(),
 })
 
@@ -31,7 +31,7 @@ export const VoterSchema = z.object({
   email: z.string().email("Invalid email address"),
 })
 
-export const VotersSchema = z.array(VoterSchema)
+export const VotersSchema = z.array(VoterSchema).max(5000, "Cannot import more than 5000 voters at once")
 
 export const BallotAnswerSchema = z.discriminatedUnion("type", [
   z.object({
@@ -52,7 +52,7 @@ export const BallotAnswerSchema = z.discriminatedUnion("type", [
   z.object({
     questionId: z.string(),
     type: z.literal("WRITE_IN"),
-    text: z.string().min(1),
+    text: z.string().min(1).max(500),
   }),
 ])
 

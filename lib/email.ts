@@ -74,17 +74,26 @@ type Payload = {
   emailFooter?: string | null
 }
 
+function escapeHtml(str: string): string {
+  return str
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;")
+}
+
 function buildHtml(payload: Payload) {
   return `
     <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 24px;">
-      ${payload.emailLogoUrl ? `<img src="${payload.emailLogoUrl}" alt="" style="max-width: 100%; margin-bottom: 24px; display: block;" />` : ""}
+      ${payload.emailLogoUrl ? `<img src="${escapeHtml(payload.emailLogoUrl)}" alt="" style="max-width: 100%; margin-bottom: 24px; display: block;" />` : ""}
       <h1 style="font-size: 24px; margin-bottom: 8px;">You're invited to vote</h1>
-      <p style="color: #555; margin-bottom: 24px;">Hi ${payload.voterName},</p>
+      <p style="color: #555; margin-bottom: 24px;">Hi ${escapeHtml(payload.voterName)},</p>
       <p style="margin-bottom: 24px;">
-        You've been invited to participate in the election: <strong>${payload.electionTitle}</strong>
+        You've been invited to participate in the election: <strong>${escapeHtml(payload.electionTitle)}</strong>
       </p>
-      ${payload.emailMessage ? `<p style="margin-bottom: 24px;">${payload.emailMessage}</p>` : ""}
-      <a href="${payload.magicLink}"
+      ${payload.emailMessage ? `<p style="margin-bottom: 24px;">${escapeHtml(payload.emailMessage)}</p>` : ""}
+      <a href="${escapeHtml(payload.magicLink)}"
          style="display: inline-block; background: #111; color: #fff; padding: 12px 24px;
                 border-radius: 6px; text-decoration: none; font-weight: 600;">
         Vote Now
@@ -92,7 +101,7 @@ function buildHtml(payload: Payload) {
       <p style="color: #888; font-size: 12px; margin-top: 32px;">
         This link is unique to you. Do not share it with others. It can only be used once.
       </p>
-      ${payload.emailFooter ? `<p style="color: #888; font-size: 12px; margin-top: 8px;">${payload.emailFooter}</p>` : ""}
+      ${payload.emailFooter ? `<p style="color: #888; font-size: 12px; margin-top: 8px;">${escapeHtml(payload.emailFooter)}</p>` : ""}
     </div>
   `
 }

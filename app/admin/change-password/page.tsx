@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button"
 
 export default function ChangePasswordPage() {
   const router = useRouter()
+  const [currentPassword, setCurrentPassword] = useState("")
   const [newPassword, setNewPassword] = useState("")
   const [confirmPassword, setConfirmPassword] = useState("")
   const [error, setError] = useState("")
@@ -17,7 +18,7 @@ export default function ChangePasswordPage() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     if (newPassword !== confirmPassword) {
-      setError("Passwords do not match")
+      setError("New passwords do not match")
       return
     }
     setLoading(true)
@@ -26,7 +27,7 @@ export default function ChangePasswordPage() {
     const res = await fetch("/api/auth/change-password", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ newPassword, confirmPassword }),
+      body: JSON.stringify({ currentPassword, newPassword, confirmPassword }),
     })
 
     setLoading(false)
@@ -48,6 +49,17 @@ export default function ChangePasswordPage() {
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-1">
+              <Label htmlFor="currentPassword">Current password</Label>
+              <Input
+                id="currentPassword"
+                type="password"
+                value={currentPassword}
+                onChange={(e) => setCurrentPassword(e.target.value)}
+                required
+                autoFocus
+              />
+            </div>
+            <div className="space-y-1">
               <Label htmlFor="newPassword">New password</Label>
               <Input
                 id="newPassword"
@@ -56,11 +68,10 @@ export default function ChangePasswordPage() {
                 onChange={(e) => setNewPassword(e.target.value)}
                 required
                 minLength={8}
-                autoFocus
               />
             </div>
             <div className="space-y-1">
-              <Label htmlFor="confirmPassword">Confirm password</Label>
+              <Label htmlFor="confirmPassword">Confirm new password</Label>
               <Input
                 id="confirmPassword"
                 type="password"

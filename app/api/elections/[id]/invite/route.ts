@@ -2,12 +2,17 @@ import { NextResponse } from "next/server"
 import { requireRole } from "@/lib/auth"
 import { db } from "@/lib/db"
 import { sendBallotInvitation } from "@/lib/email"
+import { rateLimit, rateLimitResponse } from "@/lib/rateLimit"
 
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const session = await requireRole("ORGANIZER")
   if (!session) return NextResponse.json({ error: "Forbidden" }, { status: 403 })
 
   const { id: electionId } = await params
+
+  const rl = rateLimit(`invite:election:${electionId}`, { limit: 1, windowMs: 60_000 })
+  if (!rl.ok) return rateLimitResponse(rl.resetAt)
+
   const body = await req.json().catch(() => ({}))
   const voterIds: string[] | undefined = body.voterIds
 

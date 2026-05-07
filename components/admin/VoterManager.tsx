@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import {
-  Dialog, DialogClose, DialogContent, DialogFooter, DialogHeader, DialogTitle,
+  Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog"
 import { Toaster } from "@/components/ui/sonner"
 import { toast } from "sonner"
@@ -304,9 +304,7 @@ export default function VoterManager({ electionId, electionStatus, initialVoters
             This will permanently remove <strong>{deleteTarget?.name}</strong> ({deleteTarget?.email}) from the voter list. This cannot be undone.
           </p>
           <DialogFooter>
-            <DialogClose asChild>
-              <Button variant="outline" disabled={deleting}>Cancel</Button>
-            </DialogClose>
+            <Button variant="outline" disabled={deleting} onClick={() => setDeleteTarget(null)}>Cancel</Button>
             <Button variant="destructive" onClick={handleDeleteVoter} disabled={deleting}>
               {deleting ? "Removing…" : "Remove Voter"}
             </Button>
