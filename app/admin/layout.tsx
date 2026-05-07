@@ -4,12 +4,13 @@ import { useEffect, useState } from "react"
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
 import { BrandMark } from "@/components/ui/brand-mark"
-import { LayoutDashboard, Archive, Users, Settings, Plus } from "lucide-react"
+import { LayoutDashboard, Vote, Archive, Users, Settings, Plus } from "lucide-react"
 
 const BARE_PATHS = ["/admin/login", "/admin/setup", "/admin/change-password"]
 
 const NAV_ITEMS = [
-  { label: "Dashboard", href: "/admin/dashboard", icon: LayoutDashboard, match: (p: string) => p === "/admin/dashboard" || p.startsWith("/admin/elections") },
+  { label: "Dashboard", href: "/admin/dashboard", icon: LayoutDashboard, match: (p: string) => p === "/admin/dashboard" },
+  { label: "Elections", href: "/admin/elections", icon: Vote, match: (p: string) => p.startsWith("/admin/elections") },
   { label: "Archive", href: "/admin/archive", icon: Archive, match: (p: string) => p.startsWith("/admin/archive") },
 ]
 

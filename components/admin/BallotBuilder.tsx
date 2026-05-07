@@ -1,6 +1,7 @@
 "use client"
 
 import { useState } from "react"
+import { useRouter } from "next/navigation"
 import { Textarea } from "@/components/ui/textarea"
 import { Toaster } from "@/components/ui/sonner"
 import { toast } from "sonner"
@@ -57,6 +58,7 @@ function onFocusOut(e: React.FocusEvent<HTMLInputElement | HTMLTextAreaElement>)
 }
 
 export default function BallotBuilder({ electionId, electionStatus, initialQuestions }: Props) {
+  const router = useRouter()
   const [questions, setQuestions] = useState<QuestionDraft[]>(initialQuestions)
   const [saving, setSaving] = useState(false)
   const [expandedDetails, setExpandedDetails] = useState<Set<string>>(new Set())
@@ -133,7 +135,7 @@ export default function BallotBuilder({ electionId, electionStatus, initialQuest
     })
   }
 
-  async function handleSave() {
+  async function handleSave(andContinue = false) {
     setSaving(true)
     const res = await fetch(`/api/elections/${electionId}/questions`, {
       method: "PUT",
@@ -142,7 +144,11 @@ export default function BallotBuilder({ electionId, electionStatus, initialQuest
     })
     setSaving(false)
     if (res.ok) {
-      toast.success("Ballot saved")
+      if (andContinue) {
+        router.push(`/admin/elections/${electionId}/voters`)
+      } else {
+        toast.success("Ballot saved")
+      }
     } else {
       toast.error("Failed to save ballot")
     }
@@ -477,14 +483,25 @@ export default function BallotBuilder({ electionId, electionStatus, initialQuest
           <div className="flex gap-2.5 pt-1">
             <button
               type="button"
-              onClick={handleSave}
+              onClick={() => handleSave(false)}
+              disabled={saving || questions.length === 0}
+              className="px-5 py-2.5 rounded-[10px] text-[14px] font-medium transition-colors disabled:opacity-50"
+              style={{ background: "var(--vh-surface)", color: "var(--vh-ink-soft)", border: "1px solid var(--vh-line-strong)" }}
+              onMouseEnter={(e) => { if (!saving) (e.currentTarget as HTMLElement).style.background = "var(--vh-surface-2)" }}
+              onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "var(--vh-surface)" }}
+            >
+              {saving ? "Saving…" : "Save ballot"}
+            </button>
+            <button
+              type="button"
+              onClick={() => handleSave(true)}
               disabled={saving || questions.length === 0}
               className="px-5 py-2.5 rounded-[10px] text-[14px] font-medium text-white transition-colors disabled:opacity-50"
               style={{ background: "var(--vh-accent)" }}
               onMouseEnter={(e) => { if (!saving) (e.currentTarget as HTMLElement).style.background = "var(--vh-accent-strong)" }}
               onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "var(--vh-accent)" }}
             >
-              {saving ? "Saving…" : "Save ballot"}
+              {saving ? "Saving…" : "Save & continue to voters →"}
             </button>
           </div>
         </>
