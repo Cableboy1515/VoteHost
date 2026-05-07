@@ -7,6 +7,9 @@ import { Label } from "@/components/ui/label"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import {
+  Dialog, DialogClose, DialogContent, DialogFooter, DialogHeader, DialogTitle,
+} from "@/components/ui/dialog"
 import { Toaster } from "@/components/ui/sonner"
 import { toast } from "sonner"
 import Papa from "papaparse"
@@ -60,6 +63,8 @@ export default function VoterManager({ electionId, electionStatus, initialVoters
   const [email, setEmail] = useState("")
   const [csvPreview, setCsvPreview] = useState<{ name: string; email: string }[]>([])
   const [sending, setSending] = useState(false)
+  const [deleteTarget, setDeleteTarget] = useState<Voter | null>(null)
+  const [deleting, setDeleting] = useState(false)
   const [sortKey, setSortKey] = useState<SortKey>("name")
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc")
   const fileRef = useRef<HTMLInputElement>(null)
@@ -156,6 +161,22 @@ export default function VoterManager({ electionId, electionStatus, initialVoters
     }
   }
 
+  async function handleDeleteVoter() {
+    if (!deleteTarget) return
+    setDeleting(true)
+    const res = await fetch(`/api/elections/${electionId}/voters/${deleteTarget.id}`, { method: "DELETE" })
+    setDeleting(false)
+    if (res.ok) {
+      setDeleteTarget(null)
+      refreshVoters()
+      toast.success(`${deleteTarget.name} removed`)
+    } else {
+      const { error } = await res.json().catch(() => ({}))
+      toast.error(error ?? "Failed to remove voter")
+    }
+  }
+
+  const canDelete = electionStatus !== "CLOSED" && electionStatus !== "COMPLETED"
   const uninvited = voters.filter((v) => !v.invitedAt).length
 
   return (
@@ -231,6 +252,7 @@ export default function VoterManager({ electionId, electionStatus, initialVoters
                   <SortHeader label="Email"   col="email"   sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} />
                   <SortHeader label="Invited" col="invited" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} />
                   <SortHeader label="Voted"   col="voted"   sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} />
+                  <TableHead />
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -248,6 +270,23 @@ export default function VoterManager({ electionId, electionStatus, initialVoters
                         {v.hasVoted ? "Voted" : "Pending"}
                       </Badge>
                     </TableCell>
+                    <TableCell className="text-right">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        disabled={v.hasVoted || !canDelete}
+                        title={
+                          v.hasVoted
+                            ? "Cannot remove a voter who has already voted"
+                            : !canDelete
+                            ? "Voter list cannot be modified after election is closed"
+                            : undefined
+                        }
+                        onClick={() => setDeleteTarget(v)}
+                      >
+                        Remove
+                      </Button>
+                    </TableCell>
                   </TableRow>
                 ))}
               </TableBody>
@@ -255,6 +294,25 @@ export default function VoterManager({ electionId, electionStatus, initialVoters
           )}
         </CardContent>
       </Card>
+
+      <Dialog open={deleteTarget !== null} onOpenChange={(open) => { if (!open) setDeleteTarget(null) }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Remove {deleteTarget?.name}?</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-zinc-600">
+            This will permanently remove <strong>{deleteTarget?.name}</strong> ({deleteTarget?.email}) from the voter list. This cannot be undone.
+          </p>
+          <DialogFooter>
+            <DialogClose asChild>
+              <Button variant="outline" disabled={deleting}>Cancel</Button>
+            </DialogClose>
+            <Button variant="destructive" onClick={handleDeleteVoter} disabled={deleting}>
+              {deleting ? "Removing…" : "Remove Voter"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
