@@ -20,11 +20,7 @@ export async function POST(req: Request) {
 
   const elections = await db.election.findMany({
     where: { status: "ACTIVE", endsAt: { not: null } },
-    include: {
-      voters: {
-        where: { hasVoted: false, invitedAt: { not: null } },
-      },
-    },
+    include: { voters: true },
   })
 
   let totalSent = 0
@@ -44,8 +40,15 @@ export async function POST(req: Request) {
 
     const mode = sendingFinal ? "reminder-final" : "reminder-early"
 
-    const eligible = election.voters.filter((v) =>
-      sendingFinal ? v.secondReminderSentAt == null : v.firstReminderSentAt == null
+    const totalVoters = election.voters.length
+    const votedCount = election.voters.filter((v) => v.hasVoted).length
+    const daysLeft = Math.ceil(msUntilEnd / ONE_DAY_MS)
+
+    const eligible = election.voters.filter(
+      (v) =>
+        !v.hasVoted &&
+        v.invitedAt != null &&
+        (sendingFinal ? v.secondReminderSentAt == null : v.firstReminderSentAt == null)
     )
 
     for (const voter of eligible) {
@@ -59,6 +62,10 @@ export async function POST(req: Request) {
           emailMessage: election.emailMessage,
           emailLogoUrl: election.emailLogoUrl,
           emailFooter: election.emailFooter,
+          endsAt: election.endsAt!.toISOString(),
+          daysLeft,
+          totalVoters,
+          votedCount,
         },
         mode
       )

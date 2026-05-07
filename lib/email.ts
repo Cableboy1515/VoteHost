@@ -65,7 +65,7 @@ async function getAllEmailConfig(): Promise<EmailConfig> {
 
 export type EmailMode = "invite" | "reminder-early" | "reminder-final"
 
-type Payload = {
+export type Payload = {
   voterName: string
   voterEmail: string
   electionTitle: string
@@ -74,6 +74,14 @@ type Payload = {
   emailMessage?: string | null
   emailLogoUrl?: string | null
   emailFooter?: string | null
+  /** ISO string for the election close date, used in invite callout + reminder pill */
+  endsAt?: string | null
+  /** Days remaining for reminder-early pill (e.g. 3) */
+  daysLeft?: number | null
+  /** Current voter count who have voted, for reminder turnout block */
+  votedCount?: number | null
+  /** Total voter count, for reminder turnout block */
+  totalVoters?: number | null
 }
 
 function escapeHtml(str: string): string {
@@ -85,6 +93,12 @@ function escapeHtml(str: string): string {
     .replace(/'/g, "&#39;")
 }
 
+function formatCloseDate(iso: string): string {
+  return new Date(iso).toLocaleDateString("en-US", {
+    month: "long", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit",
+  })
+}
+
 function buildSubject(mode: EmailMode, customSubject: string | null | undefined, electionTitle: string): string {
   if (mode === "invite") {
     return customSubject || `You're invited to vote: ${electionTitle}`
@@ -94,65 +108,213 @@ function buildSubject(mode: EmailMode, customSubject: string | null | undefined,
       ? `Reminder: ${customSubject}`
       : `Reminder — you haven't voted yet: ${electionTitle}`
   }
-  // reminder-final
   return customSubject
     ? `Closing in 24 hours: ${customSubject}`
     : `Closing in 24 hours: ${electionTitle}`
 }
 
-type ModeConfig = {
-  heading: string
-  intro: string
-  buttonText: string
-  buttonColor: string
+// Hex values for email clients that don't support oklch or CSS variables
+const C = {
+  ink: "#1d2338",
+  inkSoft: "#374060",
+  muted: "#6b7192",
+  line: "#e4e6f0",
+  bg: "#f8f9fc",
+  surface: "#ffffff",
+  surface2: "#f2f3f9",
+  surface3: "#eaecf4",
+  accent: "#2e3a9a",
+  accentStrong: "#1e2870",
+  accentSoft: "#eef0fc",
+  success: "#1a8f60",
+  successSoft: "#eaf6f0",
+  danger: "#dc2626",
+  dangerSoft: "#fef2f2",
+  warnSoft: "#fef4e0",
+  warnText: "#7d4a00",
 }
 
-function getModeConfig(mode: EmailMode, electionTitle: string): ModeConfig {
-  const title = escapeHtml(electionTitle)
-  if (mode === "reminder-early") {
-    return {
-      heading: "Reminder: you haven't voted yet",
-      intro: `We noticed you haven't cast your ballot for <strong>${title}</strong> yet. Don't miss your chance to have your say.`,
-      buttonText: "Vote Now",
-      buttonColor: "#111",
-    }
-  }
-  if (mode === "reminder-final") {
-    return {
-      heading: "Voting closes in 24 hours",
-      intro: `<strong>${title}</strong> is closing soon. This is your last chance to vote.`,
-      buttonText: "Vote before it closes",
-      buttonColor: "#dc2626",
-    }
-  }
-  return {
-    heading: "You're invited to vote",
-    intro: `You've been invited to participate in the election: <strong>${title}</strong>`,
-    buttonText: "Vote Now",
-    buttonColor: "#111",
-  }
+function emailWrapper(content: string): string {
+  return `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="light"><title>VoteHost</title></head><body style="margin:0;padding:0;background:${C.bg};-webkit-font-smoothing:antialiased;">
+<table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="background:${C.bg};padding:32px 16px;">
+<tr><td align="center">
+<table role="presentation" cellpadding="0" cellspacing="0" width="560" style="max-width:560px;width:100%;background:${C.surface};border-radius:12px;overflow:hidden;border:1px solid ${C.line};">
+${content}
+</table>
+</td></tr>
+</table>
+</body></html>`
 }
 
-function buildHtml(payload: Payload, mode: EmailMode) {
-  const cfg = getModeConfig(mode, payload.electionTitle)
-  return `
-    <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 24px;">
-      ${payload.emailLogoUrl ? `<img src="${escapeHtml(payload.emailLogoUrl)}" alt="" style="max-width: 100%; margin-bottom: 24px; display: block;" />` : ""}
-      <h1 style="font-size: 24px; margin-bottom: 8px;">${cfg.heading}</h1>
-      <p style="color: #555; margin-bottom: 24px;">Hi ${escapeHtml(payload.voterName)},</p>
-      <p style="margin-bottom: 24px;">${cfg.intro}</p>
-      ${payload.emailMessage ? `<p style="margin-bottom: 24px;">${escapeHtml(payload.emailMessage)}</p>` : ""}
-      <a href="${escapeHtml(payload.magicLink)}"
-         style="display: inline-block; background: ${cfg.buttonColor}; color: #fff; padding: 12px 24px;
-                border-radius: 6px; text-decoration: none; font-weight: 600;">
-        ${cfg.buttonText}
-      </a>
-      <p style="color: #888; font-size: 12px; margin-top: 32px;">
-        This link is unique to you. Do not share it with others. It can only be used once.
+function brandRow(): string {
+  return `<tr><td style="padding:24px 32px 0;">
+  <table role="presentation" cellpadding="0" cellspacing="0"><tr>
+    <td style="width:22px;height:22px;background:${C.accent};border-radius:5px;text-align:center;vertical-align:middle;">
+      <span style="color:#fff;font-size:13px;font-weight:700;line-height:22px;">✓</span>
+    </td>
+    <td style="padding-left:8px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:15px;font-weight:600;color:${C.ink};letter-spacing:-0.015em;vertical-align:middle;">VoteHost</td>
+  </tr></table>
+</td></tr>`
+}
+
+function footerRow(emailFooter?: string | null): string {
+  return `<tr><td style="padding:0 32px 28px;">
+  <table role="presentation" cellpadding="0" cellspacing="0" width="100%"><tr>
+    <td style="border-top:1px solid ${C.line};padding-top:18px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:12px;color:${C.muted};line-height:1.6;">
+      🔒 This link is unique to you and works once. Your ballot is encrypted and not linked to your identity. Don't share this email.
+      ${emailFooter ? `<br><br>${escapeHtml(emailFooter)}` : ""}
+    </td>
+  </tr></table>
+</td></tr>`
+}
+
+function buildInviteHtml(p: Payload): string {
+  const title = escapeHtml(p.electionTitle)
+  const name = escapeHtml(p.voterName)
+  const link = escapeHtml(p.magicLink)
+
+  const logoRow = p.emailLogoUrl
+    ? `<tr><td style="padding:24px 32px 0;"><img src="${escapeHtml(p.emailLogoUrl)}" alt="" style="max-width:100%;display:block;border-radius:8px;" /></td></tr>`
+    : ""
+
+  const closingCallout = p.endsAt
+    ? `<tr><td style="padding:0 32px 20px;">
+        <table role="presentation" cellpadding="0" cellspacing="0" width="100%"><tr>
+          <td style="background:${C.bg};border:1px solid ${C.line};border-radius:10px;padding:14px 18px;">
+            <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:11.5px;color:${C.muted};letter-spacing:0.06em;text-transform:uppercase;margin-bottom:5px;">Voting closes</div>
+            <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:16px;font-weight:500;color:${C.ink};">${formatCloseDate(p.endsAt)}</div>
+          </td>
+        </tr></table>
+      </td></tr>`
+    : ""
+
+  const customMsg = p.emailMessage
+    ? `<tr><td style="padding:0 32px 16px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:14.5px;color:${C.inkSoft};line-height:1.6;">${escapeHtml(p.emailMessage)}</td></tr>`
+    : ""
+
+  return emailWrapper(`
+    ${brandRow()}
+    ${logoRow}
+    <tr><td style="padding:24px 32px 14px;">
+      <h1 style="margin:0 0 12px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:22px;font-weight:600;color:${C.ink};letter-spacing:-0.02em;">You're invited to vote</h1>
+      <p style="margin:0 0 14px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:14.5px;color:${C.inkSoft};line-height:1.6;">Hi ${name},</p>
+      <p style="margin:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:14.5px;color:${C.inkSoft};line-height:1.6;">
+        <strong style="color:${C.ink};">VoteHost</strong> is holding an election: <strong style="color:${C.ink};">${title}</strong>.
       </p>
-      ${payload.emailFooter ? `<p style="color: #888; font-size: 12px; margin-top: 8px;">${escapeHtml(payload.emailFooter)}</p>` : ""}
-    </div>
-  `
+    </td></tr>
+    ${customMsg}
+    ${closingCallout}
+    <tr><td style="padding:0 32px 14px;">
+      <a href="${link}" style="display:inline-block;background:${C.accent};color:#ffffff;text-decoration:none;padding:14px 28px;border-radius:10px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:15px;font-weight:500;">Cast your ballot →</a>
+    </td></tr>
+    <tr><td style="padding:0 32px 20px;">
+      <p style="margin:0 0 4px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:12.5px;color:${C.muted};">Or paste this link into your browser:</p>
+      <div style="font-family:'Courier New',Courier,monospace;font-size:12px;color:${C.accentStrong};word-break:break-all;">${link}</div>
+    </td></tr>
+    ${footerRow(p.emailFooter)}
+  `)
+}
+
+function buildReminderEarlyHtml(p: Payload): string {
+  const title = escapeHtml(p.electionTitle)
+  const name = escapeHtml(p.voterName)
+  const link = escapeHtml(p.magicLink)
+  const days = p.daysLeft ?? null
+  const closeStr = p.endsAt ? formatCloseDate(p.endsAt) : null
+
+  const pct = p.totalVoters && p.totalVoters > 0 && p.votedCount != null
+    ? Math.round((p.votedCount / p.totalVoters) * 100)
+    : null
+
+  const turnoutBlock = pct != null && p.totalVoters != null && p.votedCount != null
+    ? `<tr><td style="padding:0 32px 20px;">
+        <table role="presentation" cellpadding="0" cellspacing="0" width="100%"><tr>
+          <td style="background:${C.bg};border-radius:10px;padding:16px 18px;">
+            <table role="presentation" cellpadding="0" cellspacing="0" width="100%"><tr>
+              <td>
+                <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:12px;color:${C.muted};margin-bottom:4px;">Turnout so far</div>
+                <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:18px;font-weight:600;color:${C.ink};">${p.votedCount} of ${p.totalVoters} · ${pct}%</div>
+              </td>
+              <td width="60" align="right">
+                <div style="width:52px;height:52px;border-radius:50%;background:conic-gradient(${C.accent} 0% ${pct}%,${C.surface3} ${pct}% 100%);display:inline-block;vertical-align:middle;position:relative;">
+                  <div style="position:absolute;top:7px;left:7px;width:38px;height:38px;border-radius:50%;background:${C.bg};display:flex;align-items:center;justify-content:center;">
+                    <span style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:11px;font-weight:600;color:${C.ink};">${pct}%</span>
+                  </div>
+                </div>
+              </td>
+            </tr></table>
+          </td>
+        </tr></table>
+      </td></tr>`
+    : ""
+
+  return emailWrapper(`
+    ${brandRow()}
+    <tr><td style="padding:24px 32px 14px;">
+      <div style="display:inline-block;background:${C.warnSoft};color:${C.warnText};padding:5px 12px;border-radius:99px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:12px;font-weight:500;margin-bottom:16px;">
+        ⏰ ${days != null ? `${days} day${days !== 1 ? "s" : ""} left` : "Closing soon"}
+      </div>
+      <h1 style="margin:0 0 12px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:22px;font-weight:600;color:${C.ink};letter-spacing:-0.02em;">You haven't voted yet</h1>
+      <p style="margin:0 0 14px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:14.5px;color:${C.inkSoft};line-height:1.6;">Hi ${name},</p>
+      <p style="margin:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:14.5px;color:${C.inkSoft};line-height:1.6;">
+        Just a friendly reminder — the <strong style="color:${C.ink};">${title}</strong> is closing${closeStr ? ` on <strong style="color:${C.ink};">${closeStr}</strong>` : " soon"}. It only takes a few minutes.
+      </p>
+    </td></tr>
+    ${turnoutBlock}
+    <tr><td style="padding:0 32px 20px;">
+      <a href="${link}" style="display:inline-block;background:${C.accent};color:#ffffff;text-decoration:none;padding:14px 28px;border-radius:10px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:15px;font-weight:500;">Vote now →</a>
+    </td></tr>
+    <tr><td style="padding:0 32px 28px;">
+      <table role="presentation" cellpadding="0" cellspacing="0" width="100%"><tr>
+        <td style="border-top:1px solid ${C.line};padding-top:18px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:12px;color:${C.muted};line-height:1.6;">
+          Already voted? Ignore this — reminders stop automatically once your ballot is in.
+          ${p.emailFooter ? `<br><br>${escapeHtml(p.emailFooter)}` : ""}
+        </td>
+      </tr></table>
+    </td></tr>
+  `)
+}
+
+function buildReminderFinalHtml(p: Payload): string {
+  const title = escapeHtml(p.electionTitle)
+  const name = escapeHtml(p.voterName)
+  const link = escapeHtml(p.magicLink)
+  const closeStr = p.endsAt ? formatCloseDate(p.endsAt) : null
+
+  return emailWrapper(`
+    ${brandRow()}
+    <tr><td style="padding:24px 32px 14px;">
+      <div style="display:inline-block;background:${C.dangerSoft};color:${C.danger};padding:5px 12px;border-radius:99px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:12px;font-weight:500;margin-bottom:16px;">
+        ⏰ Closing in 24 hours
+      </div>
+      <h1 style="margin:0 0 12px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:22px;font-weight:600;color:${C.ink};letter-spacing:-0.02em;">Don't miss your chance to vote</h1>
+      <p style="margin:0 0 14px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:14.5px;color:${C.inkSoft};line-height:1.6;">Hi ${name},</p>
+      <p style="margin:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:14.5px;color:${C.inkSoft};line-height:1.6;">
+        This is your last chance — the <strong style="color:${C.ink};">${title}</strong> closes${closeStr ? ` on <strong style="color:${C.ink};">${closeStr}</strong>` : " in less than 24 hours"}.
+      </p>
+    </td></tr>
+    <tr><td style="padding:16px 32px 20px;">
+      <a href="${link}" style="display:inline-block;background:${C.danger};color:#ffffff;text-decoration:none;padding:14px 28px;border-radius:10px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:15px;font-weight:500;">Vote before it closes →</a>
+    </td></tr>
+    <tr><td style="padding:0 32px 14px;">
+      <p style="margin:0 0 4px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:12.5px;color:${C.muted};">Or paste this link into your browser:</p>
+      <div style="font-family:'Courier New',Courier,monospace;font-size:12px;color:${C.accentStrong};word-break:break-all;">${link}</div>
+    </td></tr>
+    <tr><td style="padding:0 32px 28px;">
+      <table role="presentation" cellpadding="0" cellspacing="0" width="100%"><tr>
+        <td style="border-top:1px solid ${C.line};padding-top:18px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:12px;color:${C.muted};line-height:1.6;">
+          🔒 This link is unique to you. Don't share this email.
+          ${p.emailFooter ? `<br><br>${escapeHtml(p.emailFooter)}` : ""}
+        </td>
+      </tr></table>
+    </td></tr>
+  `)
+}
+
+function buildHtml(payload: Payload, mode: EmailMode): string {
+  if (mode === "reminder-early") return buildReminderEarlyHtml(payload)
+  if (mode === "reminder-final") return buildReminderFinalHtml(payload)
+  return buildInviteHtml(payload)
 }
 
 async function sendViaResend(config: ResendConfig, payload: Payload, mode: EmailMode): Promise<{ error: string | null }> {

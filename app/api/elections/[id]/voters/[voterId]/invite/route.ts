@@ -52,6 +52,7 @@ export async function POST(
     emailMessage: election.emailMessage,
     emailLogoUrl: election.emailLogoUrl,
     emailFooter: election.emailFooter,
+    endsAt: election.endsAt?.toISOString(),
   })
 
   if (error) return NextResponse.json({ error }, { status: 502 })

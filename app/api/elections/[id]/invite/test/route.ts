@@ -31,6 +31,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     emailMessage: election.emailMessage,
     emailLogoUrl: election.emailLogoUrl,
     emailFooter: election.emailFooter,
+    endsAt: election.endsAt?.toISOString(),
   })
 
   if (error) {
