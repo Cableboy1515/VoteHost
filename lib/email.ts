@@ -63,7 +63,14 @@ async function getAllEmailConfig(): Promise<EmailConfig> {
   }
 }
 
-export type EmailMode = "invite" | "reminder-early" | "reminder-final"
+export type EmailMode = "invite" | "reminder-early" | "reminder-final" | "results"
+
+export type ResultsQuestion = {
+  questionText: string
+  type: "SINGLE_CHOICE" | "MULTIPLE_CHOICE" | "RANKED_CHOICE" | "WRITE_IN"
+  options?: Array<{ optionText: string; count: number; pct: number; winner: boolean }>
+  writeInCount?: number
+}
 
 export type Payload = {
   voterName: string
@@ -82,6 +89,13 @@ export type Payload = {
   votedCount?: number | null
   /** Total voter count, for reminder turnout block */
   totalVoters?: number | null
+  /** Compiled results summary for the results announcement email */
+  results?: {
+    totalVoters: number
+    votedCount: number
+    turnoutPct: number
+    questions: ResultsQuestion[]
+  } | null
 }
 
 function escapeHtml(str: string): string {
@@ -107,6 +121,9 @@ function buildSubject(mode: EmailMode, customSubject: string | null | undefined,
     return customSubject
       ? `Reminder: ${customSubject}`
       : `Reminder — you haven't voted yet: ${electionTitle}`
+  }
+  if (mode === "results") {
+    return `Results: ${electionTitle}`
   }
   return customSubject
     ? `Closing in 24 hours: ${customSubject}`
@@ -311,9 +328,77 @@ function buildReminderFinalHtml(p: Payload): string {
   `)
 }
 
+function buildResultsHtml(p: Payload): string {
+  const title = escapeHtml(p.electionTitle)
+  const closeStr = p.endsAt ? formatCloseDate(p.endsAt) : null
+  const r = p.results
+
+  const turnoutBlock = r
+    ? `<tr><td style="padding:0 32px 20px;">
+        <table role="presentation" cellpadding="0" cellspacing="0" width="100%"><tr>
+          <td style="background:${C.bg};border:1px solid ${C.line};border-radius:10px;padding:16px 20px;">
+            <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:11.5px;color:${C.muted};letter-spacing:0.06em;text-transform:uppercase;margin-bottom:6px;">Final turnout</div>
+            <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:22px;font-weight:600;color:${C.ink};font-variant-numeric:tabular-nums;margin-bottom:10px;">${r.votedCount} of ${r.totalVoters} · ${r.turnoutPct}%</div>
+            <div style="height:6px;background:${C.surface3};border-radius:999px;overflow:hidden;">
+              <div style="width:${r.turnoutPct}%;height:100%;background:${C.success};border-radius:999px;"></div>
+            </div>
+          </td>
+        </tr></table>
+      </td></tr>`
+    : ""
+
+  const questionSections = (r?.questions ?? []).map((q, qi) => {
+    const qLabel = escapeHtml(q.questionText)
+
+    if (q.type === "WRITE_IN") {
+      return `<tr><td style="padding:0 32px ${qi < (r?.questions.length ?? 1) - 1 ? "20px" : "8px"};">
+        <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:13px;font-weight:600;color:${C.ink};margin-bottom:6px;">${qLabel}</div>
+        <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:13px;color:${C.muted};">${q.writeInCount ?? 0} written-in response${(q.writeInCount ?? 0) !== 1 ? "s" : ""} received.</div>
+      </td></tr>`
+    }
+
+    const optionRows = (q.options ?? []).map((opt) => {
+      const barColor = opt.winner ? C.accent : "#7d92b0"
+      const label = escapeHtml(opt.optionText)
+      const prefix = opt.winner ? "👑 " : ""
+      return `<div style="margin-bottom:8px;">
+        <div style="display:table;width:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:13px;margin-bottom:4px;">
+          <div style="display:table-cell;font-weight:${opt.winner ? 600 : 400};color:${C.ink};">${prefix}${label}</div>
+          <div style="display:table-cell;text-align:right;color:${C.muted};font-variant-numeric:tabular-nums;">${opt.pct}%</div>
+        </div>
+        <div style="height:6px;background:${C.surface3};border-radius:999px;overflow:hidden;">
+          <div style="width:${opt.pct}%;height:100%;background:${barColor};border-radius:999px;"></div>
+        </div>
+      </div>`
+    }).join("")
+
+    return `<tr><td style="padding:0 32px ${qi < (r?.questions.length ?? 1) - 1 ? "20px" : "8px"};">
+      <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:13px;font-weight:600;color:${C.ink};margin-bottom:10px;">${qLabel}</div>
+      ${optionRows}
+    </td></tr>`
+  }).join("")
+
+  return emailWrapper(`
+    ${brandRow()}
+    <tr><td style="padding:24px 32px 14px;">
+      <h1 style="margin:0 0 10px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:22px;font-weight:600;color:${C.ink};letter-spacing:-0.02em;">The results are in</h1>
+      <p style="margin:0 0 0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:14.5px;color:${C.inkSoft};line-height:1.6;">
+        ${escapeHtml(title)} has closed${closeStr ? ` on ${escapeHtml(closeStr)}` : ""}. Here's a summary of how everyone voted.
+      </p>
+    </td></tr>
+    ${turnoutBlock}
+    ${questionSections}
+    <tr><td style="padding:16px 32px 24px;">
+      <hr style="border:none;border-top:1px solid ${C.line};margin:0 0 18px;" />
+      <p style="margin:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:12.5px;color:${C.muted};line-height:1.6;">Thank you to everyone who participated.</p>
+    </td></tr>
+  `)
+}
+
 function buildHtml(payload: Payload, mode: EmailMode): string {
   if (mode === "reminder-early") return buildReminderEarlyHtml(payload)
   if (mode === "reminder-final") return buildReminderFinalHtml(payload)
+  if (mode === "results") return buildResultsHtml(payload)
   return buildInviteHtml(payload)
 }
 

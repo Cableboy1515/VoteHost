@@ -36,7 +36,8 @@ model Election {
   emailLogoUrl  String?
   emailFooter   String?
 
-  firstReminderDays Int?
+  firstReminderDays  Int?
+  resultsEmailSentAt DateTime?
 
   questions Question[]
   voters    Voter[]

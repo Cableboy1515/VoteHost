@@ -2,6 +2,7 @@ import { db } from "@/lib/db"
 import { notFound } from "next/navigation"
 import { getResultsForElection } from "@/lib/results"
 import ResultsDashboard from "@/components/admin/ResultsDashboard"
+import EmailResultsButton from "@/components/admin/EmailResultsButton"
 import Link from "next/link"
 import type { ElectionStatus } from "@/lib/generated/prisma/client"
 
@@ -42,7 +43,7 @@ export default async function ResultsPage({ params }: { params: Promise<{ id: st
           </div>
           <h1 className="text-[26px] font-semibold">{election.title}</h1>
         </div>
-        <div className="flex gap-2">
+        <div className="flex items-start gap-2">
           <Link
             href={`/admin/elections/${id}/voters`}
             className="px-3.5 py-2 rounded-[10px] text-[13px] transition-colors"
@@ -57,6 +58,11 @@ export default async function ResultsPage({ params }: { params: Promise<{ id: st
           >
             Settings
           </Link>
+          <EmailResultsButton
+            electionId={id}
+            status={election.status}
+            resultsEmailSentAt={election.resultsEmailSentAt?.toISOString() ?? null}
+          />
         </div>
       </div>
 
