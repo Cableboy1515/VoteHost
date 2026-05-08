@@ -29,7 +29,17 @@ export default function DeleteElectionButton({ id, title }: { id: string; title:
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger render={<Button variant="outline" size="sm" />}>
+      <DialogTrigger
+        render={
+          <button
+            type="button"
+            className="px-3 py-1.5 rounded-[10px] text-[13px] font-medium text-white transition-colors"
+            style={{ background: "var(--vh-danger)", border: "1px solid var(--vh-danger)" }}
+            onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = "oklch(0.50 0.20 25)" }}
+            onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "var(--vh-danger)" }}
+          />
+        }
+      >
         Delete
       </DialogTrigger>
       <DialogContent showCloseButton={false}>

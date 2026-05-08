@@ -2,7 +2,6 @@
 
 import { useState } from "react"
 import { useRouter } from "next/navigation"
-import { Button } from "@/components/ui/button"
 
 export default function ArchiveElectionButton({ id, archived }: { id: string; archived: boolean }) {
   const router = useRouter()
@@ -20,10 +19,18 @@ export default function ArchiveElectionButton({ id, archived }: { id: string; ar
   }
 
   return (
-    <Button variant="outline" size="sm" onClick={handleToggle} disabled={loading}>
+    <button
+      type="button"
+      onClick={handleToggle}
+      disabled={loading}
+      className="px-3 py-1.5 rounded-[10px] text-[13px] font-medium text-white transition-colors disabled:opacity-60"
+      style={{ background: "var(--vh-ink)", border: "1px solid var(--vh-ink)" }}
+      onMouseEnter={(e) => { if (!loading) (e.currentTarget as HTMLElement).style.background = "var(--vh-ink-soft)" }}
+      onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "var(--vh-ink)" }}
+    >
       {loading
         ? archived ? "Unarchiving…" : "Archiving…"
         : archived ? "Unarchive" : "Archive"}
-    </Button>
+    </button>
   )
 }
