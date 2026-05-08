@@ -28,7 +28,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
   const { id } = await params
   const body = await req.json()
   const parsed = ElectionBaseSchema.partial().safeParse(body)
-  if (!parsed.success) return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 })
+  if (!parsed.success) return NextResponse.json({ error: parsed.error.issues }, { status: 400 })
 
   const election = await db.election.update({ where: { id }, data: parsed.data })
   return NextResponse.json(election)

@@ -1,5 +1,16 @@
 import { z } from "zod"
 
+const urlField = z.preprocess(
+  (val) => {
+    if (typeof val !== "string") return val
+    const trimmed = val.trim()
+    if (!trimmed) return undefined
+    if (!/^https?:\/\//i.test(trimmed)) return `https://${trimmed}`
+    return trimmed
+  },
+  z.string().url("Enter a valid URL")
+)
+
 export const ElectionBaseSchema = z.object({
   title: z.string().min(1, "Title is required"),
   description: z.string().optional(),
@@ -9,7 +20,7 @@ export const ElectionBaseSchema = z.object({
   archived: z.boolean().optional(),
   emailSubject: z.string().optional().nullable(),
   emailMessage: z.string().optional().nullable(),
-  emailLogoUrl: z.string().regex(/^https?:\/\//, "Logo URL must use http:// or https://").optional().nullable(),
+  emailLogoUrl: urlField.optional().nullable(),
   emailFooter: z.string().optional().nullable(),
   firstReminderDays: z.number().int().positive().nullish(),
 })
@@ -41,17 +52,6 @@ export const QuestionSchema = z.object({
   maxSelections: z.number().int().positive().nullish(),
   randomizeOptions: z.boolean().default(false),
 })
-
-const urlField = z.preprocess(
-  (val) => {
-    if (typeof val !== "string") return val
-    const trimmed = val.trim()
-    if (!trimmed) return undefined
-    if (!/^https?:\/\//i.test(trimmed)) return `https://${trimmed}`
-    return trimmed
-  },
-  z.string().url("Enter a valid URL")
-)
 
 export const OptionSchema = z.object({
   text: z.string().min(1, "Option text is required"),

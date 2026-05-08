@@ -153,7 +153,28 @@ export default function ElectionForm({ electionId, initialValues }: Props) {
     setSaving(false)
 
     if (!res.ok) {
-      setError("Failed to save election")
+      const body = await res.json().catch(() => ({}))
+      const issues: Array<{ path: (string | number)[]; message: string }> = Array.isArray(body?.error) ? body.error : []
+      if (issues.length > 0) {
+        const LABELS: Record<string, string> = {
+          title: "Title",
+          description: "Description",
+          startsAt: "Start date",
+          endsAt: "End date",
+          emailSubject: "Email subject",
+          emailMessage: "Email message",
+          emailLogoUrl: "Header image URL",
+          emailFooter: "Email footer",
+          firstReminderDays: "First reminder",
+        }
+        setError(
+          issues
+            .map((i) => `${LABELS[String(i.path[0])] ?? String(i.path[0])}: ${i.message}`)
+            .join(" · ")
+        )
+      } else {
+        setError("Failed to save election")
+      }
       return
     }
 

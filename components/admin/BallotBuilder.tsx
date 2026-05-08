@@ -152,7 +152,27 @@ export default function BallotBuilder({ electionId, electionStatus, initialQuest
         toast.success("Ballot saved")
       }
     } else {
-      toast.error("Failed to save ballot")
+      const body = await res.json().catch(() => ({}))
+      const issues: Array<{ path: (string | number)[]; message: string }> = Array.isArray(body?.error) ? body.error : []
+      const QUESTION_LABELS: Record<string, string> = {
+        text: "Question text", description: "Description", maxSelections: "Max selections",
+      }
+      const OPTION_LABELS: Record<string, string> = {
+        text: "Option text", bio: "Description", photoUrl: "Photo URL", website: "Website",
+      }
+      const msgs = issues.map((issue) => {
+        const [q, f, o, of_] = issue.path
+        if (typeof q === "number" && f === "options" && typeof o === "number" && of_ != null) {
+          return `Q${q + 1} Option ${(o as number) + 1} — ${OPTION_LABELS[String(of_)] ?? String(of_)}: ${issue.message}`
+        }
+        if (typeof q === "number" && f != null) {
+          return `Q${q + 1} — ${QUESTION_LABELS[String(f)] ?? String(f)}: ${issue.message}`
+        }
+        return issue.message
+      })
+      toast.error(msgs[0] || "Failed to save ballot", {
+        description: msgs.length > 1 ? msgs.slice(1).join("\n") : undefined,
+      })
     }
   }
 

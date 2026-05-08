@@ -30,7 +30,7 @@ export async function POST(req: Request) {
 
   const body = await req.json()
   const parsed = ElectionSchema.safeParse(body)
-  if (!parsed.success) return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 })
+  if (!parsed.success) return NextResponse.json({ error: parsed.error.issues }, { status: 400 })
 
   const election = await db.election.create({ data: parsed.data })
   return NextResponse.json(election, { status: 201 })

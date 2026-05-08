@@ -31,7 +31,7 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
   const { id: electionId } = await params
   const body = await req.json()
   const parsed = BallotSchema.safeParse(body)
-  if (!parsed.success) return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 })
+  if (!parsed.success) return NextResponse.json({ error: parsed.error.issues }, { status: 400 })
 
   await db.$transaction(async (tx: Parameters<Parameters<typeof db.$transaction>[0]>[0]) => {
     await tx.question.deleteMany({ where: { electionId } })
