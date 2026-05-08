@@ -37,11 +37,20 @@ export default async function BallotPage({ params }: { params: Promise<{ id: str
         initialQuestions={election.questions.map((q) => ({
           id: q.id,
           text: q.text,
+          description: q.description ?? undefined,
           type: q.type,
           order: q.order,
           required: q.required,
           maxSelections: q.maxSelections ?? undefined,
-          options: q.options.map((o) => ({ id: o.id, text: o.text, order: o.order })),
+          randomizeOptions: q.randomizeOptions,
+          options: q.options.map((o) => ({
+            id: o.id,
+            text: o.text,
+            order: o.order,
+            bio: o.bio ?? undefined,
+            photoUrl: o.photoUrl ?? undefined,
+            website: o.website ?? undefined,
+          })),
         }))}
       />
     </div>
