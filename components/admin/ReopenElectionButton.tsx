@@ -15,6 +15,12 @@ import {
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 
+const triggerStyle: React.CSSProperties = {
+  color: "var(--vh-ink-soft)",
+  background: "var(--vh-surface-2)",
+  border: "1px solid var(--vh-line-strong)",
+}
+
 export default function ReopenElectionButton({ id }: { id: string }) {
   const router = useRouter()
   const [open, setOpen] = useState(false)
@@ -47,7 +53,15 @@ export default function ReopenElectionButton({ id }: { id: string }) {
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogTrigger render={<Button variant="outline" size="sm" />}>
+      <DialogTrigger
+        render={
+          <button
+            type="button"
+            className="px-3 py-1.5 rounded-[10px] text-[13px] transition-colors"
+            style={triggerStyle}
+          />
+        }
+      >
         Reopen
       </DialogTrigger>
       <DialogContent showCloseButton={false}>
