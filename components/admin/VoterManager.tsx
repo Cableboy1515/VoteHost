@@ -14,6 +14,7 @@ interface Voter {
   email: string
   hasVoted: boolean
   invitedAt: string | null
+  votedAt: string | null
 }
 
 interface Props {
@@ -31,7 +32,7 @@ interface CSVRow {
 }
 
 type SortKey = "name" | "email" | "invited" | "voted"
-type FilterKey = "all" | "voted" | "pending"
+type FilterKey = "all" | "not-invited" | "invited" | "voted"
 
 function Avatar({ name, size = 32 }: { name: string; size?: number }) {
   const parts = name.trim().split(/\s+/)
@@ -78,7 +79,8 @@ export default function VoterManager({ electionId, electionStatus, electionStart
   const filtered = voters
     .filter((v) => {
       if (filter === "voted") return v.hasVoted
-      if (filter === "pending") return !v.hasVoted
+      if (filter === "invited") return !!v.invitedAt && !v.hasVoted
+      if (filter === "not-invited") return !v.invitedAt
       return true
     })
     .filter((v) => {
@@ -221,8 +223,9 @@ export default function VoterManager({ electionId, electionStatus, electionStart
 
   const FILTERS: { key: FilterKey; label: string }[] = [
     { key: "all", label: "All" },
+    { key: "not-invited", label: "Not invited" },
+    { key: "invited", label: "Invited" },
     { key: "voted", label: "Voted" },
-    { key: "pending", label: "Pending" },
   ]
 
   return (
@@ -386,7 +389,7 @@ export default function VoterManager({ electionId, electionStatus, electionStart
                 key={v.id}
                 className="grid items-center gap-4 px-[18px] py-3.5 text-[14px]"
                 style={{
-                  gridTemplateColumns: "1.5fr 2fr auto auto auto",
+                  gridTemplateColumns: "1.5fr 2fr auto auto",
                   borderTop: i === 0 ? "none" : "1px solid var(--vh-line)",
                 }}
               >
@@ -404,27 +407,45 @@ export default function VoterManager({ electionId, electionStatus, electionStart
                   {v.email}
                 </div>
 
-                {/* Invited badge */}
-                <span
-                  className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[11.5px] font-medium border"
-                  style={v.invitedAt
-                    ? { background: "var(--vh-accent-soft)", color: "var(--vh-accent-strong)", borderColor: "oklch(0.85 0.05 255)" }
-                    : { background: "var(--vh-surface-3)", color: "var(--vh-muted)", borderColor: "var(--vh-line-strong)" }
+                {/* Single status chip */}
+                {(() => {
+                  const fmtDate = (iso: string) =>
+                    new Date(iso).toLocaleDateString(undefined, { month: "short", day: "numeric" })
+                  if (v.hasVoted) {
+                    const tip = [v.invitedAt && `Invited ${fmtDate(v.invitedAt)}`, v.votedAt && `Voted ${fmtDate(v.votedAt)}`].filter(Boolean).join(" · ")
+                    return (
+                      <span
+                        className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11.5px] font-medium border"
+                        title={tip || undefined}
+                        style={{ background: "var(--vh-success-soft)", color: "oklch(0.35 0.10 155)", borderColor: "oklch(0.78 0.08 155)" }}
+                      >
+                        <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: "oklch(0.55 0.13 155)" }} />
+                        Voted
+                      </span>
+                    )
                   }
-                >
-                  {v.invitedAt ? "Invited" : "Pending"}
-                </span>
-
-                {/* Voted badge */}
-                <span
-                  className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[11.5px] font-medium border"
-                  style={v.hasVoted
-                    ? { background: "var(--vh-success-soft)", color: "oklch(0.35 0.10 155)", borderColor: "oklch(0.78 0.08 155)" }
-                    : { background: "var(--vh-surface-3)", color: "var(--vh-muted)", borderColor: "var(--vh-line-strong)" }
+                  if (v.invitedAt) {
+                    return (
+                      <span
+                        className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11.5px] font-medium border"
+                        title={`Invited ${fmtDate(v.invitedAt)}`}
+                        style={{ background: "var(--vh-accent-soft)", color: "var(--vh-accent-strong)", borderColor: "oklch(0.85 0.05 255)" }}
+                      >
+                        <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: "var(--vh-accent)" }} />
+                        Invited
+                      </span>
+                    )
                   }
-                >
-                  {v.hasVoted ? "Voted" : "Waiting"}
-                </span>
+                  return (
+                    <span
+                      className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11.5px] font-medium border"
+                      style={{ background: "var(--vh-surface-3)", color: "var(--vh-muted)", borderColor: "var(--vh-line-strong)" }}
+                    >
+                      <span className="w-1.5 h-1.5 rounded-full flex-shrink-0 border" style={{ borderColor: "var(--vh-muted)" }} />
+                      Not invited
+                    </span>
+                  )
+                })()}
 
                 {/* Actions */}
                 <div className="flex gap-1 justify-end">
