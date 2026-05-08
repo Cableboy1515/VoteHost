@@ -9,6 +9,7 @@ interface Props {
   bio?: string | null
   photoUrl?: string | null
   website?: string | null
+  showAvatar?: boolean
   type: "single" | "multi"
   checked: boolean
   disabled?: boolean
@@ -39,6 +40,7 @@ export function OptionCard({
   bio,
   photoUrl,
   website,
+  showAvatar = true,
   type,
   checked,
   disabled = false,
@@ -73,7 +75,7 @@ export function OptionCard({
     >
       {/* Main row */}
       <div className="flex items-center gap-3.5 p-4">
-        {photoUrl ? (
+        {showAvatar && (photoUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
             src={photoUrl}
@@ -83,7 +85,7 @@ export function OptionCard({
           />
         ) : (
           <Initials name={name} size={48} />
-        )}
+        ))}
 
         <div className="flex-1 min-w-0">
           <p className="text-[15.5px] font-medium text-vh-ink truncate">{name}</p>

@@ -44,6 +44,7 @@ interface Question {
   required: boolean
   maxSelections?: number | null
   randomizeOptions?: boolean
+  showOptionAvatars?: boolean
   options: Option[]
 }
 
@@ -211,6 +212,7 @@ export default function BallotForm({ token, electionTitle, electionDescription, 
               bio={o.bio}
               photoUrl={o.photoUrl}
               website={o.website}
+              showAvatar={q.showOptionAvatars !== false}
               type="single"
               checked={answers[q.id] === o.id}
               onChange={() => setAnswers((a) => ({ ...a, [q.id]: o.id }))}
@@ -234,6 +236,7 @@ export default function BallotForm({ token, electionTitle, electionDescription, 
                 bio={o.bio}
                 photoUrl={o.photoUrl}
                 website={o.website}
+                showAvatar={q.showOptionAvatars !== false}
                 type="multi"
                 checked={isChecked}
                 disabled={!isChecked && atLimit}

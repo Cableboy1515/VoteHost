@@ -27,6 +27,7 @@ interface QuestionDraft {
   required: boolean
   maxSelections?: number
   randomizeOptions?: boolean
+  showOptionAvatars?: boolean
   options: OptionDraft[]
 }
 
@@ -78,6 +79,7 @@ export default function BallotBuilder({ electionId, electionStatus, initialQuest
         order: qs.length,
         required: true,
         randomizeOptions: false,
+        showOptionAvatars: true,
         options: [
           { text: "", order: 0 },
           { text: "", order: 1 },
@@ -319,20 +321,37 @@ export default function BallotBuilder({ electionId, electionStatus, initialQuest
                   {q.required ? "Required" : "Optional"}
                 </button>
                 {(q.type === "SINGLE_CHOICE" || q.type === "MULTIPLE_CHOICE") && (
-                  <button
-                    type="button"
-                    disabled={locked}
-                    onClick={() => !locked && updateQuestion(qIndex, { randomizeOptions: !q.randomizeOptions })}
-                    className="px-2.5 py-1.5 rounded-[8px] text-[12.5px] transition-colors"
-                    style={{
-                      border: `1px solid ${q.randomizeOptions ? "var(--vh-success)" : "var(--vh-line-strong)"}`,
-                      background: q.randomizeOptions ? "var(--vh-success-soft)" : "var(--vh-surface)",
-                      color: q.randomizeOptions ? "oklch(0.35 0.10 155)" : "var(--vh-ink-soft)",
-                      cursor: locked ? "not-allowed" : "pointer",
-                    }}
-                  >
-                    Randomize order
-                  </button>
+                  <>
+                    <button
+                      type="button"
+                      disabled={locked}
+                      onClick={() => !locked && updateQuestion(qIndex, { randomizeOptions: !q.randomizeOptions })}
+                      className="px-2.5 py-1.5 rounded-[8px] text-[12.5px] transition-colors"
+                      style={{
+                        border: `1px solid ${q.randomizeOptions ? "var(--vh-success)" : "var(--vh-line-strong)"}`,
+                        background: q.randomizeOptions ? "var(--vh-success-soft)" : "var(--vh-surface)",
+                        color: q.randomizeOptions ? "oklch(0.35 0.10 155)" : "var(--vh-ink-soft)",
+                        cursor: locked ? "not-allowed" : "pointer",
+                      }}
+                    >
+                      Randomize order
+                    </button>
+                    <button
+                      type="button"
+                      disabled={locked}
+                      onClick={() => !locked && updateQuestion(qIndex, { showOptionAvatars: !(q.showOptionAvatars ?? true) })}
+                      className="px-2.5 py-1.5 rounded-[8px] text-[12.5px] transition-colors"
+                      style={{
+                        border: `1px solid ${(q.showOptionAvatars ?? true) ? "var(--vh-accent)" : "var(--vh-line-strong)"}`,
+                        background: (q.showOptionAvatars ?? true) ? "var(--vh-accent)" : "var(--vh-surface)",
+                        color: (q.showOptionAvatars ?? true) ? "white" : "var(--vh-ink-soft)",
+                        cursor: locked ? "not-allowed" : "pointer",
+                        opacity: locked ? 0.6 : 1,
+                      }}
+                    >
+                      Show avatars
+                    </button>
+                  </>
                 )}
               </div>
 

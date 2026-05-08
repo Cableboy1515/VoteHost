@@ -44,6 +44,7 @@ export default async function VotePage({ params }: { params: Promise<{ token: st
         required: q.required,
         maxSelections: q.maxSelections ?? undefined,
         randomizeOptions: q.randomizeOptions,
+        showOptionAvatars: q.showOptionAvatars,
         options: q.options.map((o) => ({
           id: o.id,
           text: o.text,

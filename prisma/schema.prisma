@@ -54,6 +54,7 @@ model Question {
   required         Boolean      @default(true)
   maxSelections    Int?
   randomizeOptions Boolean      @default(false)
+  showOptionAvatars Boolean     @default(true)
 
   election Election @relation(fields: [electionId], references: [id], onDelete: Cascade)
   options  Option[]

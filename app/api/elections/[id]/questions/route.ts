@@ -46,6 +46,7 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
           required: q.required ?? true,
           maxSelections: q.maxSelections ?? null,
           randomizeOptions: q.randomizeOptions ?? false,
+          showOptionAvatars: q.showOptionAvatars ?? true,
         },
       })
       if (q.options && q.type !== "WRITE_IN") {
