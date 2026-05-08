@@ -1,7 +1,7 @@
 "use client"
 
-import Link from "next/link"
 import { usePathname } from "next/navigation"
+import { GuardLink } from "@/components/admin/UnsavedChangesGuard"
 
 const TABS = [
   { label: "Settings", path: "" },
@@ -20,7 +20,7 @@ export default function ElectionTabs({ electionId }: { electionId: string }) {
         const href = base + t.path
         const active = t.path === "" ? pathname === base : pathname.startsWith(href)
         return (
-          <Link
+          <GuardLink
             key={t.path}
             href={href}
             aria-current={active ? "page" : undefined}
@@ -32,7 +32,7 @@ export default function ElectionTabs({ electionId }: { electionId: string }) {
             }
           >
             {t.label}
-          </Link>
+          </GuardLink>
         )
       })}
     </div>

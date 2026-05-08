@@ -2,7 +2,7 @@ import { db } from "@/lib/db"
 import { notFound } from "next/navigation"
 import BallotBuilder from "@/components/admin/BallotBuilder"
 import ElectionTabs from "@/components/admin/ElectionTabs"
-import Link from "next/link"
+import { GuardLink } from "@/components/admin/UnsavedChangesGuard"
 
 export default async function BallotPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
@@ -20,9 +20,9 @@ export default async function BallotPage({ params }: { params: Promise<{ id: str
   return (
     <div className="p-8 max-w-[860px]">
       <div className="text-[13px] mb-3.5" style={{ color: "var(--vh-muted)" }}>
-        <Link href="/admin/dashboard">Elections</Link>
+        <GuardLink href="/admin/dashboard">Elections</GuardLink>
         <span className="mx-1.5">›</span>
-        <Link href={`/admin/elections/${id}`}>{election.title}</Link>
+        <GuardLink href={`/admin/elections/${id}`}>{election.title}</GuardLink>
       </div>
       <ElectionTabs electionId={id} />
       <div className="mb-5">

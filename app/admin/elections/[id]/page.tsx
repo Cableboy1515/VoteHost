@@ -4,7 +4,7 @@ import { db } from "@/lib/db"
 import { notFound } from "next/navigation"
 import ElectionForm from "@/components/admin/ElectionForm"
 import ElectionTabs from "@/components/admin/ElectionTabs"
-import Link from "next/link"
+import { GuardLink } from "@/components/admin/UnsavedChangesGuard"
 import { autoCompleteElections } from "@/lib/autoCompleteElections"
 
 export default async function EditElectionPage({ params }: { params: Promise<{ id: string }> }) {
@@ -16,7 +16,7 @@ export default async function EditElectionPage({ params }: { params: Promise<{ i
   return (
     <div className="p-8 max-w-[800px]">
       <div className="text-[13px] mb-3.5" style={{ color: "var(--vh-muted)" }}>
-        <Link href="/admin/dashboard">Elections</Link>
+        <GuardLink href="/admin/dashboard">Elections</GuardLink>
         <span className="mx-1.5">›</span>
         <span>{election.title}</span>
       </div>

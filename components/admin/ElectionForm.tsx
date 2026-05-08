@@ -1,9 +1,10 @@
 "use client"
 
-import { useState } from "react"
+import { useRef, useState } from "react"
 import { useRouter } from "next/navigation"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import ElectionTestEmailButton from "@/components/admin/ElectionTestEmailButton"
+import { useUnsavedChangesGuard } from "@/components/admin/UnsavedChangesGuard"
 
 interface Props {
   electionId?: string
@@ -123,8 +124,25 @@ export default function ElectionForm({ electionId, initialValues }: Props) {
 
   const previewHtml = buildPreviewHtml({ electionTitle: title, emailLogoUrl, emailMessage, emailFooter })
 
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault()
+  function snapshot() {
+    return JSON.stringify({
+      title: title.trim(),
+      description: description.trim(),
+      status,
+      startsAt,
+      endsAt,
+      emailSubject: emailSubject.trim(),
+      emailMessage: emailMessage.trim(),
+      emailLogoUrl: emailLogoUrl.trim(),
+      emailFooter: emailFooter.trim(),
+      firstReminderDays,
+    })
+  }
+
+  const baseline = useRef(snapshot())
+  const isDirty = () => snapshot() !== baseline.current
+
+  async function save(): Promise<string | false> {
     setSaving(true)
     setError("")
 
@@ -175,11 +193,20 @@ export default function ElectionForm({ electionId, initialValues }: Props) {
       } else {
         setError("Failed to save election")
       }
-      return
+      return false
     }
 
     const data = await res.json()
-    const id = electionId ?? data.id
+    baseline.current = snapshot()
+    return electionId ?? data.id
+  }
+
+  useUnsavedChangesGuard({ isDirty, save: async () => !!(await save()) })
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    const id = await save()
+    if (!id) return
     router.push(`/admin/elections/${id}/ballot`)
   }
 

@@ -1,7 +1,8 @@
 "use client"
 
-import { useState } from "react"
+import { useRef, useState } from "react"
 import { useRouter } from "next/navigation"
+import { useUnsavedChangesGuard } from "@/components/admin/UnsavedChangesGuard"
 import { Textarea } from "@/components/ui/textarea"
 import { Toaster } from "@/components/ui/sonner"
 import { toast } from "sonner"
@@ -64,6 +65,9 @@ export default function BallotBuilder({ electionId, electionStatus, initialQuest
   const [saving, setSaving] = useState(false)
   const [expandedDetails, setExpandedDetails] = useState<Set<string>>(new Set())
   const locked = electionStatus !== "DRAFT"
+
+  const baseline = useRef(JSON.stringify(initialQuestions))
+  const isDirty = () => JSON.stringify(questions) !== baseline.current
 
   function addQuestion() {
     setQuestions((qs) => [
@@ -137,7 +141,7 @@ export default function BallotBuilder({ electionId, electionStatus, initialQuest
     })
   }
 
-  async function handleSave(andContinue = false) {
+  async function save(): Promise<boolean> {
     setSaving(true)
     const res = await fetch(`/api/elections/${electionId}/questions`, {
       method: "PUT",
@@ -146,33 +150,43 @@ export default function BallotBuilder({ electionId, electionStatus, initialQuest
     })
     setSaving(false)
     if (res.ok) {
+      baseline.current = JSON.stringify(questions)
+      return true
+    }
+    const body = await res.json().catch(() => ({}))
+    const issues: Array<{ path: (string | number)[]; message: string }> = Array.isArray(body?.error) ? body.error : []
+    const QUESTION_LABELS: Record<string, string> = {
+      text: "Question text", description: "Description", maxSelections: "Max selections",
+    }
+    const OPTION_LABELS: Record<string, string> = {
+      text: "Option text", bio: "Description", photoUrl: "Photo URL", website: "Website",
+    }
+    const msgs = issues.map((issue) => {
+      const [q, f, o, of_] = issue.path
+      if (typeof q === "number" && f === "options" && typeof o === "number" && of_ != null) {
+        return `Q${q + 1} Option ${(o as number) + 1} — ${OPTION_LABELS[String(of_)] ?? String(of_)}: ${issue.message}`
+      }
+      if (typeof q === "number" && f != null) {
+        return `Q${q + 1} — ${QUESTION_LABELS[String(f)] ?? String(f)}: ${issue.message}`
+      }
+      return issue.message
+    })
+    toast.error(msgs[0] || "Failed to save ballot", {
+      description: msgs.length > 1 ? msgs.slice(1).join("\n") : undefined,
+    })
+    return false
+  }
+
+  useUnsavedChangesGuard({ isDirty, save })
+
+  async function handleSave(andContinue = false) {
+    const ok = await save()
+    if (ok) {
       if (andContinue) {
         router.push(`/admin/elections/${electionId}/voters`)
       } else {
         toast.success("Ballot saved")
       }
-    } else {
-      const body = await res.json().catch(() => ({}))
-      const issues: Array<{ path: (string | number)[]; message: string }> = Array.isArray(body?.error) ? body.error : []
-      const QUESTION_LABELS: Record<string, string> = {
-        text: "Question text", description: "Description", maxSelections: "Max selections",
-      }
-      const OPTION_LABELS: Record<string, string> = {
-        text: "Option text", bio: "Description", photoUrl: "Photo URL", website: "Website",
-      }
-      const msgs = issues.map((issue) => {
-        const [q, f, o, of_] = issue.path
-        if (typeof q === "number" && f === "options" && typeof o === "number" && of_ != null) {
-          return `Q${q + 1} Option ${(o as number) + 1} — ${OPTION_LABELS[String(of_)] ?? String(of_)}: ${issue.message}`
-        }
-        if (typeof q === "number" && f != null) {
-          return `Q${q + 1} — ${QUESTION_LABELS[String(f)] ?? String(f)}: ${issue.message}`
-        }
-        return issue.message
-      })
-      toast.error(msgs[0] || "Failed to save ballot", {
-        description: msgs.length > 1 ? msgs.slice(1).join("\n") : undefined,
-      })
     }
   }
 

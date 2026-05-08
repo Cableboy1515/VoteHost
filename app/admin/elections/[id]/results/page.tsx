@@ -4,7 +4,7 @@ import { getResultsForElection } from "@/lib/results"
 import ResultsDashboard from "@/components/admin/ResultsDashboard"
 import EmailResultsButton from "@/components/admin/EmailResultsButton"
 import ElectionTabs from "@/components/admin/ElectionTabs"
-import Link from "next/link"
+import { GuardLink } from "@/components/admin/UnsavedChangesGuard"
 import type { ElectionStatus } from "@/lib/generated/prisma/client"
 
 const STATUS_STYLE: Record<ElectionStatus, React.CSSProperties> = {
@@ -24,9 +24,9 @@ export default async function ResultsPage({ params }: { params: Promise<{ id: st
   return (
     <div className="p-8 max-w-[1040px]">
       <div className="text-[13px] mb-3.5" style={{ color: "var(--vh-muted)" }}>
-        <Link href="/admin/dashboard">Elections</Link>
+        <GuardLink href="/admin/dashboard">Elections</GuardLink>
         <span className="mx-1.5">›</span>
-        <Link href={`/admin/elections/${id}`}>{election.title}</Link>
+        <GuardLink href={`/admin/elections/${id}`}>{election.title}</GuardLink>
       </div>
       <ElectionTabs electionId={id} />
       <div className="flex items-end justify-between mb-5">
