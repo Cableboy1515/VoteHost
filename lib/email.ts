@@ -360,10 +360,9 @@ function buildResultsHtml(p: Payload): string {
     const optionRows = (q.options ?? []).map((opt) => {
       const barColor = opt.winner ? C.accent : "#7d92b0"
       const label = escapeHtml(opt.optionText)
-      const prefix = opt.winner ? "👑 " : ""
       return `<div style="margin-bottom:8px;">
         <div style="display:table;width:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:13px;margin-bottom:4px;">
-          <div style="display:table-cell;font-weight:${opt.winner ? 600 : 400};color:${C.ink};">${prefix}${label}</div>
+          <div style="display:table-cell;font-weight:${opt.winner ? 600 : 400};color:${C.ink};">${label}</div>
           <div style="display:table-cell;text-align:right;color:${C.muted};font-variant-numeric:tabular-nums;">${opt.pct}%</div>
         </div>
         <div style="height:6px;background:${C.surface3};border-radius:999px;overflow:hidden;">
