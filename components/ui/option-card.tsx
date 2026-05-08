@@ -96,15 +96,41 @@ export function OptionCard({
           {hasBio && (
             <button
               type="button"
-              className="text-[12px] text-vh-muted hover:text-vh-ink-soft px-2 py-0.5 rounded transition-colors"
-              style={{ background: "var(--vh-surface-3)" }}
+              className="inline-flex items-center gap-1 text-[13px] font-medium px-2.5 py-1 rounded-[8px] transition-colors"
+              style={{
+                background: "var(--vh-surface-3)",
+                border: "1px solid var(--vh-line-strong)",
+                color: "var(--vh-ink-soft)",
+              }}
               onClick={(e) => {
                 e.stopPropagation()
                 setExpanded((v) => !v)
               }}
+              onMouseEnter={(e) => {
+                ;(e.currentTarget as HTMLElement).style.background = "var(--vh-surface-2)"
+                ;(e.currentTarget as HTMLElement).style.color = "var(--vh-ink)"
+              }}
+              onMouseLeave={(e) => {
+                ;(e.currentTarget as HTMLElement).style.background = "var(--vh-surface-3)"
+                ;(e.currentTarget as HTMLElement).style.color = "var(--vh-ink-soft)"
+              }}
               aria-expanded={expanded}
+              aria-label={`${expanded ? "Hide" : "Show"} details about ${name}`}
             >
-              {expanded ? "Hide" : "Bio"}
+              {expanded ? "Hide details" : "Show details"}
+              <svg
+                width="12"
+                height="12"
+                viewBox="0 0 12 12"
+                fill="none"
+                aria-hidden
+                style={{
+                  transition: "transform 150ms",
+                  transform: expanded ? "rotate(180deg)" : "rotate(0deg)",
+                }}
+              >
+                <path d="M2 4L6 8L10 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
             </button>
           )}
 
