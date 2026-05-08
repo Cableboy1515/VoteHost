@@ -382,7 +382,7 @@ function buildResultsHtml(p: Payload): string {
     <tr><td style="padding:24px 32px 14px;">
       <h1 style="margin:0 0 10px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:22px;font-weight:600;color:${C.ink};letter-spacing:-0.02em;">The results are in</h1>
       <p style="margin:0 0 0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:14.5px;color:${C.inkSoft};line-height:1.6;">
-        ${escapeHtml(title)} has closed${closeStr ? ` on ${escapeHtml(closeStr)}` : ""}. Here's a summary of how everyone voted.
+        ${escapeHtml(title)} has closed. Here's a summary of how everyone voted.
       </p>
     </td></tr>
     ${turnoutBlock}
