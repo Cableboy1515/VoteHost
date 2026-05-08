@@ -383,13 +383,14 @@ export default function VoterManager({ electionId, electionStatus, electionStart
             No voters match this filter.
           </div>
         ) : (
-          <div>
+          <div className="grid" style={{ gridTemplateColumns: "1.5fr 2fr auto auto" }}>
             {sorted.map((v, i) => (
               <div
                 key={v.id}
                 className="grid items-center gap-4 px-[18px] py-3.5 text-[14px]"
                 style={{
-                  gridTemplateColumns: "1.5fr 2fr auto auto",
+                  gridTemplateColumns: "subgrid",
+                  gridColumn: "1 / -1",
                   borderTop: i === 0 ? "none" : "1px solid var(--vh-line)",
                 }}
               >
