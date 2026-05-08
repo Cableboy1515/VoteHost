@@ -3,6 +3,7 @@
 import { useState } from "react"
 import { useRouter } from "next/navigation"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import ElectionTestEmailButton from "@/components/admin/ElectionTestEmailButton"
 
 interface Props {
   electionId?: string
@@ -337,18 +338,21 @@ export default function ElectionForm({ electionId, initialValues }: Props) {
                 onBlur={onFocusOut}
               />
             </div>
-            <button
-              type="button"
-              onClick={() => setShowPreview((v) => !v)}
-              className="self-start px-3.5 py-2 rounded-[10px] text-[13px] transition-colors"
-              style={{
-                border: "1px solid var(--vh-line-strong)",
-                background: "var(--vh-surface)",
-                color: "var(--vh-ink-soft)",
-              }}
-            >
-              {showPreview ? "Hide preview" : "Preview email"}
-            </button>
+            <div className="flex gap-2 self-start">
+              <button
+                type="button"
+                onClick={() => setShowPreview((v) => !v)}
+                className="px-3.5 py-2 rounded-[10px] text-[13px] transition-colors"
+                style={{
+                  border: "1px solid var(--vh-line-strong)",
+                  background: "var(--vh-surface)",
+                  color: "var(--vh-ink-soft)",
+                }}
+              >
+                {showPreview ? "Hide preview" : "Preview email"}
+              </button>
+              {electionId && <ElectionTestEmailButton electionId={electionId} />}
+            </div>
           </div>
         </VhCard>
 

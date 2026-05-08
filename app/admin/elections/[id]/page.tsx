@@ -3,7 +3,7 @@ export const dynamic = "force-dynamic"
 import { db } from "@/lib/db"
 import { notFound } from "next/navigation"
 import ElectionForm from "@/components/admin/ElectionForm"
-import ElectionTestEmailButton from "@/components/admin/ElectionTestEmailButton"
+import ElectionTabs from "@/components/admin/ElectionTabs"
 import Link from "next/link"
 import { autoCompleteElections } from "@/lib/autoCompleteElections"
 
@@ -20,26 +20,8 @@ export default async function EditElectionPage({ params }: { params: Promise<{ i
         <span className="mx-1.5">›</span>
         <span>{election.title}</span>
       </div>
-      <div className="flex items-end justify-between mb-5">
-        <h1 className="text-[26px] font-semibold">Edit election</h1>
-        <div className="flex gap-2">
-          <ElectionTestEmailButton electionId={id} />
-          <Link
-            href={`/admin/elections/${id}/voters`}
-            className="px-3.5 py-2 rounded-[10px] text-[13px] transition-colors"
-            style={{ border: "1px solid var(--vh-line-strong)", background: "var(--vh-surface)", color: "var(--vh-ink-soft)" }}
-          >
-            Voters
-          </Link>
-          <Link
-            href={`/admin/elections/${id}/results`}
-            className="px-3.5 py-2 rounded-[10px] text-[13px] transition-colors"
-            style={{ border: "1px solid var(--vh-line-strong)", background: "var(--vh-surface)", color: "var(--vh-ink-soft)" }}
-          >
-            Results
-          </Link>
-        </div>
-      </div>
+      <ElectionTabs electionId={id} />
+      <h1 className="text-[26px] font-semibold mb-5">Settings</h1>
       <ElectionForm
         electionId={election.id}
         initialValues={{

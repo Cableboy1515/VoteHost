@@ -42,7 +42,19 @@ export default function ElectionTestEmailButton({ electionId }: { electionId: st
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogTrigger render={<Button variant="outline" size="sm" />}>
+      <DialogTrigger
+        render={
+          <button
+            type="button"
+            className="self-start px-3.5 py-2 rounded-[10px] text-[13px] transition-colors"
+            style={{
+              border: "1px solid var(--vh-line-strong)",
+              background: "var(--vh-surface)",
+              color: "var(--vh-ink-soft)",
+            }}
+          />
+        }
+      >
         Send test email
       </DialogTrigger>
       <DialogContent showCloseButton={false}>
