@@ -361,7 +361,7 @@ export default function BallotBuilder({ electionId, electionStatus, initialQuest
                             <div>
                               <label className="block text-[11.5px] font-medium mb-1" style={{ color: "var(--vh-muted)" }}>Description</label>
                               <Textarea
-                                placeholder="Short bio shown to voters (max 500 chars)"
+                                placeholder="Short description shown to voters (max 500 chars)"
                                 value={o.bio ?? ""}
                                 onChange={(e) => updateOption(qIndex, oIndex, { bio: e.target.value || undefined })}
                                 rows={2}
@@ -373,7 +373,7 @@ export default function BallotBuilder({ electionId, electionStatus, initialQuest
                             <div>
                               <label className="block text-[11.5px] font-medium mb-1" style={{ color: "var(--vh-muted)" }}>Photo URL</label>
                               <input
-                                placeholder="https://..."
+                                placeholder="example.com"
                                 value={o.photoUrl ?? ""}
                                 onChange={(e) => updateOption(qIndex, oIndex, { photoUrl: e.target.value || undefined })}
                                 disabled={locked}
@@ -384,7 +384,7 @@ export default function BallotBuilder({ electionId, electionStatus, initialQuest
                             <div>
                               <label className="block text-[11.5px] font-medium mb-1" style={{ color: "var(--vh-muted)" }}>Website</label>
                               <input
-                                placeholder="https://..."
+                                placeholder="example.com"
                                 value={o.website ?? ""}
                                 onChange={(e) => updateOption(qIndex, oIndex, { website: e.target.value || undefined })}
                                 disabled={locked}

@@ -42,7 +42,16 @@ export const QuestionSchema = z.object({
   randomizeOptions: z.boolean().default(false),
 })
 
-const urlField = z.string().regex(/^https?:\/\//, "URL must use http:// or https://")
+const urlField = z.preprocess(
+  (val) => {
+    if (typeof val !== "string") return val
+    const trimmed = val.trim()
+    if (!trimmed) return undefined
+    if (!/^https?:\/\//i.test(trimmed)) return `https://${trimmed}`
+    return trimmed
+  },
+  z.string().url("Enter a valid URL")
+)
 
 export const OptionSchema = z.object({
   text: z.string().min(1, "Option text is required"),
