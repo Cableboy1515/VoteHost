@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { db } from "@/lib/db"
 import { sendBallotInvitation } from "@/lib/email"
+import { purgeElectionImages } from "@/lib/imageRetention"
 
 const ONE_DAY_MS = 24 * 60 * 60 * 1000
 
@@ -84,5 +85,25 @@ export async function POST(req: Request) {
     }
   }
 
-  return NextResponse.json({ elections: elections.length, sent: totalSent, errors })
+  // ── Image retention sweep ────────────────────────────────────────
+  let purged = 0
+  const retentionSetting = await db.setting.findUnique({ where: { key: "image_retention_days" } })
+  const retentionDays = retentionSetting?.value ? parseInt(retentionSetting.value, 10) : 30
+
+  if (retentionDays > 0) {
+    const cutoff = new Date(now.getTime() - retentionDays * ONE_DAY_MS)
+    const stale = await db.election.findMany({
+      where: {
+        status: { in: ["CLOSED", "COMPLETED"] },
+        endsAt: { lt: cutoff },
+        imagesPurgedAt: null,
+      },
+      select: { id: true },
+    })
+    await Promise.allSettled(
+      stale.map(async (e) => { await purgeElectionImages(e.id); purged++ })
+    )
+  }
+
+  return NextResponse.json({ elections: elections.length, sent: totalSent, purged, errors })
 }

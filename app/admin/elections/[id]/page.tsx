@@ -4,6 +4,7 @@ import { db } from "@/lib/db"
 import { notFound } from "next/navigation"
 import ElectionForm from "@/components/admin/ElectionForm"
 import ElectionTabs from "@/components/admin/ElectionTabs"
+import PurgeImagesButton from "@/components/admin/PurgeImagesButton"
 import { GuardLink } from "@/components/admin/UnsavedChangesGuard"
 import { autoCompleteElections } from "@/lib/autoCompleteElections"
 
@@ -12,6 +13,8 @@ export default async function EditElectionPage({ params }: { params: Promise<{ i
   await autoCompleteElections()
   const election = await db.election.findUnique({ where: { id } })
   if (!election) notFound()
+
+  const isClosed = election.status === "CLOSED" || election.status === "COMPLETED"
 
   return (
     <div className="p-8 max-w-[800px]">
@@ -38,6 +41,12 @@ export default async function EditElectionPage({ params }: { params: Promise<{ i
           firstReminderDays: election.firstReminderDays,
         }}
       />
+      {isClosed && (
+        <PurgeImagesButton
+          electionId={id}
+          purgedAt={election.imagesPurgedAt?.toISOString() ?? null}
+        />
+      )}
     </div>
   )
 }
