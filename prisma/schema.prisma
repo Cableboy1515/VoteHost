@@ -31,10 +31,11 @@ model Election {
   startsAt    DateTime?
   endsAt      DateTime?
 
-  emailSubject  String?
-  emailMessage  String?
-  emailLogoUrl  String?
-  emailFooter   String?
+  emailSubject     String?
+  emailMessage     String?
+  emailLogoUrl     String?
+  emailLogoDeleteUrl String?
+  emailFooter      String?
 
   firstReminderDays  Int?
   resultsEmailSentAt DateTime?
@@ -68,9 +69,10 @@ model Option {
   questionId String
   text       String
   order      Int
-  bio        String?
-  photoUrl   String?
-  website    String?
+  bio           String?
+  photoUrl      String?
+  photoDeleteUrl String?
+  website       String?
 
   question Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
   votes    Vote[]

@@ -21,6 +21,7 @@ export const ElectionBaseSchema = z.object({
   emailSubject: z.string().optional().nullable(),
   emailMessage: z.string().optional().nullable(),
   emailLogoUrl: urlField.optional().nullable(),
+  emailLogoDeleteUrl: z.string().url().optional().nullable(),
   emailFooter: z.string().optional().nullable(),
   firstReminderDays: z.number().int().positive().nullish(),
 })
@@ -59,6 +60,7 @@ export const OptionSchema = z.object({
   order: z.number().int().min(0),
   bio: z.string().max(500).optional().nullable(),
   photoUrl: urlField.optional().nullable(),
+  photoDeleteUrl: z.string().url().optional().nullable(),
   website: urlField.optional().nullable(),
 })
 
