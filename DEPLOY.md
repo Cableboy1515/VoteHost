@@ -48,7 +48,19 @@ Election logo images and candidate avatar photos are uploaded through VoteHost's
 
 **Email images and `NEXTAUTH_URL`:** image URLs in outgoing emails are constructed using `NEXTAUTH_URL`. For images to display in voters' inboxes, your `NEXTAUTH_URL` must be a publicly-reachable URL (the same constraint that already applies to magic links). On a local dev box where `NEXTAUTH_URL=http://localhost:3000`, email recipients won't be able to load images — but the rest of the app still works.
 
-**Disk usage:** uploaded files accumulate in `public/uploads/`. If you want to free space, you can delete files from that directory directly — but only remove files that are no longer referenced by any election or option in the database.
+**Cache headers:** uploaded images are served with `Cache-Control: public, max-age=31536000, immutable`. Browsers and email-client proxy caches (Gmail, Outlook) will serve images from cache after the first fetch, reducing repeat server hits to near zero.
+
+## Image retention (reducing long-tail server load)
+
+After an election closes, old emails (invites, reminders, results) may continue to trigger image loads for months as voters revisit their inbox. VoteHost reduces this automatically:
+
+**Automatic sweep (cron-driven):** the existing hourly cron at `/api/reminders/run` also scans for closed elections whose `endsAt` is older than the configured retention period. For each, it overwrites the image files on disk with a 1×1 transparent GIF (~70 bytes). The image URLs remain valid — voters see a blank area instead of a broken-image icon — and cache headers ensure even those 70 bytes are only transferred once per client.
+
+**Configure retention:** go to **Settings → Storage & Retention** in the admin panel. Default is 30 days. Set blank to disable the automatic sweep.
+
+**Purge immediately:** on any closed election's Settings page, an "Uploaded images" card with a **Purge images** button lets you tombstone images on demand without waiting for the cron. The button is disabled and replaced by a "purged on …" timestamp once done.
+
+**This is irreversible.** Once an image is tombstoned, the original file is gone from disk. If you want to keep originals, download them before the retention window or before clicking Purge.
 
 ## Database migrations
 
