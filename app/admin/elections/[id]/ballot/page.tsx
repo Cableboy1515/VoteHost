@@ -50,6 +50,7 @@ export default async function BallotPage({ params }: { params: Promise<{ id: str
             order: o.order,
             bio: o.bio ?? undefined,
             photoUrl: o.photoUrl ?? undefined,
+            photoDeleteUrl: o.photoDeleteUrl ?? undefined,
             website: o.website ?? undefined,
           })),
         }))}

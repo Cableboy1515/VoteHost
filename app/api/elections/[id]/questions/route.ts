@@ -57,6 +57,7 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
             order: o.order,
             bio: o.bio ?? null,
             photoUrl: o.photoUrl ?? null,
+            photoDeleteUrl: o.photoDeleteUrl ?? null,
             website: o.website ?? null,
           })),
         })

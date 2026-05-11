@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import ElectionTestEmailButton from "@/components/admin/ElectionTestEmailButton"
 import { useUnsavedChangesGuard } from "@/components/admin/UnsavedChangesGuard"
+import ImageUploadField from "@/components/admin/ImageUploadField"
 
 interface Props {
   electionId?: string
@@ -17,6 +18,7 @@ interface Props {
     emailSubject?: string | null
     emailMessage?: string | null
     emailLogoUrl?: string | null
+    emailLogoDeleteUrl?: string | null
     emailFooter?: string | null
     firstReminderDays?: number | null
   }
@@ -114,6 +116,7 @@ export default function ElectionForm({ electionId, initialValues }: Props) {
   const [emailSubject, setEmailSubject] = useState(initialValues?.emailSubject ?? "")
   const [emailMessage, setEmailMessage] = useState(initialValues?.emailMessage ?? "")
   const [emailLogoUrl, setEmailLogoUrl] = useState(initialValues?.emailLogoUrl ?? "")
+  const [emailLogoDeleteUrl, setEmailLogoDeleteUrl] = useState(initialValues?.emailLogoDeleteUrl ?? "")
   const [emailFooter, setEmailFooter] = useState(initialValues?.emailFooter ?? "")
   const [firstReminderDays, setFirstReminderDays] = useState(
     initialValues?.firstReminderDays != null ? String(initialValues.firstReminderDays) : ""
@@ -134,6 +137,7 @@ export default function ElectionForm({ electionId, initialValues }: Props) {
       emailSubject: emailSubject.trim(),
       emailMessage: emailMessage.trim(),
       emailLogoUrl: emailLogoUrl.trim(),
+      emailLogoDeleteUrl: emailLogoDeleteUrl.trim(),
       emailFooter: emailFooter.trim(),
       firstReminderDays,
     })
@@ -155,6 +159,7 @@ export default function ElectionForm({ electionId, initialValues }: Props) {
       emailSubject: emailSubject || null,
       emailMessage: emailMessage || null,
       emailLogoUrl: emailLogoUrl || null,
+      emailLogoDeleteUrl: emailLogoDeleteUrl || null,
       emailFooter: emailFooter || null,
       firstReminderDays: firstReminderDays !== "" ? parseInt(firstReminderDays, 10) : null,
     }
@@ -182,6 +187,7 @@ export default function ElectionForm({ electionId, initialValues }: Props) {
           emailSubject: "Email subject",
           emailMessage: "Email message",
           emailLogoUrl: "Header image URL",
+          emailLogoDeleteUrl: "Header image delete URL",
           emailFooter: "Email footer",
           firstReminderDays: "First reminder",
         }
@@ -345,17 +351,14 @@ export default function ElectionForm({ electionId, initialValues }: Props) {
               />
             </div>
             <div>
-              <VhLabel htmlFor="emailLogoUrl">Header image URL</VhLabel>
-              <input
-                id="emailLogoUrl"
-                type="url"
-                placeholder="https://example.com/logo.png"
-                value={emailLogoUrl}
-                onChange={(e) => setEmailLogoUrl(e.target.value)}
-                className={inputCls}
-                style={inputStyle}
-                onFocus={onFocusIn}
-                onBlur={onFocusOut}
+              <VhLabel>Header image</VhLabel>
+              <ImageUploadField
+                preset="logo"
+                url={emailLogoUrl}
+                setUrl={setEmailLogoUrl}
+                deleteUrl={emailLogoDeleteUrl}
+                setDeleteUrl={setEmailLogoDeleteUrl}
+                disabled={saving}
               />
             </div>
             <div>

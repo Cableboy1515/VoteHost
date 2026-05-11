@@ -6,6 +6,7 @@ import { useUnsavedChangesGuard } from "@/components/admin/UnsavedChangesGuard"
 import { Textarea } from "@/components/ui/textarea"
 import { Toaster } from "@/components/ui/sonner"
 import { toast } from "sonner"
+import ImageUploadField from "@/components/admin/ImageUploadField"
 
 type QuestionType = "SINGLE_CHOICE" | "MULTIPLE_CHOICE" | "RANKED_CHOICE" | "WRITE_IN"
 
@@ -15,6 +16,7 @@ interface OptionDraft {
   order: number
   bio?: string
   photoUrl?: string
+  photoDeleteUrl?: string
   website?: string
 }
 
@@ -424,14 +426,14 @@ export default function BallotBuilder({ electionId, electionStatus, initialQuest
                               />
                             </div>
                             <div>
-                              <label className="block text-[11.5px] font-medium mb-1" style={{ color: "var(--vh-muted)" }}>Photo URL</label>
-                              <input
-                                placeholder="example.com"
-                                value={o.photoUrl ?? ""}
-                                onChange={(e) => updateOption(qIndex, oIndex, { photoUrl: e.target.value || undefined })}
+                              <label className="block text-[11.5px] font-medium mb-1" style={{ color: "var(--vh-muted)" }}>Photo</label>
+                              <ImageUploadField
+                                preset="avatar"
+                                url={o.photoUrl ?? ""}
+                                setUrl={(v) => updateOption(qIndex, oIndex, { photoUrl: v || undefined })}
+                                deleteUrl={o.photoDeleteUrl ?? ""}
+                                setDeleteUrl={(v) => updateOption(qIndex, oIndex, { photoDeleteUrl: v || undefined })}
                                 disabled={locked}
-                                className="w-full text-sm px-2.5 py-1.5 rounded-[8px]"
-                                style={{ border: "1px solid var(--vh-line-strong)", background: "var(--vh-surface)", color: "var(--vh-ink)", outline: "none" }}
                               />
                             </div>
                             <div>

@@ -33,6 +33,7 @@ export default async function EditElectionPage({ params }: { params: Promise<{ i
           emailSubject: election.emailSubject,
           emailMessage: election.emailMessage,
           emailLogoUrl: election.emailLogoUrl,
+          emailLogoDeleteUrl: election.emailLogoDeleteUrl,
           emailFooter: election.emailFooter,
           firstReminderDays: election.firstReminderDays,
         }}
