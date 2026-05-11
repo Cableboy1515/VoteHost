@@ -39,6 +39,7 @@ model Election {
 
   firstReminderDays  Int?
   resultsEmailSentAt DateTime?
+  imagesPurgedAt     DateTime?
 
   questions Question[]
   voters    Voter[]

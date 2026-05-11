@@ -5,6 +5,92 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 
+function StorageSettings() {
+  const [days, setDays] = useState("30")
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
+  const [status, setStatus] = useState<"idle" | "saved" | "error">("idle")
+  const [errorMsg, setErrorMsg] = useState("")
+
+  useEffect(() => {
+    fetch("/api/settings/general")
+      .then((r) => r.json())
+      .then((d) => { setDays(d.image_retention_days ?? "30"); setLoading(false) })
+      .catch(() => setLoading(false))
+  }, [])
+
+  async function handleSave(e: React.FormEvent) {
+    e.preventDefault()
+    setSaving(true)
+    setStatus("idle")
+    setErrorMsg("")
+    try {
+      const res = await fetch("/api/settings/general", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ image_retention_days: days }),
+      })
+      const data = await res.json()
+      if (res.ok) {
+        setStatus("saved")
+      } else {
+        setStatus("error")
+        setErrorMsg(data.error ?? "Failed to save")
+      }
+    } catch {
+      setStatus("error")
+      setErrorMsg("Failed to save")
+    } finally {
+      setSaving(false)
+      setTimeout(() => setStatus("idle"), 3000)
+    }
+  }
+
+  return (
+    <div>
+      <h2 className="text-lg font-semibold mb-1">Storage &amp; Retention</h2>
+      <p className="text-zinc-500 text-sm mb-4">
+        Uploaded images (logos and candidate photos) are stored on this server. After an election
+        closes, the cron job can replace image files with a transparent placeholder to reduce
+        bandwidth from old emails — the image URLs remain valid so no broken-image icons appear in
+        voter inboxes.
+      </p>
+      {loading ? (
+        <p className="text-zinc-400 text-sm">Loading…</p>
+      ) : (
+        <form onSubmit={handleSave} className="space-y-4">
+          <div className="space-y-1.5">
+            <Label htmlFor="image_retention_days">Image retention (days after election closes)</Label>
+            <div className="flex items-center gap-3">
+              <Input
+                id="image_retention_days"
+                type="number"
+                min={1}
+                placeholder="30"
+                value={days}
+                onChange={(e) => setDays(e.target.value)}
+                className="w-28"
+              />
+              <span className="text-sm text-zinc-400">Leave blank to never auto-purge</span>
+            </div>
+            <p className="text-xs text-zinc-400">
+              Default: 30 days. Set to blank to disable automatic cleanup.
+              Images can always be purged immediately from the election Settings page.
+            </p>
+          </div>
+          <div className="flex items-center gap-3">
+            <Button type="submit" disabled={saving}>
+              {saving ? "Saving…" : "Save"}
+            </Button>
+            {status === "saved" && <span className="text-sm text-green-600">Saved.</span>}
+            {status === "error" && <span className="text-sm text-red-600">{errorMsg}</span>}
+          </div>
+        </form>
+      )}
+    </div>
+  )
+}
+
 type EmailSettings = {
   email_provider: "resend" | "smtp"
   resend_api_key: string
@@ -316,6 +402,9 @@ export default function SettingsPage() {
       {testStatus === "error" && (
         <p className="text-sm text-red-600 mt-3">Failed: {testError}</p>
       )}
+
+      <hr className="my-8 border-zinc-200" />
+      <StorageSettings />
     </div>
   )
 }
