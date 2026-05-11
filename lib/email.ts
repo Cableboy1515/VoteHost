@@ -185,14 +185,16 @@ function footerRow(emailFooter?: string | null): string {
 </td></tr>`
 }
 
+function logoRow(url?: string | null): string {
+  return url
+    ? `<tr><td style="padding:24px 32px 0;"><img src="${escapeHtml(url)}" alt="" style="max-width:100%;display:block;border-radius:8px;" /></td></tr>`
+    : ""
+}
+
 function buildInviteHtml(p: Payload): string {
   const title = escapeHtml(p.electionTitle)
   const name = escapeHtml(p.voterName)
   const link = escapeHtml(p.magicLink)
-
-  const logoRow = p.emailLogoUrl
-    ? `<tr><td style="padding:24px 32px 0;"><img src="${escapeHtml(p.emailLogoUrl)}" alt="" style="max-width:100%;display:block;border-radius:8px;" /></td></tr>`
-    : ""
 
   const closingCallout = p.endsAt
     ? `<tr><td style="padding:0 32px 20px;">
@@ -211,7 +213,7 @@ function buildInviteHtml(p: Payload): string {
 
   return emailWrapper(`
     ${brandRow()}
-    ${logoRow}
+    ${logoRow(p.emailLogoUrl)}
     <tr><td style="padding:24px 32px 14px;">
       <h1 style="margin:0 0 12px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:22px;font-weight:600;color:${C.ink};letter-spacing:-0.02em;">You're invited to vote</h1>
       <p style="margin:0 0 14px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:14.5px;color:${C.inkSoft};line-height:1.6;">Hi ${name},</p>
@@ -267,6 +269,7 @@ function buildReminderEarlyHtml(p: Payload): string {
 
   return emailWrapper(`
     ${brandRow()}
+    ${logoRow(p.emailLogoUrl)}
     <tr><td style="padding:24px 32px 14px;">
       <div style="display:inline-block;background:${C.warnSoft};color:${C.warnText};padding:5px 12px;border-radius:99px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:12px;font-weight:500;margin-bottom:16px;">
         ⏰ ${days != null ? `${days} day${days !== 1 ? "s" : ""} left` : "Closing soon"}
@@ -300,6 +303,7 @@ function buildReminderFinalHtml(p: Payload): string {
 
   return emailWrapper(`
     ${brandRow()}
+    ${logoRow(p.emailLogoUrl)}
     <tr><td style="padding:24px 32px 14px;">
       <div style="display:inline-block;background:${C.dangerSoft};color:${C.danger};padding:5px 12px;border-radius:99px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:12px;font-weight:500;margin-bottom:16px;">
         ⏰ Closing in 24 hours
@@ -379,6 +383,7 @@ function buildResultsHtml(p: Payload): string {
 
   return emailWrapper(`
     ${brandRow()}
+    ${logoRow(p.emailLogoUrl)}
     <tr><td style="padding:24px 32px 14px;">
       <h1 style="margin:0 0 10px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:22px;font-weight:600;color:${C.ink};letter-spacing:-0.02em;">The results are in</h1>
       <p style="margin:0 0 0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:14.5px;color:${C.inkSoft};line-height:1.6;">
