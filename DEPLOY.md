@@ -38,15 +38,15 @@ VoteHost does not run a background scheduler — reminders are triggered by an e
 - The endpoint returns `{ elections, sent, errors }` — pipe to a log file for monitoring.
 - Reminder emails go only to voters where `hasVoted = false` and `invitedAt IS NOT NULL`. They are de-duplicated: each voter receives at most one early reminder and one 24-hour reminder regardless of how often the cron runs.
 
-## Image hosting (ImgLink)
+## Image storage
 
-Election logo images and candidate avatar photos are uploaded directly from the browser to [ImgLink](https://imglink.io) using their anonymous API. No API key or account is required — images are hosted for free and no additional environment variables are needed.
+Election logo images and candidate avatar photos are uploaded through VoteHost's own server and stored in `public/uploads/` on disk. No external image host, API key, or account is required.
 
-**Delete URLs:** when an image is uploaded, VoteHost stores a delete URL alongside the image URL. This URL is shown to admins in the UI. If you remove an image in the admin panel, VoteHost calls the delete URL automatically. If you need to delete an image manually, open the delete URL in a browser.
+**Image sizes:** avatars are resized to 256×256 px JPEG; email logos are scaled to a max width of 1120 px JPEG before upload. Resizing happens in the browser — no large originals are stored.
 
-**Proxy fallback (advanced):** if your hosting environment blocks outbound browser requests to ImgLink (e.g. strict CSP or Content Security Policy), open `lib/imageHost.ts` and set `USE_PROXY = true`. This routes uploads through the Next.js server at `/api/upload/image` instead. The server-side request is unrestricted, so it will always work. No environment variable needed — it is a compile-time constant.
+**Cleanup:** removing an image in the admin panel deletes the file from disk immediately. Deleting an election also deletes all of its associated uploaded images.
 
-**Image sizes:** avatars are resized to 256×256 px JPEG; email logos are scaled to a max width of 1120 px JPEG. Resizing happens entirely in the browser before upload — no large originals are ever sent.
+**Disk usage:** uploaded files accumulate in `public/uploads/`. If you want to free space, you can delete files from that directory directly — but only remove files that are no longer referenced by any election or option in the database.
 
 ## Database migrations
 

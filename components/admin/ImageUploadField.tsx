@@ -113,16 +113,7 @@ export default function ImageUploadField({ preset, url, setUrl, deleteUrl, setDe
           <div className="flex flex-col gap-0.5 min-w-0">
             {deleteUrl && (
               <span className="text-[11.5px]" style={{ color: "var(--vh-muted)" }}>
-                Hosted on ImgLink.{" "}
-                <a
-                  href={deleteUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="underline"
-                  style={{ color: "var(--vh-muted)" }}
-                >
-                  View delete link
-                </a>
+                Stored on this server
               </span>
             )}
             <button
