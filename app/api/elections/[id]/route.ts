@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import { getSession, requireRole } from "@/lib/auth"
 import { db } from "@/lib/db"
 import { ElectionBaseSchema, ElectionSchema } from "@/lib/validations"
+import { deleteImage } from "@/lib/imageHost"
 
 export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
   const session = await getSession()
@@ -39,6 +40,28 @@ export async function DELETE(_req: Request, { params }: { params: Promise<{ id: 
   if (!session) return NextResponse.json({ error: "Forbidden" }, { status: 403 })
 
   const { id } = await params
+
+  // Collect hosted-image delete URLs before cascading delete wipes them
+  const election = await db.election.findUnique({
+    where: { id },
+    select: {
+      emailLogoDeleteUrl: true,
+      questions: { select: { options: { select: { photoDeleteUrl: true } } } },
+    },
+  })
+
   await db.election.delete({ where: { id } })
+
+  if (election) {
+    const deleteUrls: string[] = []
+    if (election.emailLogoDeleteUrl) deleteUrls.push(election.emailLogoDeleteUrl)
+    for (const q of election.questions) {
+      for (const o of q.options) {
+        if (o.photoDeleteUrl) deleteUrls.push(o.photoDeleteUrl)
+      }
+    }
+    await Promise.allSettled(deleteUrls.map(deleteImage))
+  }
+
   return new NextResponse(null, { status: 204 })
 }
