@@ -22,8 +22,9 @@ export async function POST(req: Request) {
 
   await writeFile(join(UPLOADS_DIR, filename), buffer)
 
-  const url = `/uploads/${filename}`
-  const deleteUrl = `/api/upload/image/${filename}`
+  const baseUrl = (process.env.NEXTAUTH_URL ?? "http://localhost:3000").replace(/\/$/, "")
+  const url = `${baseUrl}/uploads/${filename}`
+  const deleteUrl = `${baseUrl}/api/upload/image/${filename}`
 
   return NextResponse.json({ url, deleteUrl })
 }

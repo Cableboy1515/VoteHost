@@ -46,6 +46,8 @@ Election logo images and candidate avatar photos are uploaded through VoteHost's
 
 **Cleanup:** removing an image in the admin panel deletes the file from disk immediately. Deleting an election also deletes all of its associated uploaded images.
 
+**Email images and `NEXTAUTH_URL`:** image URLs in outgoing emails are constructed using `NEXTAUTH_URL`. For images to display in voters' inboxes, your `NEXTAUTH_URL` must be a publicly-reachable URL (the same constraint that already applies to magic links). On a local dev box where `NEXTAUTH_URL=http://localhost:3000`, email recipients won't be able to load images — but the rest of the app still works.
+
 **Disk usage:** uploaded files accumulate in `public/uploads/`. If you want to free space, you can delete files from that directory directly — but only remove files that are no longer referenced by any election or option in the database.
 
 ## Database migrations
