@@ -1,0 +1,89 @@
+services:
+
+  # ── Application ─────────────────────────────────────────────────────────────
+  app:
+    build: .
+    restart: unless-stopped
+    env_file: .env
+    ports:
+      - "127.0.0.1:3000:3000"     # bound to localhost only; tunnel or reverse-proxy exposes it
+    volumes:
+      - uploads:/app/public/uploads
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:3000/api/health"]
+      interval: 30s
+      timeout: 5s
+      start_period: 60s
+      retries: 3
+
+  # ── Database ─────────────────────────────────────────────────────────────────
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ── Hourly reminder + retention cron ────────────────────────────────────────
+  cron:
+    build: ./cron
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      CRON_SECRET: ${CRON_SECRET}
+    depends_on:
+      app:
+        condition: service_healthy
+
+  # ── Optional: Cloudflare Tunnel ─────────────────────────────────────────────
+  # Start with: docker compose --profile cloudflare up -d
+  # Get your token at: https://one.dash.cloudflare.com → Networks → Tunnels
+  cloudflared:
+    profiles: [cloudflare]
+    image: cloudflare/cloudflared:latest
+    restart: unless-stopped
+    command: tunnel --no-autoupdate run
+    environment:
+      TUNNEL_TOKEN: ${CLOUDFLARE_TUNNEL_TOKEN}
+    depends_on:
+      app:
+        condition: service_healthy
+
+  # ── Optional: Tailscale Funnel ───────────────────────────────────────────────
+  # Start with: docker compose --profile tailscale up -d
+  # Generate an auth key at: https://login.tailscale.com/admin/settings/keys
+  tailscale:
+    profiles: [tailscale]
+    image: tailscale/tailscale:latest
+    restart: unless-stopped
+    hostname: ${TS_HOSTNAME:-votehost}
+    environment:
+      TS_AUTHKEY: ${TS_AUTHKEY}
+      TS_EXTRA_ARGS: --advertise-tags=tag:container
+      TS_SERVE_CONFIG: /config/serve.json
+    volumes:
+      - tailscale_state:/var/lib/tailscale
+      - ./tailscale:/config
+    cap_add:
+      - NET_ADMIN
+      - SYS_MODULE
+    depends_on:
+      app:
+        condition: service_healthy
+
+volumes:
+  db_data:
+  uploads:
+  tailscale_state:

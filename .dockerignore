@@ -1,0 +1,38 @@
+# Version control
+.git
+.gitignore
+
+# Build artifacts (regenerated inside Docker)
+.next
+node_modules
+lib/generated
+
+# Secrets (never bake into image)
+.env
+.env.*
+!.env.example
+
+# Runtime user data (comes from Docker volume)
+public/uploads
+
+# AI / dev-personal files
+CLAUDE.md
+AGENTS.md
+.claude
+.cursor
+.windsurf
+.vscode
+.idea
+
+# Local dev / test state
+*.tsbuildinfo
+coverage
+prisma/dev.db
+prisma/migrations
+
+# Docs (not needed inside image)
+README.md
+DEPLOY.md
+
+# CI / hosting platform configs
+.vercel

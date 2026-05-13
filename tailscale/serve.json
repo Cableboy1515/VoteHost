@@ -1,0 +1,19 @@
+{
+  "TCP": {
+    "443": {
+      "HTTPS": true
+    }
+  },
+  "Web": {
+    "${TS_HOSTNAME}:443": {
+      "Handlers": {
+        "/": {
+          "Proxy": "http://app:3000"
+        }
+      }
+    }
+  },
+  "AllowFunnel": {
+    "${TS_HOSTNAME}:443": true
+  }
+}
