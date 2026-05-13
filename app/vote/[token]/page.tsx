@@ -5,8 +5,32 @@ import BallotForm from "@/components/ballot/BallotForm"
 export default async function VotePage({ params }: { params: Promise<{ token: string }> }) {
   const { token } = await params
 
-  const voter = await db.voter.findUnique({
+  // Phase 1: lightweight check — skips the questions/options join for invalid or
+  // closed-election tokens (the common case for stale magic links in old emails).
+  const quick = await db.voter.findUnique({
     where: { token },
+    select: {
+      id: true,
+      hasVoted: true,
+      election: { select: { status: true, startsAt: true, endsAt: true } },
+    },
+  })
+
+  if (!quick) return <ErrorScreen type="invalid" />
+  if (quick.hasVoted) return <ErrorScreen type="already-voted" />
+
+  const now = new Date()
+  // Future start date — show "not-open" with the date, regardless of DRAFT/ACTIVE status.
+  // (DRAFT + future startsAt is the pre-invitation case; voters got a save-the-date.)
+  if (quick.election.startsAt && now < quick.election.startsAt) {
+    return <ErrorScreen type="not-open" startsAt={quick.election.startsAt.toISOString()} />
+  }
+  if (quick.election.status !== "ACTIVE") return <ErrorScreen type="closed" />
+  if (quick.election.endsAt && now > quick.election.endsAt) return <ErrorScreen type="closed" />
+
+  // Phase 2: active election and voter hasn't voted — load the full ballot.
+  const voter = await db.voter.findUnique({
+    where: { id: quick.id },
     include: {
       election: {
         include: {
@@ -20,16 +44,6 @@ export default async function VotePage({ params }: { params: Promise<{ token: st
   })
 
   if (!voter) return <ErrorScreen type="invalid" />
-  if (voter.hasVoted) return <ErrorScreen type="already-voted" />
-
-  const now = new Date()
-  // Future start date — show "not-open" with the date, regardless of DRAFT/ACTIVE status.
-  // (DRAFT + future startsAt is the pre-invitation case; voters got a save-the-date.)
-  if (voter.election.startsAt && now < voter.election.startsAt) {
-    return <ErrorScreen type="not-open" startsAt={voter.election.startsAt.toISOString()} />
-  }
-  if (voter.election.status !== "ACTIVE") return <ErrorScreen type="closed" />
-  if (voter.election.endsAt && now > voter.election.endsAt) return <ErrorScreen type="closed" />
 
   return (
     <BallotForm

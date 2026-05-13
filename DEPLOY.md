@@ -62,6 +62,8 @@ After an election closes, old emails (invites, reminders, results) may continue 
 
 **This is irreversible.** Once an image is tombstoned, the original file is gone from disk. If you want to keep originals, download them before the retention window or before clicking Purge.
 
+**Stale magic links:** after an election closes, voters who click old magic links from their inbox hit a lightweight DB check (no questions or ballot data loaded) and immediately see the "Election closed" screen. No image files are served once images are purged — old email logos and avatars resolve to a 70-byte transparent GIF.
+
 ## Database migrations
 
 This project uses `prisma db push` (schema-first, no migration files). After any schema change:
