@@ -13,6 +13,9 @@ COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 # Generate Prisma client into lib/generated/prisma
 RUN node node_modules/.bin/prisma generate
+# proxy.ts checks NEXTAUTH_SECRET at module load time; supply a placeholder so
+# `next build` can collect page data. The real secret is injected at runtime.
+ENV NEXTAUTH_SECRET=build-placeholder
 RUN npm run build
 
 # ── Stage 3: runtime ──────────────────────────────────────────────────────────
