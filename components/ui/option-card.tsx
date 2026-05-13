@@ -163,14 +163,14 @@ export function OptionCard({
           onClick={(e) => e.stopPropagation()}
         >
           {bio && (
-            <p className="text-[12.5px] text-vh-muted leading-relaxed">{bio}</p>
+            <p className="text-sm text-vh-muted leading-relaxed">{bio}</p>
           )}
           {website && (
             <a
               href={website}
               target="_blank"
               rel="noopener noreferrer"
-              className="text-[12px] text-vh-accent hover:underline"
+              className="text-[13px] text-vh-accent hover:underline"
               onClick={(e) => e.stopPropagation()}
             >
               {website.replace(/^https?:\/\//, "")}

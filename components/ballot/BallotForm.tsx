@@ -474,7 +474,7 @@ export default function BallotForm({ token, electionTitle, electionDescription, 
           style={{ padding: "28px 20px" }}
         >
           <BrandMark size={22} className="mb-8" />
-          <p className="text-[11px] font-semibold text-vh-muted uppercase tracking-wider mb-3 truncate">
+          <p className="text-[15px] font-semibold text-vh-ink mb-4 break-words">
             {electionTitle}
           </p>
           <nav className="space-y-1 flex-1">
@@ -485,10 +485,10 @@ export default function BallotForm({ token, electionTitle, electionDescription, 
                   key={q.id}
                   type="button"
                   onClick={() => questionRefs.current[q.id]?.scrollIntoView({ behavior: "smooth", block: "start" })}
-                  className="w-full text-left flex items-center gap-2.5 px-3 py-2 rounded-[var(--vh-radius-sm)] text-sm transition-colors hover:bg-vh-surface-2"
+                  className="w-full text-left flex items-start gap-2.5 px-3 py-2 rounded-[var(--vh-radius-sm)] text-sm transition-colors hover:bg-vh-surface-2"
                 >
                   <span
-                    className="w-5 h-5 flex-shrink-0 inline-grid place-items-center rounded-full text-[11px] font-semibold"
+                    className="w-5 h-5 flex-shrink-0 inline-grid place-items-center rounded-full text-[11px] font-semibold mt-0.5"
                     style={{
                       background: done ? "var(--vh-accent)" : "var(--vh-surface-3)",
                       color: done ? "white" : "var(--vh-muted)",
@@ -496,7 +496,7 @@ export default function BallotForm({ token, electionTitle, electionDescription, 
                   >
                     {done ? "✓" : i + 1}
                   </span>
-                  <span className="truncate text-vh-ink-soft">{q.text}</span>
+                  <span className="break-words text-vh-ink-soft">{q.text}</span>
                 </button>
               )
             })}
@@ -521,7 +521,7 @@ export default function BallotForm({ token, electionTitle, electionDescription, 
           <div className="max-w-[720px]">
             <h1 className="text-2xl font-semibold text-vh-ink mb-1">{electionTitle}</h1>
             {electionDescription && (
-              <p className="text-sm text-vh-muted mb-10 whitespace-pre-wrap">{electionDescription}</p>
+              <p className="text-[15px] leading-relaxed text-vh-muted mb-10 whitespace-pre-wrap">{electionDescription}</p>
             )}
 
             <div className="space-y-10">
@@ -544,7 +544,7 @@ export default function BallotForm({ token, electionTitle, electionDescription, 
                     </div>
                     <h3 className="text-[18px] font-semibold text-vh-ink">{q.text}</h3>
                     {q.description && (
-                      <p className="text-sm text-vh-muted mt-1">{q.description}</p>
+                      <p className="text-[15px] leading-relaxed text-vh-muted mt-1.5">{q.description}</p>
                     )}
                     {q.type === "MULTIPLE_CHOICE" && q.maxSelections && (
                       <p className="text-xs text-vh-muted mt-1.5">
@@ -597,7 +597,7 @@ export default function BallotForm({ token, electionTitle, electionDescription, 
             )}
           </h2>
           {questions[step].description && (
-            <p className="text-sm text-vh-muted mt-2">{questions[step].description}</p>
+            <p className="text-[15px] leading-relaxed text-vh-muted mt-2">{questions[step].description}</p>
           )}
           {questions[step].type === "MULTIPLE_CHOICE" && questions[step].maxSelections && (
             <p className="text-xs text-vh-muted mt-2">
