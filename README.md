@@ -43,7 +43,7 @@ cd VoteHost
 ./scripts/install.sh
 ```
 
-The wizard will ask which tunnel option you're using, prompt for the relevant token, and then offer to run `docker compose up` for you. Once the containers are healthy, follow the link it prints to `/admin/setup` to create your first admin account.
+The wizard will ask which tunnel option you're using, prompt for your admin email and password, and then build and start the stack. Once the containers are healthy, the wizard creates your admin account automatically — no browser step required. If you skip the in-wizard admin creation, it prints your `SETUP_TOKEN` and the URL to finish setup from the browser.
 
 ---
 
@@ -68,6 +68,7 @@ Open `.env` and set:
 | `NEXTAUTH_SECRET` | `openssl rand -hex 32` |
 | `NEXTAUTH_URL` | Your public URL, e.g. `https://vote.example.com` |
 | `CRON_SECRET` | `openssl rand -hex 32` |
+| `SETUP_TOKEN` | `openssl rand -hex 32` — required to create the first admin account; can be removed from `.env` after bootstrap |
 
 **3. Build and start**
 
@@ -88,16 +89,11 @@ You should see `Postgres is ready`, `Schema applied`, and `Starting VoteHost` wi
 
 **5. Create your admin account**
 
-Once your tunnel is live, visit `https://your-domain.com/admin/setup`.
+Visit `https://your-domain.com/admin/setup`. The form asks for a **setup token** — paste the `SETUP_TOKEN` value from your `.env` file. This prevents anyone on the internet from racing you for the admin account while the server is first starting up.
 
-If you're setting up before the tunnel/DNS is ready, or the server is headless, the app intentionally binds only to `127.0.0.1:3000` — not exposed on the LAN, because TLS termination happens at the tunnel and a plain-HTTP admin panel on the LAN is risky. Reach it from your workstation with an SSH port-forward:
+Once the admin account is created, you can optionally delete `SETUP_TOKEN` from `.env` and run `docker compose restart app` — it's never checked again after the first admin exists.
 
-```bash
-ssh -L 3000:localhost:3000 user@your-server
-# then on your workstation, browse: http://localhost:3000/admin/setup
-```
-
-The forward closes when you exit the SSH session — no permanent LAN exposure.
+> **Tip — SSH port-forward**: if you need to reach the setup page before your tunnel/DNS is live, `ssh -L 3000:localhost:3000 user@your-server` lets you browse `http://localhost:3000/admin/setup` from your workstation. The forward closes when you exit the session.
 
 ---
 

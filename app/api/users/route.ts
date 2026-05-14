@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server"
+import crypto from "node:crypto"
 import bcrypt from "bcryptjs"
 import { requireRole } from "@/lib/auth"
 import { db } from "@/lib/db"
@@ -24,7 +25,7 @@ export async function POST(req: Request) {
   const parsed = CreateUserSchema.safeParse(body)
   if (!parsed.success) return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 })
 
-  const { email, password, role } = parsed.data
+  const { email, password, role, setupToken } = parsed.data
 
   // Determine whether this is the first-run bootstrap (auth-bypass) or a normal admin-only create
   const [setupRow, userCount] = await Promise.all([
@@ -33,7 +34,22 @@ export async function POST(req: Request) {
   ])
   const isFirstRun = !setupRow && userCount === 0
 
-  if (!isFirstRun) {
+  if (isFirstRun) {
+    const expected = process.env.SETUP_TOKEN
+    if (!expected) {
+      return NextResponse.json(
+        { error: "SETUP_TOKEN is not configured. Add it to .env, restart the app, then retry. See README." },
+        { status: 503 }
+      )
+    }
+    const provided = setupToken ?? ""
+    const match =
+      provided.length === expected.length &&
+      crypto.timingSafeEqual(Buffer.from(provided), Buffer.from(expected))
+    if (!match) {
+      return NextResponse.json({ error: "Invalid or missing setup token" }, { status: 401 })
+    }
+  } else {
     const session = await requireRole("ADMIN")
     if (!session) return NextResponse.json({ error: "Forbidden" }, { status: 403 })
   }

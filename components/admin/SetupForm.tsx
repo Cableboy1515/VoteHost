@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button"
 
 export default function SetupForm() {
   const router = useRouter()
+  const [token, setToken] = useState("")
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [confirm, setConfirm] = useState("")
@@ -27,7 +28,7 @@ export default function SetupForm() {
     const res = await fetch("/api/users", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email, password, role: "ADMIN" }),
+      body: JSON.stringify({ email, password, role: "ADMIN", setupToken: token }),
     })
 
     setLoading(false)
@@ -43,10 +44,24 @@ export default function SetupForm() {
     <Card className="w-full max-w-sm">
       <CardHeader>
         <CardTitle>Set up VoteHost</CardTitle>
-        <p className="text-sm text-zinc-500">Create your admin account to get started.</p>
+        <p className="text-sm text-zinc-500">
+          Create your admin account. The setup token is the <code className="font-mono bg-zinc-100 px-0.5 rounded text-xs">SETUP_TOKEN</code> value in your server&apos;s <code className="font-mono bg-zinc-100 px-0.5 rounded text-xs">.env</code> file.
+        </p>
       </CardHeader>
       <CardContent>
         <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="space-y-1">
+            <Label htmlFor="setup-token">Setup token</Label>
+            <Input
+              id="setup-token"
+              type="password"
+              value={token}
+              onChange={(e) => setToken(e.target.value)}
+              required
+              autoFocus
+              placeholder="Paste from .env — SETUP_TOKEN=..."
+            />
+          </div>
           <div className="space-y-1">
             <Label htmlFor="email">Email</Label>
             <Input
@@ -55,7 +70,6 @@ export default function SetupForm() {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
-              autoFocus
             />
           </div>
           <div className="space-y-1">
