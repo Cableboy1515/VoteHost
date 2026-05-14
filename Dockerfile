@@ -1,11 +1,18 @@
-# ── Stage 1: install dependencies ─────────────────────────────────────────────
+# ── Stage 1: install all dependencies (build + dev) ───────────────────────────
 FROM node:22-alpine AS deps
 WORKDIR /app
 RUN apk add --no-cache openssl
 COPY package.json package-lock.json ./
 RUN npm ci
 
-# ── Stage 2: build ────────────────────────────────────────────────────────────
+# ── Stage 2: production-only dependencies (for runtime prisma CLI) ─────────────
+FROM node:22-alpine AS prod-deps
+WORKDIR /app
+RUN apk add --no-cache openssl
+COPY package.json package-lock.json ./
+RUN npm ci --omit=dev
+
+# ── Stage 3: build ────────────────────────────────────────────────────────────
 FROM node:22-alpine AS builder
 WORKDIR /app
 RUN apk add --no-cache openssl
@@ -18,7 +25,7 @@ RUN node node_modules/.bin/prisma generate
 ENV NEXTAUTH_SECRET=build-placeholder
 RUN npm run build
 
-# ── Stage 3: runtime ──────────────────────────────────────────────────────────
+# ── Stage 4: runtime ──────────────────────────────────────────────────────────
 FROM node:22-alpine AS runner
 WORKDIR /app
 RUN apk add --no-cache openssl netcat-openbsd
@@ -41,15 +48,14 @@ COPY --from=builder --chown=nextjs:nodejs /app/public        ./public
 # Prisma generated client (standalone trace may not pick up custom output path)
 COPY --from=builder --chown=nextjs:nodejs /app/lib/generated/prisma ./lib/generated/prisma
 
-# Prisma CLI + schema needed by the entrypoint's `prisma db push`
-COPY --from=builder --chown=nextjs:nodejs /app/node_modules/prisma        ./node_modules/prisma
-COPY --from=builder --chown=nextjs:nodejs /app/node_modules/@prisma       ./node_modules/@prisma
-COPY --from=builder --chown=nextjs:nodejs /app/node_modules/pg            ./node_modules/pg
-COPY --from=builder --chown=nextjs:nodejs /app/node_modules/pg-types      ./node_modules/pg-types
-COPY --from=builder --chown=nextjs:nodejs /app/node_modules/pgpass        ./node_modules/pgpass
-COPY --from=builder --chown=nextjs:nodejs /app/node_modules/dotenv        ./node_modules/dotenv
-COPY --from=builder --chown=nextjs:nodejs /app/prisma                     ./prisma
-COPY --from=builder --chown=nextjs:nodejs /app/prisma.config.ts           ./prisma.config.ts
+# Production node_modules — needed by the entrypoint's `prisma db push`
+# Prisma 7's CLI has a large transitive dep tree (includes Studio, effect, etc.)
+# so we copy the full production set rather than cherry-picking packages.
+COPY --from=prod-deps --chown=nextjs:nodejs /app/node_modules ./node_modules
+
+# Prisma schema needed by `db push`
+COPY --from=builder --chown=nextjs:nodejs /app/prisma         ./prisma
+COPY --from=builder --chown=nextjs:nodejs /app/prisma.config.ts ./prisma.config.ts
 
 # Uploads directory (actual files come from the Docker volume)
 RUN mkdir -p public/uploads && chown nextjs:nodejs public/uploads
