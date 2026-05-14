@@ -119,14 +119,25 @@ export const BallotSubmissionSchema = z.object({
 
 export const CreateUserSchema = z.object({
   email: z.string().email(),
-  password: z.string().min(8, "Password must be at least 8 characters"),
   role: z.enum(["ADMIN", "ORGANIZER", "VIEWER"]),
-  setupToken: z.string().optional(),
+})
+
+export const BootstrapAdminSchema = z.object({
+  email: z.string().email(),
+  password: z.string().min(8, "Password must be at least 8 characters"),
+  setupToken: z.string(),
 })
 
 export const UpdateUserSchema = z.object({
-  role: z.enum(["ADMIN", "ORGANIZER", "VIEWER"]).optional(),
-  password: z.string().min(8, "Password must be at least 8 characters").optional(),
+  role: z.enum(["ADMIN", "ORGANIZER", "VIEWER"]),
+})
+
+export const SetupAccountSchema = z.object({
+  password: z.string().min(8, "Password must be at least 8 characters"),
+})
+
+export const RequestResetSchema = z.object({
+  email: z.string().email(),
 })
 
 export type ElectionInput = z.infer<typeof ElectionBaseSchema>
@@ -135,3 +146,5 @@ export type OptionInput = z.infer<typeof OptionSchema>
 export type VoterInput = z.infer<typeof VoterSchema>
 export type BallotAnswer = z.infer<typeof BallotAnswerSchema>
 export type BallotSubmission = z.infer<typeof BallotSubmissionSchema>
+export type CreateUserInput = z.infer<typeof CreateUserSchema>
+export type SetupAccountInput = z.infer<typeof SetupAccountSchema>

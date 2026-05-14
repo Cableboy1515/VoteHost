@@ -25,7 +25,6 @@ export type SessionPayload = {
   sub: string
   email: string
   role: AdminRole
-  mustChangePassword: boolean
   tokenVersion: number
 }
 
@@ -37,9 +36,10 @@ const ROLE_ORDER: Record<AdminRole, number> = {
 
 export async function verifyAdminCredentials(email: string, password: string): Promise<AdminUser | null> {
   const user = await db.adminUser.findUnique({ where: { email } })
-  // Always run bcrypt to prevent user-enumeration via timing side-channel
+  // Always run bcrypt to prevent user-enumeration via timing side-channel.
+  // Reject users whose passwordHash is null — they have a pending invitation.
   const valid = await bcrypt.compare(password, user?.passwordHash ?? TIMING_HASH)
-  if (!user || !valid) return null
+  if (!user || !user.passwordHash || !valid) return null
   return user
 }
 
@@ -48,7 +48,6 @@ export async function createSession(user: AdminUser): Promise<string> {
     sub: user.id,
     email: user.email,
     role: user.role,
-    mustChangePassword: user.mustChangePassword,
     tokenVersion: user.tokenVersion,
   })
     .setProtectedHeader({ alg: "HS256" })

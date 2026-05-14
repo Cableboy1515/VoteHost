@@ -124,14 +124,18 @@ enum AdminRole {
 }
 
 model AdminUser {
-  id                 String    @id @default(cuid())
-  email              String    @unique
-  passwordHash       String
-  role               AdminRole @default(ORGANIZER)
-  mustChangePassword Boolean   @default(false)
-  tokenVersion       Int       @default(0)
-  passwordChangedAt  DateTime?
-  createdAt          DateTime  @default(now())
+  id                       String    @id @default(cuid())
+  email                    String    @unique
+  passwordHash             String?
+  role                     AdminRole @default(ORGANIZER)
+  tokenVersion             Int       @default(0)
+  passwordChangedAt        DateTime?
+  createdAt                DateTime  @default(now())
+
+  invitationTokenHash      String?   @unique
+  invitationExpiresAt      DateTime?
+  invitedAt                DateTime?
+  passwordResetRequestedAt DateTime?
 }
 
 model Setting {

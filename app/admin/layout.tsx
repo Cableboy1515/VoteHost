@@ -7,7 +7,8 @@ import { BrandMark } from "@/components/ui/brand-mark"
 import { LayoutDashboard, Vote, Archive, Users, Settings, Plus, Menu, X } from "lucide-react"
 import { UnsavedChangesProvider, GuardLink } from "@/components/admin/UnsavedChangesGuard"
 
-const BARE_PATHS = ["/admin/login", "/admin/setup", "/admin/change-password"]
+const BARE_PATHS = ["/admin/login", "/admin/setup"]
+const BARE_PREFIXES = ["/admin/setup-account/"]
 
 const NAV_ITEMS = [
   { label: "Dashboard", href: "/admin/dashboard", icon: LayoutDashboard, match: (p: string) => p === "/admin/dashboard" },
@@ -26,18 +27,20 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const [role, setRole] = useState<string | null>(null)
   const [navOpen, setNavOpen] = useState(false)
 
+  const isBare = BARE_PATHS.includes(pathname) || BARE_PREFIXES.some((p) => pathname.startsWith(p))
+
   useEffect(() => {
-    if (!BARE_PATHS.includes(pathname)) {
+    if (!isBare) {
       fetch("/api/auth/me")
         .then((r) => r.ok ? r.json() : null)
         .then((d) => { if (d?.role) setRole(d.role) })
         .catch(() => {})
     }
-  }, [pathname])
+  }, [pathname, isBare])
 
   useEffect(() => { setNavOpen(false) }, [pathname])
 
-  if (BARE_PATHS.includes(pathname)) return <>{children}</>
+  if (isBare) return <>{children}</>
 
   async function handleSignOut() {
     await fetch("/api/auth/logout", { method: "POST" })

@@ -22,7 +22,7 @@ export async function POST(req: Request) {
   }
 
   const token = await createSession(user)
-  const res = NextResponse.json({ ok: true, mustChangePassword: user.mustChangePassword })
+  const res = NextResponse.json({ ok: true })
   res.cookies.set(COOKIE, token, SESSION_COOKIE_OPTIONS)
   return res
 }

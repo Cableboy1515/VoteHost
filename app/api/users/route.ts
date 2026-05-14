@@ -3,18 +3,40 @@ import crypto from "node:crypto"
 import bcrypt from "bcryptjs"
 import { requireRole } from "@/lib/auth"
 import { db } from "@/lib/db"
-import { CreateUserSchema } from "@/lib/validations"
+import { CreateUserSchema, BootstrapAdminSchema } from "@/lib/validations"
 import { csrfCheck } from "@/lib/csrf"
+import { generateInvitationToken } from "@/lib/invitations"
+import { sendAdminInvite } from "@/lib/email"
+import { absolutizeUrl } from "@/lib/absolutize-url"
 
 export async function GET() {
   const session = await requireRole("ADMIN")
   if (!session) return NextResponse.json({ error: "Forbidden" }, { status: 403 })
 
   const users = await db.adminUser.findMany({
-    select: { id: true, email: true, role: true, mustChangePassword: true, createdAt: true },
+    select: {
+      id: true,
+      email: true,
+      role: true,
+      createdAt: true,
+      invitationExpiresAt: true,
+      invitedAt: true,
+      passwordResetRequestedAt: true,
+      passwordHash: true,
+    },
     orderBy: { createdAt: "asc" },
   })
-  return NextResponse.json(users)
+  return NextResponse.json(
+    users.map((u) => ({
+      id: u.id,
+      email: u.email,
+      role: u.role,
+      createdAt: u.createdAt,
+      invitationExpiresAt: u.invitationExpiresAt,
+      passwordResetRequestedAt: u.passwordResetRequestedAt,
+      hasPassword: u.passwordHash !== null,
+    }))
+  )
 }
 
 export async function POST(req: Request) {
@@ -22,10 +44,6 @@ export async function POST(req: Request) {
   if (csrf) return csrf
 
   const body = await req.json().catch(() => ({}))
-  const parsed = CreateUserSchema.safeParse(body)
-  if (!parsed.success) return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 })
-
-  const { email, password, role, setupToken } = parsed.data
 
   // Determine whether this is the first-run bootstrap (auth-bypass) or a normal admin-only create
   const [setupRow, userCount] = await Promise.all([
@@ -35,6 +53,10 @@ export async function POST(req: Request) {
   const isFirstRun = !setupRow && userCount === 0
 
   if (isFirstRun) {
+    const parsed = BootstrapAdminSchema.safeParse(body)
+    if (!parsed.success) return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 })
+
+    const { email, password, setupToken } = parsed.data
     const expected = process.env.SETUP_TOKEN
     if (!expected) {
       return NextResponse.json(
@@ -49,26 +71,18 @@ export async function POST(req: Request) {
     if (!match) {
       return NextResponse.json({ error: "Invalid or missing setup token" }, { status: 401 })
     }
-  } else {
-    const session = await requireRole("ADMIN")
-    if (!session) return NextResponse.json({ error: "Forbidden" }, { status: 403 })
-  }
 
-  const existing = await db.adminUser.findUnique({ where: { email } })
-  if (existing) return NextResponse.json({ error: "Email already in use" }, { status: 409 })
+    const existing = await db.adminUser.findUnique({ where: { email } })
+    if (existing) return NextResponse.json({ error: "Email already in use" }, { status: 409 })
 
-  const passwordHash = await bcrypt.hash(password, 12)
+    const passwordHash = await bcrypt.hash(password, 12)
 
-  if (isFirstRun) {
-    // Wrap create + setup flag in a transaction to prevent concurrent bootstrap races
     const created = await db.$transaction(async (tx) => {
-      // Re-check inside transaction — guards against concurrent first-run requests
       const count = await tx.adminUser.count()
       if (count > 0) return null
-
       const user = await tx.adminUser.create({
-        data: { email, passwordHash, role: "ADMIN", mustChangePassword: false },
-        select: { id: true, email: true, role: true, mustChangePassword: true, createdAt: true },
+        data: { email, passwordHash, role: "ADMIN" },
+        select: { id: true, email: true, role: true, createdAt: true },
       })
       await tx.setting.upsert({
         where: { key: "setup_completed" },
@@ -78,15 +92,44 @@ export async function POST(req: Request) {
       return user
     })
 
-    if (!created) {
-      return NextResponse.json({ error: "Setup already completed" }, { status: 409 })
-    }
+    if (!created) return NextResponse.json({ error: "Setup already completed" }, { status: 409 })
     return NextResponse.json(created, { status: 201 })
   }
 
+  // Normal admin-only create: email + role only, send invitation email
+  const session = await requireRole("ADMIN")
+  if (!session) return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+
+  const parsed = CreateUserSchema.safeParse(body)
+  if (!parsed.success) return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 })
+
+  const { email, role } = parsed.data
+
+  const existing = await db.adminUser.findUnique({ where: { email } })
+  if (existing) return NextResponse.json({ error: "Email already in use" }, { status: 409 })
+
+  const { raw, hash, expiresAt } = generateInvitationToken()
+
   const user = await db.adminUser.create({
-    data: { email, passwordHash, role, mustChangePassword: true },
-    select: { id: true, email: true, role: true, mustChangePassword: true, createdAt: true },
+    data: {
+      email,
+      role,
+      invitationTokenHash: hash,
+      invitationExpiresAt: expiresAt,
+      invitedAt: new Date(),
+    },
+    select: {
+      id: true,
+      email: true,
+      role: true,
+      createdAt: true,
+      invitationExpiresAt: true,
+      passwordResetRequestedAt: true,
+    },
   })
-  return NextResponse.json(user, { status: 201 })
+
+  const setupLink = absolutizeUrl(`/admin/setup-account/${raw}`)
+  await sendAdminInvite({ recipientEmail: email, setupLink })
+
+  return NextResponse.json({ ...user, hasPassword: false }, { status: 201 })
 }

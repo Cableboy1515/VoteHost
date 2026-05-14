@@ -1,5 +1,4 @@
 import { NextResponse } from "next/server"
-import bcrypt from "bcryptjs"
 import { requireRole } from "@/lib/auth"
 import { db } from "@/lib/db"
 import { UpdateUserSchema } from "@/lib/validations"
@@ -17,30 +16,19 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
   const parsed = UpdateUserSchema.safeParse(body)
   if (!parsed.success) return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 })
 
-  const { role, password } = parsed.data
-
-  if (role && session.sub === id) {
+  if (session.sub === id) {
     return NextResponse.json({ error: "Cannot change your own role" }, { status: 400 })
-  }
-
-  const data: Record<string, unknown> = {}
-  if (role) {
-    data.role = role
-    data.tokenVersion = { increment: 1 } // invalidate victim's existing sessions
-  }
-  if (password) {
-    data.passwordHash = await bcrypt.hash(password, 12)
-    data.mustChangePassword = true
-    data.passwordChangedAt = new Date()
-    data.tokenVersion = { increment: 1 } // invalidate victim's existing sessions
   }
 
   const user = await db.adminUser.update({
     where: { id },
-    data,
-    select: { id: true, email: true, role: true, mustChangePassword: true, createdAt: true },
+    data: {
+      role: parsed.data.role,
+      tokenVersion: { increment: 1 },
+    },
+    select: { id: true, email: true, role: true, createdAt: true, invitationExpiresAt: true, passwordResetRequestedAt: true, passwordHash: true },
   })
-  return NextResponse.json(user)
+  return NextResponse.json({ ...user, hasPassword: user.passwordHash !== null, passwordHash: undefined })
 }
 
 export async function DELETE(_req: Request, { params }: { params: Promise<{ id: string }> }) {

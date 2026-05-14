@@ -1,7 +1,7 @@
 export const dynamic = "force-dynamic"
 
 import { redirect } from "next/navigation"
-import { requireRole, getSession } from "@/lib/auth"
+import { requireRole } from "@/lib/auth"
 import { db } from "@/lib/db"
 import UserManager from "@/components/admin/UserManager"
 
@@ -10,10 +10,26 @@ export default async function UsersPage() {
   if (!session) redirect("/admin/dashboard")
 
   const rawUsers = await db.adminUser.findMany({
-    select: { id: true, email: true, role: true, mustChangePassword: true, createdAt: true },
+    select: {
+      id: true,
+      email: true,
+      role: true,
+      createdAt: true,
+      invitationExpiresAt: true,
+      passwordResetRequestedAt: true,
+      passwordHash: true,
+    },
     orderBy: { createdAt: "asc" },
   })
-  const users = rawUsers.map((u) => ({ ...u, createdAt: u.createdAt.toISOString() }))
+  const users = rawUsers.map((u) => ({
+    id: u.id,
+    email: u.email,
+    role: u.role,
+    createdAt: u.createdAt.toISOString(),
+    invitationExpiresAt: u.invitationExpiresAt?.toISOString() ?? null,
+    passwordResetRequestedAt: u.passwordResetRequestedAt?.toISOString() ?? null,
+    hasPassword: u.passwordHash !== null,
+  }))
 
   return (
     <div className="p-4 sm:p-8">

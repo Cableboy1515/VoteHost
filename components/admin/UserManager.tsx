@@ -1,7 +1,6 @@
 "use client"
 
 import { useState } from "react"
-import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -21,7 +20,9 @@ interface User {
   id: string
   email: string
   role: Role
-  mustChangePassword: boolean
+  hasPassword: boolean
+  invitationExpiresAt: string | null
+  passwordResetRequestedAt: string | null
   createdAt: string
 }
 
@@ -30,36 +31,31 @@ interface Props {
   currentUserId: string
 }
 
-const ROLE_LABELS: Record<Role, string> = {
-  ADMIN: "Admin",
-  ORGANIZER: "Organizer",
-  VIEWER: "Viewer",
-}
-
-const ROLE_VARIANTS: Record<Role, "default" | "secondary" | "outline"> = {
-  ADMIN: "default",
-  ORGANIZER: "secondary",
-  VIEWER: "outline",
+function userStatus(u: User): { label: string; variant: "default" | "secondary" | "outline" | "destructive" } {
+  if (u.passwordResetRequestedAt) return { label: "Reset requested", variant: "destructive" }
+  if (!u.hasPassword && u.invitationExpiresAt) {
+    const exp = new Date(u.invitationExpiresAt)
+    if (exp > new Date()) {
+      const daysLeft = Math.ceil((exp.getTime() - Date.now()) / 86_400_000)
+      return { label: `Invited · ${daysLeft}d left`, variant: "secondary" }
+    }
+    return { label: "Expired", variant: "outline" }
+  }
+  return { label: "Active", variant: "outline" }
 }
 
 export default function UserManager({ users: initialUsers, currentUserId }: Props) {
-  const router = useRouter()
   const [users, setUsers] = useState<User[]>(initialUsers)
 
-  // Create user dialog state
   const [createOpen, setCreateOpen] = useState(false)
   const [newEmail, setNewEmail] = useState("")
-  const [newPassword, setNewPassword] = useState("")
   const [newRole, setNewRole] = useState<Role>("ORGANIZER")
   const [creating, setCreating] = useState(false)
 
-  // Reset password dialog state
-  const [resetOpen, setResetOpen] = useState(false)
-  const [resetUserId, setResetUserId] = useState("")
-  const [resetPassword, setResetPassword] = useState("")
-  const [resetting, setResetting] = useState(false)
+  const [inviteOpen, setInviteOpen] = useState(false)
+  const [inviteUser, setInviteUser] = useState<User | null>(null)
+  const [inviting, setInviting] = useState(false)
 
-  // Delete dialog state
   const [deleteOpen, setDeleteOpen] = useState(false)
   const [deleteUser, setDeleteUser] = useState<User | null>(null)
   const [deleting, setDeleting] = useState(false)
@@ -74,16 +70,15 @@ export default function UserManager({ users: initialUsers, currentUserId }: Prop
     const res = await fetch("/api/users", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email: newEmail, password: newPassword, role: newRole }),
+      body: JSON.stringify({ email: newEmail, role: newRole }),
     })
     setCreating(false)
     if (res.ok) {
       setCreateOpen(false)
       setNewEmail("")
-      setNewPassword("")
       setNewRole("ORGANIZER")
       await refreshUsers()
-      toast.success("User created")
+      toast.success("Invitation sent")
     } else {
       const d = await res.json().catch(() => ({}))
       toast.error(d.error ?? "Failed to create user")
@@ -104,21 +99,18 @@ export default function UserManager({ users: initialUsers, currentUserId }: Prop
     }
   }
 
-  async function handleResetPassword() {
-    setResetting(true)
-    const res = await fetch(`/api/users/${resetUserId}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ password: resetPassword }),
-    })
-    setResetting(false)
+  async function handleSendInvite() {
+    if (!inviteUser) return
+    setInviting(true)
+    const res = await fetch(`/api/users/${inviteUser.id}/invite`, { method: "POST" })
+    setInviting(false)
     if (res.ok) {
-      setResetOpen(false)
-      setResetPassword("")
+      setInviteOpen(false)
+      setInviteUser(null)
       await refreshUsers()
-      toast.success("Password reset — user must change it on next login")
+      toast.success("Setup link sent")
     } else {
-      toast.error("Failed to reset password")
+      toast.error("Failed to send setup link")
     }
   }
 
@@ -142,7 +134,7 @@ export default function UserManager({ users: initialUsers, currentUserId }: Prop
       <Toaster />
 
       <div className="flex justify-end">
-        <Dialog open={createOpen} onOpenChange={(o) => { if (o) { setNewEmail(""); setNewPassword(""); setNewRole("ORGANIZER") } setCreateOpen(o) }}>
+        <Dialog open={createOpen} onOpenChange={(o) => { if (o) { setNewEmail(""); setNewRole("ORGANIZER") } setCreateOpen(o) }}>
           <DialogTrigger render={<Button />}>+ Add User</DialogTrigger>
           <DialogContent showCloseButton={false}>
             <DialogHeader><DialogTitle>Add User</DialogTitle></DialogHeader>
@@ -150,10 +142,6 @@ export default function UserManager({ users: initialUsers, currentUserId }: Prop
               <div className="space-y-1">
                 <Label>Email</Label>
                 <Input type="email" value={newEmail} onChange={(e) => setNewEmail(e.target.value)} placeholder="user@example.com" />
-              </div>
-              <div className="space-y-1">
-                <Label>Temporary password</Label>
-                <Input type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} minLength={8} placeholder="Min. 8 characters" />
               </div>
               <div className="space-y-1">
                 <Label>Role</Label>
@@ -166,12 +154,12 @@ export default function UserManager({ users: initialUsers, currentUserId }: Prop
                   </SelectContent>
                 </Select>
               </div>
-              <p className="text-xs text-zinc-500">The user will be required to change their password on first login.</p>
+              <p className="text-xs text-zinc-500">We&apos;ll email an invitation link to set their password.</p>
             </div>
             <DialogFooter>
               <DialogClose render={<Button variant="outline" />}>Cancel</DialogClose>
-              <Button onClick={handleCreate} disabled={creating || !newEmail || !newPassword}>
-                {creating ? "Creating…" : "Create user"}
+              <Button onClick={handleCreate} disabled={creating || !newEmail}>
+                {creating ? "Sending…" : "Send invitation"}
               </Button>
             </DialogFooter>
           </DialogContent>
@@ -184,6 +172,7 @@ export default function UserManager({ users: initialUsers, currentUserId }: Prop
           <div className="sm:hidden divide-y divide-vh-line">
             {users.map((u) => {
               const isSelf = u.id === currentUserId
+              const status = userStatus(u)
               return (
                 <div key={u.id} className="px-4 py-3.5 flex flex-col gap-2.5">
                   <div className="flex items-start justify-between gap-3">
@@ -195,9 +184,7 @@ export default function UserManager({ users: initialUsers, currentUserId }: Prop
                         Created {new Date(u.createdAt).toLocaleDateString()}
                       </p>
                     </div>
-                    {u.mustChangePassword
-                      ? <Badge variant="secondary" className="flex-shrink-0">Must change password</Badge>
-                      : <Badge variant="outline" className="flex-shrink-0">Active</Badge>}
+                    <Badge variant={status.variant} className="flex-shrink-0">{status.label}</Badge>
                   </div>
                   <div className="flex flex-wrap items-center gap-2">
                     <Select
@@ -205,9 +192,7 @@ export default function UserManager({ users: initialUsers, currentUserId }: Prop
                       disabled={isSelf}
                       onValueChange={(v) => handleRoleChange(u.id, v as Role)}
                     >
-                      <SelectTrigger className="w-32 h-9 text-sm">
-                        <SelectValue />
-                      </SelectTrigger>
+                      <SelectTrigger className="w-32 h-9 text-sm"><SelectValue /></SelectTrigger>
                       <SelectContent>
                         <SelectItem value="ADMIN">Admin</SelectItem>
                         <SelectItem value="ORGANIZER">Organizer</SelectItem>
@@ -218,9 +203,9 @@ export default function UserManager({ users: initialUsers, currentUserId }: Prop
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={() => { setResetUserId(u.id); setResetPassword(""); setResetOpen(true) }}
+                        onClick={() => { setInviteUser(u); setInviteOpen(true) }}
                       >
-                        Reset
+                        Send setup link
                       </Button>
                       <Button
                         variant="outline"
@@ -236,6 +221,7 @@ export default function UserManager({ users: initialUsers, currentUserId }: Prop
               )
             })}
           </div>
+
           {/* Desktop table */}
           <Table className="hidden sm:table">
             <TableHeader>
@@ -250,18 +236,19 @@ export default function UserManager({ users: initialUsers, currentUserId }: Prop
             <TableBody>
               {users.map((u) => {
                 const isSelf = u.id === currentUserId
+                const status = userStatus(u)
                 return (
                   <TableRow key={u.id}>
-                    <TableCell className="font-medium">{u.email} {isSelf && <span className="text-xs text-zinc-400">(you)</span>}</TableCell>
+                    <TableCell className="font-medium">
+                      {u.email} {isSelf && <span className="text-xs text-zinc-400">(you)</span>}
+                    </TableCell>
                     <TableCell>
                       <Select
                         value={u.role}
                         disabled={isSelf}
                         onValueChange={(v) => handleRoleChange(u.id, v as Role)}
                       >
-                        <SelectTrigger className="w-32 h-7 text-sm">
-                          <SelectValue />
-                        </SelectTrigger>
+                        <SelectTrigger className="w-32 h-7 text-sm"><SelectValue /></SelectTrigger>
                         <SelectContent>
                           <SelectItem value="ADMIN">Admin</SelectItem>
                           <SelectItem value="ORGANIZER">Organizer</SelectItem>
@@ -270,9 +257,7 @@ export default function UserManager({ users: initialUsers, currentUserId }: Prop
                       </Select>
                     </TableCell>
                     <TableCell>
-                      {u.mustChangePassword
-                        ? <Badge variant="secondary">Must change password</Badge>
-                        : <Badge variant="outline">Active</Badge>}
+                      <Badge variant={status.variant}>{status.label}</Badge>
                     </TableCell>
                     <TableCell className="text-sm text-zinc-500">
                       {new Date(u.createdAt).toLocaleDateString()}
@@ -282,9 +267,9 @@ export default function UserManager({ users: initialUsers, currentUserId }: Prop
                         <Button
                           variant="outline"
                           size="sm"
-                          onClick={() => { setResetUserId(u.id); setResetPassword(""); setResetOpen(true) }}
+                          onClick={() => { setInviteUser(u); setInviteOpen(true) }}
                         >
-                          Reset password
+                          Send setup link
                         </Button>
                         <Button
                           variant="outline"
@@ -304,21 +289,17 @@ export default function UserManager({ users: initialUsers, currentUserId }: Prop
         </CardContent>
       </Card>
 
-      {/* Reset password dialog */}
-      <Dialog open={resetOpen} onOpenChange={setResetOpen}>
+      {/* Send setup link confirmation dialog */}
+      <Dialog open={inviteOpen} onOpenChange={setInviteOpen}>
         <DialogContent showCloseButton={false}>
-          <DialogHeader><DialogTitle>Reset Password</DialogTitle></DialogHeader>
-          <div className="space-y-3 py-2">
-            <div className="space-y-1">
-              <Label>New temporary password</Label>
-              <Input type="password" value={resetPassword} onChange={(e) => setResetPassword(e.target.value)} minLength={8} placeholder="Min. 8 characters" />
-            </div>
-            <p className="text-xs text-zinc-500">The user will be required to change this password on next login.</p>
-          </div>
+          <DialogHeader><DialogTitle>Send setup link?</DialogTitle></DialogHeader>
+          <p className="text-sm text-zinc-500 py-2">
+            This will send a new setup email to <strong>{inviteUser?.email}</strong>. Any existing invite link or current password will be invalidated.
+          </p>
           <DialogFooter>
             <DialogClose render={<Button variant="outline" />}>Cancel</DialogClose>
-            <Button onClick={handleResetPassword} disabled={resetting || resetPassword.length < 8}>
-              {resetting ? "Resetting…" : "Reset password"}
+            <Button onClick={handleSendInvite} disabled={inviting}>
+              {inviting ? "Sending…" : "Send setup link"}
             </Button>
           </DialogFooter>
         </DialogContent>
