@@ -6,6 +6,7 @@ import { csrfCheck } from "@/lib/csrf"
 const SECRET_KEYS = ["resend_api_key", "smtp_pass"] as const
 const EMAIL_KEYS = [
   "email_provider",
+  "email_preset",
   "resend_api_key",
   "email_from_address",
   "email_from_name",
@@ -29,6 +30,7 @@ export async function GET() {
 
     return NextResponse.json({
       email_provider:     s.email_provider     ?? "resend",
+      email_preset:       s.email_preset       ?? "resend",
       resend_api_key:     s.resend_api_key     ? SENTINEL : "",
       email_from_address: s.email_from_address ?? "",
       email_from_name:    s.email_from_name    ?? "VoteHost",
@@ -63,6 +65,7 @@ export async function PUT(req: Request) {
 
     await Promise.all([
       upsert("email_provider",     body.email_provider     ?? "resend",  "email_provider"),
+      upsert("email_preset",       body.email_preset       ?? "resend",  "email_preset"),
       upsert("resend_api_key",     body.resend_api_key,                  "resend_api_key"),
       upsert("email_from_address", body.email_from_address ?? "",        "email_from_address"),
       upsert("email_from_name",    body.email_from_name    ?? "VoteHost", "email_from_name"),

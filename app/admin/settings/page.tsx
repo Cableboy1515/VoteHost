@@ -91,8 +91,11 @@ function StorageSettings() {
   )
 }
 
+type EmailPreset = "resend" | "gmail" | "icloud" | "outlook" | "yahoo" | "smtp"
+
 type EmailSettings = {
   email_provider: "resend" | "smtp"
+  email_preset: EmailPreset
   resend_api_key: string
   email_from_address: string
   email_from_name: string
@@ -105,6 +108,7 @@ type EmailSettings = {
 
 const DEFAULT_SETTINGS: EmailSettings = {
   email_provider: "resend",
+  email_preset: "resend",
   resend_api_key: "",
   email_from_address: "",
   email_from_name: "VoteHost",
@@ -118,6 +122,124 @@ const DEFAULT_SETTINGS: EmailSettings = {
 const selectClass =
   "h-9 w-full rounded-lg border border-input bg-transparent px-2.5 text-sm outline-none " +
   "focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+
+type PresetConfig = {
+  label: string
+  provider: "resend" | "smtp"
+  smtp?: { host: string; port: string; secure: "true" | "false" }
+  tips: { title: string; body: React.ReactNode }
+}
+
+const PRESETS: Record<EmailPreset, PresetConfig> = {
+  resend: {
+    label: "Resend",
+    provider: "resend",
+    tips: {
+      title: "About Resend",
+      body: (
+        <>
+          API-based delivery with high deliverability. Generate an API key at{" "}
+          <a href="https://resend.com/api-keys" target="_blank" rel="noreferrer" className="underline">
+            resend.com/api-keys
+          </a>
+          . The From Address must be on a domain you&apos;ve verified in Resend.
+        </>
+      ),
+    },
+  },
+  gmail: {
+    label: "Gmail",
+    provider: "smtp",
+    smtp: { host: "smtp.gmail.com", port: "587", secure: "false" },
+    tips: {
+      title: "Setting up Gmail",
+      body: (
+        <>
+          Gmail SMTP requires a 16-character <strong>App Password</strong> — not your regular Gmail password. Generate
+          one at{" "}
+          <a href="https://myaccount.google.com/apppasswords" target="_blank" rel="noreferrer" className="underline">
+            myaccount.google.com/apppasswords
+          </a>{" "}
+          (2-Step Verification must be enabled). Daily send limit: ~500 emails for free accounts.
+        </>
+      ),
+    },
+  },
+  icloud: {
+    label: "iCloud Mail",
+    provider: "smtp",
+    smtp: { host: "smtp.mail.me.com", port: "587", secure: "false" },
+    tips: {
+      title: "Setting up iCloud Mail",
+      body: (
+        <>
+          iCloud requires an <strong>app-specific password</strong>. Generate one at{" "}
+          <a href="https://account.apple.com/account/manage" target="_blank" rel="noreferrer" className="underline">
+            account.apple.com
+          </a>{" "}
+          under Sign-In and Security → App-Specific Passwords (requires 2FA). Use your full @icloud.com address as
+          the username. Daily send limit: ~1,000 emails — a good fit for larger elections.
+        </>
+      ),
+    },
+  },
+  outlook: {
+    label: "Microsoft 365 / Outlook",
+    provider: "smtp",
+    smtp: { host: "smtp.office365.com", port: "587", secure: "false" },
+    tips: {
+      title: "Setting up Microsoft 365 / Outlook",
+      body: (
+        <>
+          Use your full email address as the username and your regular password. If your tenant blocks basic SMTP
+          auth (common on enterprise plans), ask an admin to enable <em>Authenticated SMTP</em> for the mailbox, or
+          generate an{" "}
+          <a
+            href="https://support.microsoft.com/en-us/account-billing/manage-app-passwords-for-two-step-verification-d6dc8c6d-4bf7-4851-ad95-6d07799387e9"
+            target="_blank"
+            rel="noreferrer"
+            className="underline"
+          >
+            App Password
+          </a>{" "}
+          if MFA is enabled.
+        </>
+      ),
+    },
+  },
+  yahoo: {
+    label: "Yahoo Mail",
+    provider: "smtp",
+    smtp: { host: "smtp.mail.yahoo.com", port: "465", secure: "true" },
+    tips: {
+      title: "Setting up Yahoo Mail",
+      body: (
+        <>
+          Yahoo requires an <strong>App Password</strong>. Generate one at{" "}
+          <a href="https://login.yahoo.com/account/security" target="_blank" rel="noreferrer" className="underline">
+            Yahoo Account Security
+          </a>{" "}
+          → Generate app password (2-step verification must be enabled). Use your full @yahoo.com address as the
+          username.
+        </>
+      ),
+    },
+  },
+  smtp: {
+    label: "General SMTP",
+    provider: "smtp",
+    smtp: { host: "", port: "587", secure: "false" },
+    tips: {
+      title: "Custom SMTP server",
+      body: (
+        <>
+          Enter your provider&apos;s SMTP host, port, and TLS mode below. Use STARTTLS on port 587 or Implicit TLS
+          on port 465 unless your provider specifies otherwise.
+        </>
+      ),
+    },
+  },
+}
 
 export default function SettingsPage() {
   const [settings, setSettings] = useState<EmailSettings>(DEFAULT_SETTINGS)
@@ -151,8 +273,18 @@ export default function SettingsPage() {
     setSettings((s) => ({ ...s, [key]: value }))
   }
 
-  function applyGmailPreset() {
-    setSettings((s) => ({ ...s, smtp_host: "smtp.gmail.com", smtp_port: "587", smtp_secure: "false" }))
+  function applyPreset(next: EmailPreset) {
+    const cfg = PRESETS[next]
+    setSettings((s) => ({
+      ...s,
+      email_preset: next,
+      email_provider: cfg.provider,
+      ...(cfg.smtp ? {
+        smtp_host: cfg.smtp.host,
+        smtp_port: cfg.smtp.port,
+        smtp_secure: cfg.smtp.secure,
+      } : {}),
+    }))
   }
 
   async function handleSave(e: React.FormEvent) {
@@ -228,18 +360,25 @@ export default function SettingsPage() {
 
       <form onSubmit={handleSave} className="space-y-5">
 
-        {/* Provider selector */}
+        {/* Provider preset selector */}
         <div className="space-y-1.5">
-          <Label htmlFor="email_provider">Email Provider</Label>
+          <Label htmlFor="email_preset">Email Provider</Label>
           <select
-            id="email_provider"
-            value={settings.email_provider}
-            onChange={(e) => set("email_provider", e.target.value as "resend" | "smtp")}
+            id="email_preset"
+            value={settings.email_preset}
+            onChange={(e) => applyPreset(e.target.value as EmailPreset)}
             className={selectClass}
           >
-            <option value="resend">Resend</option>
-            <option value="smtp">SMTP / Gmail</option>
+            {(Object.keys(PRESETS) as EmailPreset[]).map((k) => (
+              <option key={k} value={k}>{PRESETS[k].label}</option>
+            ))}
           </select>
+        </div>
+
+        {/* Provider-specific tips */}
+        <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-3 text-sm">
+          <div className="font-medium mb-1">{PRESETS[settings.email_preset].tips.title}</div>
+          <p className="text-zinc-600 leading-relaxed">{PRESETS[settings.email_preset].tips.body}</p>
         </div>
 
         {/* Shared fields */}
@@ -262,15 +401,19 @@ export default function SettingsPage() {
             value={settings.email_from_address}
             onChange={(e) => set("email_from_address", e.target.value)}
           />
-          {settings.email_provider === "resend" && (
+          {settings.email_preset === "resend" ? (
             <p className="text-xs text-zinc-400">
               Must be a verified sender in your Resend account.
+            </p>
+          ) : (
+            <p className="text-xs text-zinc-400">
+              Most providers require this to match your SMTP username.
             </p>
           )}
         </div>
 
         {/* Resend-only */}
-        {settings.email_provider === "resend" && (
+        {settings.email_preset === "resend" && (
           <div className="space-y-1.5">
             <Label htmlFor="resend_api_key">Resend API Key</Label>
             <Input
@@ -281,33 +424,17 @@ export default function SettingsPage() {
               onChange={(e) => set("resend_api_key", e.target.value)}
               autoComplete="off"
             />
-            <p className="text-xs text-zinc-400">
-              Get your API key from{" "}
-              <a href="https://resend.com/api-keys" target="_blank" rel="noreferrer" className="underline">
-                resend.com/api-keys
-              </a>
-              .
-            </p>
           </div>
         )}
 
         {/* SMTP-only */}
-        {settings.email_provider === "smtp" && (
+        {settings.email_preset !== "resend" && (
           <div className="space-y-4">
-            <div className="flex items-center gap-3">
-              <Button type="button" variant="outline" size="sm" onClick={applyGmailPreset}>
-                Use Gmail preset
-              </Button>
-              <p className="text-xs text-zinc-400">
-                Fills host, port, and TLS for Gmail.
-              </p>
-            </div>
-
             <div className="space-y-1.5">
               <Label htmlFor="smtp_host">SMTP Host</Label>
               <Input
                 id="smtp_host"
-                placeholder="smtp.gmail.com"
+                placeholder="smtp.example.com"
                 value={settings.smtp_host}
                 onChange={(e) => set("smtp_host", e.target.value)}
               />
@@ -341,7 +468,7 @@ export default function SettingsPage() {
               <Label htmlFor="smtp_user">Username</Label>
               <Input
                 id="smtp_user"
-                placeholder="you@gmail.com"
+                placeholder="you@example.com"
                 value={settings.smtp_user}
                 onChange={(e) => set("smtp_user", e.target.value)}
               />
@@ -356,10 +483,6 @@ export default function SettingsPage() {
                 onChange={(e) => set("smtp_pass", e.target.value)}
                 autoComplete="new-password"
               />
-              <p className="text-xs text-zinc-400">
-                For Gmail, generate a 16-character App Password in your Google Account security
-                settings. Do not use your regular Gmail password.
-              </p>
             </div>
           </div>
         )}
