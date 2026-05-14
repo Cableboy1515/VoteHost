@@ -13,11 +13,11 @@ export default async function ConfirmedPage({ params }: { params: Promise<{ toke
 
   return (
     <div className="min-h-screen bg-vh-bg flex flex-col">
-      <header className="px-6 py-5 border-b border-vh-line bg-vh-surface">
+      <header className="px-4 sm:px-6 py-5 border-b border-vh-line bg-vh-surface">
         <BrandMark size={22} />
       </header>
 
-      <div className="flex flex-1 flex-col items-center justify-center px-6 py-16 text-center">
+      <div className="flex flex-1 flex-col items-center justify-center px-4 sm:px-6 py-10 sm:py-16 text-center">
         <span
           className="inline-grid place-items-center text-4xl mb-6 bg-vh-success-soft"
           style={{ width: 72, height: 72, borderRadius: 18 }}

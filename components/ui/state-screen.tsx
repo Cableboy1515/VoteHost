@@ -26,12 +26,12 @@ export function StateScreen({
   return (
     <div className={cn("min-h-screen bg-vh-bg flex flex-col", className)}>
       {/* Minimal header */}
-      <header className="px-6 py-5 border-b border-vh-line bg-vh-surface">
+      <header className="px-4 sm:px-6 py-5 border-b border-vh-line bg-vh-surface">
         <BrandMark size={22} />
       </header>
 
       {/* Centered content */}
-      <div className="flex flex-1 flex-col items-center justify-center px-6 py-16 text-center">
+      <div className="flex flex-1 flex-col items-center justify-center px-4 sm:px-6 py-10 sm:py-16 text-center">
         <span
           className={cn("inline-grid place-items-center text-4xl mb-6", iconBg)}
           style={{ width: 72, height: 72, borderRadius: 18 }}

@@ -88,7 +88,7 @@ export function OptionCard({
         ))}
 
         <div className="flex-1 min-w-0">
-          <p className="text-[15.5px] font-medium text-vh-ink truncate">{name}</p>
+          <p className="text-[15.5px] font-medium text-vh-ink break-words">{name}</p>
           {subtitle && (
             <p className="text-[13px] text-vh-muted truncate">{subtitle}</p>
           )}
@@ -98,7 +98,7 @@ export function OptionCard({
           {hasBio && (
             <button
               type="button"
-              className="inline-flex items-center gap-1 text-[13px] font-medium px-2.5 py-1 rounded-[8px] transition-colors"
+              className="inline-flex items-center gap-1 text-[13px] font-medium px-2.5 py-2 sm:py-1 rounded-[8px] transition-colors"
               style={{
                 background: "var(--vh-surface-3)",
                 border: "1px solid var(--vh-line-strong)",
@@ -119,7 +119,7 @@ export function OptionCard({
               aria-expanded={expanded}
               aria-label={`${expanded ? "Hide" : "Show"} details about ${name}`}
             >
-              {expanded ? "Hide details" : "Show details"}
+              <span className="hidden sm:inline">{expanded ? "Hide details" : "Show details"}</span>
               <svg
                 width="12"
                 height="12"

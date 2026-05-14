@@ -279,24 +279,24 @@ export default function BallotForm({ token, electionTitle, electionDescription, 
                     >
                       {i + 1}
                     </span>
-                    <span className="flex-1 text-sm font-medium text-vh-ink">{o.text}</span>
+                    <span className="flex-1 min-w-0 break-words text-sm font-medium text-vh-ink">{o.text}</span>
                     <div className="flex items-center gap-1 flex-shrink-0">
                       <button
                         type="button"
                         disabled={i === 0}
                         onClick={() => moveRanked(q.id, i, -1)}
-                        className="w-7 h-7 inline-grid place-items-center rounded-[6px] text-sm text-vh-muted hover:bg-vh-surface-3 disabled:opacity-30 transition-colors"
+                        className="w-9 h-9 sm:w-7 sm:h-7 inline-grid place-items-center rounded-[6px] text-sm text-vh-muted hover:bg-vh-surface-3 disabled:opacity-30 transition-colors"
                       >↑</button>
                       <button
                         type="button"
                         disabled={i === rankedOptions.length - 1}
                         onClick={() => moveRanked(q.id, i, 1)}
-                        className="w-7 h-7 inline-grid place-items-center rounded-[6px] text-sm text-vh-muted hover:bg-vh-surface-3 disabled:opacity-30 transition-colors"
+                        className="w-9 h-9 sm:w-7 sm:h-7 inline-grid place-items-center rounded-[6px] text-sm text-vh-muted hover:bg-vh-surface-3 disabled:opacity-30 transition-colors"
                       >↓</button>
                       <button
                         type="button"
                         onClick={() => removeFromRanked(q.id, o.id)}
-                        className="w-7 h-7 inline-grid place-items-center rounded-[6px] text-sm text-vh-muted hover:bg-vh-surface-3 transition-colors"
+                        className="w-9 h-9 sm:w-7 sm:h-7 inline-grid place-items-center rounded-[6px] text-sm text-vh-muted hover:bg-vh-surface-3 transition-colors"
                       >×</button>
                     </div>
                   </div>
@@ -325,7 +325,7 @@ export default function BallotForm({ token, electionTitle, electionDescription, 
                       className="w-9 h-9 flex-shrink-0 inline-grid place-items-center rounded-full border border-dashed text-xl text-vh-muted"
                       style={{ borderColor: "var(--vh-line-strong)" }}
                     >+</span>
-                    <span className="text-sm text-vh-ink-soft">{o.text}</span>
+                    <span className="flex-1 min-w-0 break-words text-sm text-vh-ink-soft text-left">{o.text}</span>
                   </button>
                 ))}
               </div>
@@ -390,14 +390,14 @@ export default function BallotForm({ token, electionTitle, electionDescription, 
           {questions.map((q, i) => (
             <div key={q.id} className="bg-vh-surface border border-vh-line rounded-card p-4">
               <div className="flex items-start justify-between gap-3 mb-2">
-                <div>
+                <div className="min-w-0 flex-1">
                   <span
                     className="inline-flex items-center text-[11px] font-semibold rounded-pill px-2 py-0.5 mb-1.5"
                     style={{ background: "var(--vh-accent-soft)", color: "var(--vh-accent-strong)" }}
                   >
                     Q{i + 1}
                   </span>
-                  <p className="text-[14px] font-medium text-vh-ink">{q.text}</p>
+                  <p className="text-[14px] font-medium text-vh-ink break-words">{q.text}</p>
                 </div>
                 <button
                   type="button"
