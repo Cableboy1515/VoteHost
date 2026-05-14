@@ -164,14 +164,15 @@ ${content}
 }
 
 function brandRow(): string {
+  const logoSrc = absolutizeUrl("/email-logo.png")
   return `<tr><td style="padding:24px 32px 0;">
   <table role="presentation" cellpadding="0" cellspacing="0"><tr>
-    <td style="width:22px;height:22px;background:${C.accent};border-radius:5px;text-align:center;vertical-align:middle;">
-      <span style="color:#fff;font-size:14px;font-weight:700;line-height:22px;">&#10004;</span>
+    <td style="vertical-align:middle;">
+      <img src="${logoSrc}" width="28" height="28" alt="" style="display:block;border-radius:6px;" />
     </td>
-    <td style="padding-left:8px;vertical-align:middle;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;line-height:1.05;">
-      <div style="font-size:15px;font-weight:600;color:${C.ink};letter-spacing:-0.015em;">VoteHost</div>
-      <div style="font-size:7px;font-weight:500;color:${C.muted};letter-spacing:0.18em;text-transform:uppercase;margin-top:3px;">Elections</div>
+    <td style="padding-left:10px;vertical-align:middle;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;line-height:1.05;">
+      <div style="font-size:18px;font-weight:600;color:${C.ink};letter-spacing:-0.015em;">VoteHost</div>
+      <div style="font-size:8px;font-weight:500;color:${C.muted};letter-spacing:0.18em;text-transform:uppercase;margin-top:3px;">Elections</div>
     </td>
   </tr></table>
 </td></tr>`

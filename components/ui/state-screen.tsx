@@ -27,7 +27,7 @@ export function StateScreen({
     <div className={cn("min-h-screen bg-vh-bg flex flex-col", className)}>
       {/* Minimal header */}
       <header className="px-4 sm:px-6 py-5 border-b border-vh-line bg-vh-surface">
-        <BrandMark size={22} />
+        <BrandMark size={28} />
       </header>
 
       {/* Centered content */}

@@ -78,7 +78,7 @@ export default function ChangePasswordPage() {
     >
       <div className="w-full max-w-[380px]">
         <div className="flex justify-center mb-6">
-          <BrandMark size={28} />
+          <BrandMark size={36} />
         </div>
 
         <div

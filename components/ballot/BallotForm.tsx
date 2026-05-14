@@ -377,7 +377,7 @@ export default function BallotForm({ token, electionTitle, electionDescription, 
             >
               ←
             </button>
-            <BrandMark size={20} />
+            <BrandMark size={28} />
             <p className="flex-1 text-sm font-semibold text-vh-ink">Review your ballot</p>
           </div>
         </header>
@@ -443,7 +443,7 @@ export default function BallotForm({ token, electionTitle, electionDescription, 
       {/* ── Mobile sticky header ── */}
       <header className="md:hidden fixed top-0 left-0 right-0 z-20 bg-vh-surface border-b border-vh-line">
         <div className="flex items-center justify-between px-4 h-12">
-          <BrandMark size={20} />
+          <BrandMark size={28} />
           <span
             className="inline-flex items-center gap-1 text-[11px] font-medium rounded-pill px-2.5 py-1"
             style={{ background: "var(--vh-surface-3)", color: "var(--vh-muted)" }}
@@ -473,7 +473,7 @@ export default function BallotForm({ token, electionTitle, electionDescription, 
           className="w-[260px] flex-shrink-0 sticky top-0 h-screen border-r border-vh-line bg-vh-surface overflow-y-auto flex flex-col"
           style={{ padding: "28px 20px" }}
         >
-          <BrandMark size={22} className="mb-8" />
+          <BrandMark size={28} className="mb-8" />
           <p className="text-[15px] font-semibold text-vh-ink mb-4 break-words">
             {electionTitle}
           </p>

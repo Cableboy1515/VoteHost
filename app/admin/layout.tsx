@@ -61,7 +61,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           style={{ borderRight: "1px solid var(--vh-line)" }}
         >
           <div className="flex items-center justify-between px-5 py-5" style={{ borderBottom: "1px solid var(--vh-line)" }}>
-            <BrandMark size={22} />
+            <BrandMark size={28} />
             <button
               onClick={() => setNavOpen(false)}
               className="md:hidden p-1.5 rounded-[8px]"
@@ -132,7 +132,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             >
               <Menu size={20} />
             </button>
-            <BrandMark size={18} />
+            <BrandMark size={22} />
           </header>
           <main className="flex-1 overflow-auto">{children}</main>
         </div>

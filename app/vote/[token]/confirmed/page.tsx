@@ -14,7 +14,7 @@ export default async function ConfirmedPage({ params }: { params: Promise<{ toke
   return (
     <div className="min-h-screen bg-vh-bg flex flex-col">
       <header className="px-4 sm:px-6 py-5 border-b border-vh-line bg-vh-surface">
-        <BrandMark size={22} />
+        <BrandMark size={28} />
       </header>
 
       <div className="flex flex-1 flex-col items-center justify-center px-4 sm:px-6 py-10 sm:py-16 text-center">

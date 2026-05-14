@@ -38,7 +38,7 @@ export default function LoginPage() {
     >
       <div className="w-full max-w-[380px]">
         <div className="flex justify-center mb-7">
-          <BrandMark size={32} />
+          <BrandMark size={44} />
         </div>
 
         <div
