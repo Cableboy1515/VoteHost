@@ -48,14 +48,8 @@ export default function ResultsDashboard({ electionId, initialData, endsAt, elec
     <div className="flex flex-col gap-3">
       {/* Dark participation strip */}
       <div
-        className="rounded-[18px] px-7 py-6 text-white"
-        style={{
-          background: "var(--vh-ink)",
-          display: "grid",
-          gridTemplateColumns: "1.5fr 1fr 1fr",
-          gap: 28,
-          alignItems: "center",
-        }}
+        className="rounded-[18px] px-5 sm:px-7 py-6 text-white grid grid-cols-1 sm:grid-cols-[1.5fr_1fr_1fr] gap-4 sm:gap-7 items-center"
+        style={{ background: "var(--vh-ink)" }}
       >
         {/* Participation */}
         <div>
@@ -88,7 +82,7 @@ export default function ResultsDashboard({ electionId, initialData, endsAt, elec
         </div>
 
         {/* Closes in */}
-        <div style={{ borderLeft: "1px solid rgba(255,255,255,0.12)", paddingLeft: 28 }}>
+        <div className="border-t sm:border-t-0 sm:border-l pt-4 sm:pt-0 sm:pl-7" style={{ borderColor: "rgba(255,255,255,0.12)" }}>
           <div className="text-[11.5px] uppercase tracking-widest mb-1" style={{ opacity: 0.7 }}>
             {isLive ? "Closes in" : "Status"}
           </div>
@@ -98,7 +92,7 @@ export default function ResultsDashboard({ electionId, initialData, endsAt, elec
         </div>
 
         {/* Live indicator */}
-        <div style={{ borderLeft: "1px solid rgba(255,255,255,0.12)", paddingLeft: 28 }}>
+        <div className="border-t sm:border-t-0 sm:border-l pt-4 sm:pt-0 sm:pl-7" style={{ borderColor: "rgba(255,255,255,0.12)" }}>
           <div className="text-[11.5px] uppercase tracking-widest mb-1" style={{ opacity: 0.7 }}>
             Updates
           </div>
@@ -130,10 +124,10 @@ export default function ResultsDashboard({ electionId, initialData, endsAt, elec
               className="bg-vh-surface rounded-[16px] p-6"
               style={{ border: "1px solid var(--vh-line)" }}
             >
-              <div className="flex items-baseline justify-between mb-4">
-                <h3 className="text-[16px] font-semibold">{q.questionText}</h3>
+              <div className="flex items-baseline justify-between gap-3 mb-4">
+                <h3 className="text-[16px] font-semibold min-w-0 flex-1 break-words">{q.questionText}</h3>
                 <span
-                  className="text-[11.5px] uppercase tracking-wide px-2.5 py-1 rounded-full"
+                  className="flex-shrink-0 text-[11.5px] uppercase tracking-wide px-2.5 py-1 rounded-full"
                   style={{ background: "var(--vh-surface-2)", color: "var(--vh-muted)" }}
                 >
                   Write-in
@@ -178,10 +172,10 @@ export default function ResultsDashboard({ electionId, initialData, endsAt, elec
             className="bg-vh-surface rounded-[16px] p-6"
             style={{ border: "1px solid var(--vh-line)" }}
           >
-            <div className="flex items-baseline justify-between mb-5">
-              <h3 className="text-[16px] font-semibold">{q.questionText}</h3>
+            <div className="flex items-baseline justify-between gap-3 mb-5">
+              <h3 className="text-[16px] font-semibold min-w-0 flex-1 break-words">{q.questionText}</h3>
               <span
-                className="text-[11.5px] uppercase tracking-wide px-2.5 py-1 rounded-full"
+                className="flex-shrink-0 text-[11.5px] uppercase tracking-wide px-2.5 py-1 rounded-full"
                 style={{ background: "var(--vh-surface-2)", color: "var(--vh-muted)" }}
               >
                 {q.type.replace("_", " ")}
@@ -197,16 +191,16 @@ export default function ResultsDashboard({ electionId, initialData, endsAt, elec
                 return (
                   <div key={o.optionId}>
                     <div className="flex items-center justify-between mb-1.5 text-[14px]">
-                      <span className="flex items-center gap-2">
+                      <span className="flex items-center gap-2 min-w-0 flex-1 mr-2">
                         {isLeader && (
                           <span
-                            className="text-[11px] font-medium text-white px-1.5 py-0.5 rounded-[4px]"
+                            className="flex-shrink-0 text-[11px] font-medium text-white px-1.5 py-0.5 rounded-[4px]"
                             style={{ background: "var(--vh-accent)" }}
                           >
                             LEAD
                           </span>
                         )}
-                        <span style={{ fontWeight: isLeader ? 600 : 400 }}>{o.optionText}</span>
+                        <span className="min-w-0 break-words" style={{ fontWeight: isLeader ? 600 : 400 }}>{o.optionText}</span>
                       </span>
                       <span style={{ fontVariantNumeric: "tabular-nums", color: "var(--vh-ink-soft)" }}>
                         <strong>{votes}</strong>

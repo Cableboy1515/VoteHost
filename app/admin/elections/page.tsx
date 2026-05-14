@@ -87,8 +87,8 @@ export default async function ElectionsListPage({
   }
 
   return (
-    <div className="p-8 max-w-[1100px]">
-      <div className="flex items-end justify-between mb-6">
+    <div className="p-4 sm:p-8 max-w-[1100px]">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between mb-6">
         <div>
           <h1 className="text-[28px] font-semibold mb-1">Elections</h1>
           <p className="text-[14.5px]" style={{ color: "var(--vh-muted)" }}>
@@ -146,7 +146,7 @@ export default async function ElectionsListPage({
           {electionsWithStats.map((e) => (
             <div
               key={e.id}
-              className="flex items-center gap-4 bg-vh-surface rounded-[14px] px-5 py-4"
+              className="flex flex-wrap items-center gap-3 sm:gap-4 bg-vh-surface rounded-[14px] px-4 sm:px-5 py-4"
               style={{ border: "1px solid var(--vh-line)" }}
             >
               <StatusBadge status={e.status} />
@@ -168,7 +168,7 @@ export default async function ElectionsListPage({
                   </span>
                 </div>
               )}
-              <div className="flex gap-1.5">
+              <div className="flex flex-wrap gap-1.5">
                 <Link
                   href={`/admin/elections/${e.id}`}
                   className="px-3 py-1.5 rounded-[10px] text-[13px] transition-colors"

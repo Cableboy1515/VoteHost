@@ -55,8 +55,8 @@ function ActiveCard({ e, variant }: { e: ActiveElection; variant: "hero" | "tile
           </span>
         </div>
         <h2
-          className="font-semibold mb-4 truncate"
-          style={{ color: "white", fontSize: isHero ? 24 : 19 }}
+          className={`font-semibold mb-4 break-words leading-tight ${isHero ? "text-[22px] sm:text-[28px] md:text-[34px] lg:text-[40px]" : "text-[18px] sm:text-[20px] lg:text-[22px]"}`}
+          style={{ color: "white" }}
           title={e.title}
         >
           {e.title}
@@ -158,8 +158,8 @@ export default async function DashboardPage() {
   const gridCols = activeElections.length === 1 ? "grid-cols-1" : "grid-cols-1 md:grid-cols-2"
 
   return (
-    <div className="p-8 max-w-[1100px]">
-      <div className="flex items-end justify-between mb-7">
+    <div className="p-4 sm:p-8 max-w-[1100px]">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between mb-7">
         <div>
           <h1 className="text-[28px] font-semibold mb-1">Dashboard</h1>
           <p className="text-[14.5px]" style={{ color: "var(--vh-muted)" }}>
@@ -200,7 +200,7 @@ export default async function DashboardPage() {
             </div>
           )}
 
-          <div className="grid grid-cols-3 gap-3 mb-5">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-5">
             {[
               { label: "Total elections", value: String(elections.length), note: `${draftCount} draft${draftCount !== 1 ? "s" : ""}` },
               { label: "Votes cast", value: String(totalVoted), note: "Across all elections" },

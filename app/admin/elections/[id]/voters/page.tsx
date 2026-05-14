@@ -13,7 +13,7 @@ export default async function VotersPage({ params }: { params: Promise<{ id: str
   if (!election) notFound()
 
   return (
-    <div className="p-8 max-w-[1040px]">
+    <div className="p-4 sm:p-8 max-w-[1040px]">
       <div className="text-[13px] mb-3.5" style={{ color: "var(--vh-muted)" }}>
         <GuardLink href="/admin/dashboard">Elections</GuardLink>
         <span className="mx-1.5">›</span>

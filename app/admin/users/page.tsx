@@ -16,7 +16,7 @@ export default async function UsersPage() {
   const users = rawUsers.map((u) => ({ ...u, createdAt: u.createdAt.toISOString() }))
 
   return (
-    <div className="p-8">
+    <div className="p-4 sm:p-8">
       <div className="mb-6">
         <h1 className="text-2xl font-bold">Users</h1>
         <p className="text-zinc-500 text-sm mt-1">Manage who can access the admin panel.</p>

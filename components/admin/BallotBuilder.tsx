@@ -61,6 +61,14 @@ function onFocusOut(e: React.FocusEvent<HTMLInputElement | HTMLTextAreaElement>)
   e.target.style.borderColor = "var(--vh-line-strong)"
   e.target.style.boxShadow = "none"
 }
+function blockEnter(e: React.KeyboardEvent<HTMLTextAreaElement>) {
+  if (e.key === "Enter") e.preventDefault()
+}
+function autoResize(el: HTMLTextAreaElement | null) {
+  if (!el) return
+  el.style.height = "auto"
+  el.style.height = `${el.scrollHeight}px`
+}
 
 export default function BallotBuilder({ electionId, electionStatus, initialQuestions }: Props) {
   const router = useRouter()
@@ -247,14 +255,17 @@ export default function BallotBuilder({ electionId, electionStatus, initialQuest
               {qIndex + 1}
             </div>
 
-            <div className="flex-1 flex flex-col gap-2.5">
+            <div className="flex-1 min-w-0 flex flex-col gap-2.5">
               {/* Question text */}
-              <input
+              <textarea
+                ref={autoResize}
                 placeholder="Question text"
                 value={q.text}
-                onChange={(e) => updateQuestion(qIndex, { text: e.target.value })}
+                onChange={(e) => { autoResize(e.currentTarget); updateQuestion(qIndex, { text: e.target.value }) }}
+                onKeyDown={blockEnter}
                 disabled={locked}
-                className={inputCls}
+                rows={1}
+                className={`${inputCls} resize-none overflow-hidden`}
                 style={{ ...inputStyle, fontSize: 15, fontWeight: 500 }}
                 onFocus={onFocusIn}
                 onBlur={onFocusOut}
@@ -369,12 +380,15 @@ export default function BallotBuilder({ electionId, electionStatus, initialQuest
                           className="flex gap-2 items-center rounded-[10px] px-2 py-1.5"
                           style={{ background: "var(--vh-surface-2)" }}
                         >
-                          <input
+                          <textarea
+                            ref={autoResize}
                             placeholder={`Option ${oIndex + 1}`}
                             value={o.text}
-                            onChange={(e) => updateOption(qIndex, oIndex, { text: e.target.value })}
+                            onChange={(e) => { autoResize(e.currentTarget); updateOption(qIndex, oIndex, { text: e.target.value }) }}
+                            onKeyDown={blockEnter}
                             disabled={locked}
-                            className="flex-1 text-sm px-2.5 py-1.5 rounded-[8px] transition-colors"
+                            rows={1}
+                            className="flex-1 min-w-0 text-sm px-2.5 py-1.5 rounded-[8px] transition-colors resize-none overflow-hidden leading-snug"
                             style={{
                               border: "1px solid var(--vh-line-strong)",
                               background: "var(--vh-surface)",
@@ -410,7 +424,7 @@ export default function BallotBuilder({ electionId, electionStatus, initialQuest
 
                         {detailOpen && (
                           <div
-                            className="mt-1.5 ml-10 rounded-[10px] p-3 flex flex-col gap-2"
+                            className="mt-1.5 ml-2 sm:ml-10 rounded-[10px] p-3 flex flex-col gap-2"
                             style={{ background: "var(--vh-bg)", border: "1px solid var(--vh-line)" }}
                           >
                             <div>
@@ -464,7 +478,7 @@ export default function BallotBuilder({ electionId, electionStatus, initialQuest
                   </button>
 
                   {q.type === "MULTIPLE_CHOICE" && (
-                    <div className="flex items-center gap-2 mt-1">
+                    <div className="flex flex-wrap items-center gap-2 mt-1">
                       <label className="text-[12.5px] whitespace-nowrap" style={{ color: "var(--vh-muted)" }}>Max selections</label>
                       <input
                         type="number"
@@ -494,7 +508,7 @@ export default function BallotBuilder({ electionId, electionStatus, initialQuest
                 type="button"
                 onClick={() => moveQuestion(qIndex, -1)}
                 disabled={locked || qIndex === 0}
-                className="w-7 h-7 flex items-center justify-center rounded-[7px] text-sm transition-colors disabled:opacity-30"
+                className="w-9 h-9 sm:w-7 sm:h-7 flex items-center justify-center rounded-[7px] text-sm transition-colors disabled:opacity-30"
                 style={{ color: "var(--vh-muted)", background: "transparent" }}
                 onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = "var(--vh-surface-2)" }}
                 onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "transparent" }}
@@ -505,7 +519,7 @@ export default function BallotBuilder({ electionId, electionStatus, initialQuest
                 type="button"
                 onClick={() => moveQuestion(qIndex, 1)}
                 disabled={locked || qIndex === questions.length - 1}
-                className="w-7 h-7 flex items-center justify-center rounded-[7px] text-sm transition-colors disabled:opacity-30"
+                className="w-9 h-9 sm:w-7 sm:h-7 flex items-center justify-center rounded-[7px] text-sm transition-colors disabled:opacity-30"
                 style={{ color: "var(--vh-muted)", background: "transparent" }}
                 onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = "var(--vh-surface-2)" }}
                 onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "transparent" }}
@@ -516,7 +530,7 @@ export default function BallotBuilder({ electionId, electionStatus, initialQuest
                 type="button"
                 onClick={() => removeQuestion(qIndex)}
                 disabled={locked}
-                className="w-7 h-7 flex items-center justify-center rounded-[7px] text-sm transition-colors disabled:opacity-30"
+                className="w-9 h-9 sm:w-7 sm:h-7 flex items-center justify-center rounded-[7px] text-sm transition-colors disabled:opacity-30"
                 style={{ color: "var(--vh-danger)", background: "transparent" }}
                 onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = "var(--vh-danger-soft)" }}
                 onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "transparent" }}
@@ -547,12 +561,12 @@ export default function BallotBuilder({ electionId, electionStatus, initialQuest
             + Add question
           </button>
 
-          <div className="flex gap-2.5 pt-1">
+          <div className="flex flex-col sm:flex-row gap-2.5 pt-1">
             <button
               type="button"
               onClick={() => handleSave(false)}
               disabled={saving || questions.length === 0}
-              className="px-5 py-2.5 rounded-[10px] text-[14px] font-medium transition-colors disabled:opacity-50"
+              className="w-full sm:w-auto px-5 py-2.5 rounded-[10px] text-[14px] font-medium transition-colors disabled:opacity-50"
               style={{ background: "var(--vh-surface)", color: "var(--vh-ink-soft)", border: "1px solid var(--vh-line-strong)" }}
               onMouseEnter={(e) => { if (!saving) (e.currentTarget as HTMLElement).style.background = "var(--vh-surface-2)" }}
               onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "var(--vh-surface)" }}
@@ -563,7 +577,7 @@ export default function BallotBuilder({ electionId, electionStatus, initialQuest
               type="button"
               onClick={() => handleSave(true)}
               disabled={saving || questions.length === 0}
-              className="px-5 py-2.5 rounded-[10px] text-[14px] font-medium text-white transition-colors disabled:opacity-50"
+              className="w-full sm:w-auto px-5 py-2.5 rounded-[10px] text-[14px] font-medium text-white transition-colors disabled:opacity-50"
               style={{ background: "var(--vh-accent)" }}
               onMouseEnter={(e) => { if (!saving) (e.currentTarget as HTMLElement).style.background = "var(--vh-accent-strong)" }}
               onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "var(--vh-accent)" }}

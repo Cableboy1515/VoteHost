@@ -95,7 +95,7 @@ function VhLabel({ children, htmlFor }: { children: React.ReactNode; htmlFor?: s
 function VhCard({ children, title }: { children: React.ReactNode; title?: string }) {
   return (
     <div
-      className="bg-vh-surface rounded-[16px] p-[22px]"
+      className="bg-vh-surface rounded-[16px] p-4 sm:p-[22px]"
       style={{ border: "1px solid var(--vh-line)" }}
     >
       {title && (
@@ -278,7 +278,7 @@ export default function ElectionForm({ electionId, initialValues }: Props) {
 
         {/* Schedule */}
         <VhCard title="Schedule">
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <VhLabel htmlFor="startsAt">Opens</VhLabel>
               <input
@@ -389,7 +389,7 @@ export default function ElectionForm({ electionId, initialValues }: Props) {
                 onBlur={onFocusOut}
               />
             </div>
-            <div className="flex gap-2 self-start">
+            <div className="flex flex-wrap gap-2">
               <button
                 type="button"
                 onClick={() => setShowPreview((v) => !v)}
@@ -411,11 +411,11 @@ export default function ElectionForm({ electionId, initialValues }: Props) {
           <p className="text-[13px]" style={{ color: "var(--vh-danger)" }}>{error}</p>
         )}
 
-        <div className="flex gap-2.5 pt-1">
+        <div className="flex flex-col sm:flex-row gap-2.5 pt-1">
           <button
             type="submit"
             disabled={saving}
-            className="px-5 py-2.5 rounded-[10px] text-[14px] font-medium text-white transition-colors disabled:opacity-60"
+            className="w-full sm:w-auto px-5 py-2.5 rounded-[10px] text-[14px] font-medium text-white transition-colors disabled:opacity-60"
             style={{ background: "var(--vh-accent)" }}
             onMouseEnter={(e) => { if (!saving) (e.currentTarget as HTMLElement).style.background = "var(--vh-accent-strong)" }}
             onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "var(--vh-accent)" }}
@@ -426,7 +426,7 @@ export default function ElectionForm({ electionId, initialValues }: Props) {
             <button
               type="button"
               onClick={() => router.back()}
-              className="px-5 py-2.5 rounded-[10px] text-[14px] transition-colors"
+              className="w-full sm:w-auto px-5 py-2.5 rounded-[10px] text-[14px] transition-colors"
               style={{
                 border: "1px solid var(--vh-line-strong)",
                 background: "var(--vh-surface)",

@@ -48,7 +48,7 @@ export default async function ArchivePage() {
   const years = [...byYear.keys()].sort((a, b) => Number(b) - Number(a))
 
   return (
-    <div className="p-8 max-w-[1040px]">
+    <div className="p-4 sm:p-8 max-w-[1040px]">
       <div className="mb-6">
         <h1 className="text-[26px] font-semibold mb-1">Archive</h1>
         <p className="text-[14px]" style={{ color: "var(--vh-muted)" }}>
@@ -87,7 +87,7 @@ export default async function ArchivePage() {
                   return (
                     <div
                       key={e.id}
-                      className="flex items-center gap-4 bg-vh-surface rounded-[12px] px-[18px] py-4"
+                      className="flex flex-wrap items-center gap-3 sm:gap-4 bg-vh-surface rounded-[12px] px-[18px] py-4"
                       style={{ border: "1px solid var(--vh-line)" }}
                     >
                       {/* Title + date */}
@@ -118,7 +118,7 @@ export default async function ArchivePage() {
                       </span>
 
                       {/* Actions */}
-                      <div className="flex gap-1.5">
+                      <div className="flex flex-wrap gap-1.5">
                         <Link
                           href={`/admin/elections/${e.id}/results`}
                           className="px-3 py-1.5 rounded-[8px] text-[13px] transition-colors"

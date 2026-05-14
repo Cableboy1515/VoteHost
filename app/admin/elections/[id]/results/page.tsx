@@ -22,14 +22,14 @@ export default async function ResultsPage({ params }: { params: Promise<{ id: st
   const initialData = await getResultsForElection(id)
 
   return (
-    <div className="p-8 max-w-[1040px]">
+    <div className="p-4 sm:p-8 max-w-[1040px]">
       <div className="text-[13px] mb-3.5" style={{ color: "var(--vh-muted)" }}>
         <GuardLink href="/admin/dashboard">Elections</GuardLink>
         <span className="mx-1.5">›</span>
         <GuardLink href={`/admin/elections/${id}`}>{election.title}</GuardLink>
       </div>
       <ElectionTabs electionId={id} />
-      <div className="flex items-end justify-between mb-5">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between mb-5">
         <div>
           <div className="flex items-center gap-2.5 mb-1.5">
             <span

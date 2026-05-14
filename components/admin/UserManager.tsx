@@ -180,7 +180,64 @@ export default function UserManager({ users: initialUsers, currentUserId }: Prop
 
       <Card>
         <CardContent className="p-0">
-          <Table>
+          {/* Mobile card layout */}
+          <div className="sm:hidden divide-y divide-vh-line">
+            {users.map((u) => {
+              const isSelf = u.id === currentUserId
+              return (
+                <div key={u.id} className="px-4 py-3.5 flex flex-col gap-2.5">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0 flex-1">
+                      <p className="text-[14px] font-medium break-all">
+                        {u.email} {isSelf && <span className="text-xs text-zinc-400">(you)</span>}
+                      </p>
+                      <p className="text-[12px] text-zinc-500 mt-0.5">
+                        Created {new Date(u.createdAt).toLocaleDateString()}
+                      </p>
+                    </div>
+                    {u.mustChangePassword
+                      ? <Badge variant="secondary" className="flex-shrink-0">Must change password</Badge>
+                      : <Badge variant="outline" className="flex-shrink-0">Active</Badge>}
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Select
+                      value={u.role}
+                      disabled={isSelf}
+                      onValueChange={(v) => handleRoleChange(u.id, v as Role)}
+                    >
+                      <SelectTrigger className="w-32 h-9 text-sm">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="ADMIN">Admin</SelectItem>
+                        <SelectItem value="ORGANIZER">Organizer</SelectItem>
+                        <SelectItem value="VIEWER">Viewer</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <div className="flex gap-2 ml-auto">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => { setResetUserId(u.id); setResetPassword(""); setResetOpen(true) }}
+                      >
+                        Reset
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        disabled={isSelf}
+                        onClick={() => { setDeleteUser(u); setDeleteOpen(true) }}
+                      >
+                        Delete
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+          {/* Desktop table */}
+          <Table className="hidden sm:table">
             <TableHeader>
               <TableRow>
                 <TableHead>Email</TableHead>
