@@ -64,6 +64,11 @@ function onFocusOut(e: React.FocusEvent<HTMLInputElement | HTMLTextAreaElement>)
 function blockEnter(e: React.KeyboardEvent<HTMLTextAreaElement>) {
   if (e.key === "Enter") e.preventDefault()
 }
+function autoResize(el: HTMLTextAreaElement | null) {
+  if (!el) return
+  el.style.height = "auto"
+  el.style.height = `${el.scrollHeight}px`
+}
 
 export default function BallotBuilder({ electionId, electionStatus, initialQuestions }: Props) {
   const router = useRouter()
@@ -253,13 +258,14 @@ export default function BallotBuilder({ electionId, electionStatus, initialQuest
             <div className="flex-1 min-w-0 flex flex-col gap-2.5">
               {/* Question text */}
               <textarea
+                ref={autoResize}
                 placeholder="Question text"
                 value={q.text}
-                onChange={(e) => updateQuestion(qIndex, { text: e.target.value })}
+                onChange={(e) => { autoResize(e.currentTarget); updateQuestion(qIndex, { text: e.target.value }) }}
                 onKeyDown={blockEnter}
                 disabled={locked}
                 rows={1}
-                className={`${inputCls} field-sizing-content resize-none`}
+                className={`${inputCls} resize-none overflow-hidden`}
                 style={{ ...inputStyle, fontSize: 15, fontWeight: 500 }}
                 onFocus={onFocusIn}
                 onBlur={onFocusOut}
@@ -375,13 +381,14 @@ export default function BallotBuilder({ electionId, electionStatus, initialQuest
                           style={{ background: "var(--vh-surface-2)" }}
                         >
                           <textarea
+                            ref={autoResize}
                             placeholder={`Option ${oIndex + 1}`}
                             value={o.text}
-                            onChange={(e) => updateOption(qIndex, oIndex, { text: e.target.value })}
+                            onChange={(e) => { autoResize(e.currentTarget); updateOption(qIndex, oIndex, { text: e.target.value }) }}
                             onKeyDown={blockEnter}
                             disabled={locked}
                             rows={1}
-                            className="flex-1 min-w-0 text-sm px-2.5 py-1.5 rounded-[8px] transition-colors field-sizing-content resize-none leading-snug"
+                            className="flex-1 min-w-0 text-sm px-2.5 py-1.5 rounded-[8px] transition-colors resize-none overflow-hidden leading-snug"
                             style={{
                               border: "1px solid var(--vh-line-strong)",
                               background: "var(--vh-surface)",
