@@ -1,6 +1,7 @@
 import { Resend } from "resend"
 import nodemailer from "nodemailer"
 import { db } from "@/lib/db"
+import { absolutizeUrl } from "@/lib/absolutize-url"
 
 const ALL_KEYS = [
   "email_provider",
@@ -166,15 +167,7 @@ ${content}
 function brandRow(): string {
   const logoSrc = absolutizeUrl("/email-logo.png")
   return `<tr><td style="padding:24px 32px 0;">
-  <table role="presentation" cellpadding="0" cellspacing="0"><tr>
-    <td style="vertical-align:middle;">
-      <img src="${logoSrc}" width="28" height="28" alt="" style="display:block;border-radius:6px;" />
-    </td>
-    <td style="padding-left:10px;vertical-align:middle;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;line-height:1.05;">
-      <div style="font-size:18px;font-weight:600;color:${C.ink};letter-spacing:-0.015em;">VoteHost</div>
-      <div style="font-size:8px;font-weight:500;color:${C.muted};letter-spacing:0.18em;text-transform:uppercase;margin-top:3px;">Elections</div>
-    </td>
-  </tr></table>
+  <img src="${logoSrc}" alt="VoteHost Elections" height="28" style="display:block;height:28px;width:auto;border:0;outline:none;text-decoration:none;" />
 </td></tr>`
 }
 
@@ -187,12 +180,6 @@ function footerRow(emailFooter?: string | null): string {
     </td>
   </tr></table>
 </td></tr>`
-}
-
-function absolutizeUrl(url: string): string {
-  if (/^https?:\/\//i.test(url)) return url
-  const base = (process.env.NEXTAUTH_URL ?? "http://localhost:3000").replace(/\/$/, "")
-  return `${base}${url.startsWith("/") ? "" : "/"}${url}`
 }
 
 function logoRow(url?: string | null): string {
@@ -455,4 +442,110 @@ export async function sendBallotInvitation(payload: Payload, mode: EmailMode = "
   const config = await getAllEmailConfig()
   if (config.provider === "smtp") return sendViaSmtp(config, payload, mode)
   return sendViaResend(config, payload, mode)
+}
+
+export type AdminInvitePayload = {
+  recipientEmail: string
+  setupLink: string
+}
+
+function buildAdminInviteHtml(p: AdminInvitePayload): string {
+  const email = escapeHtml(p.recipientEmail)
+  const link = escapeHtml(p.setupLink)
+  return emailWrapper(`
+    ${brandRow()}
+    <tr><td style="padding:24px 32px 14px;">
+      <h1 style="margin:0 0 14px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:22px;font-weight:600;color:${C.ink};letter-spacing:-0.02em;">You've been added to VoteHost</h1>
+      <p style="margin:0 0 14px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:14.5px;color:${C.inkSoft};line-height:1.6;">
+        An administrator has created an account for <strong style="color:${C.ink};">${email}</strong> on <strong style="color:${C.ink};">VoteHost</strong>.
+        Click below to choose a password and finish setting up your account.
+      </p>
+    </td></tr>
+    <tr><td style="padding:0 32px 14px;">
+      <a href="${link}" style="display:inline-block;background:${C.accent};color:#ffffff;text-decoration:none;padding:14px 28px;border-radius:10px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:15px;font-weight:500;">Set up my account →</a>
+    </td></tr>
+    <tr><td style="padding:0 32px 20px;">
+      <p style="margin:0 0 4px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:12.5px;color:${C.muted};">Or paste this link into your browser:</p>
+      <div style="font-family:'Courier New',Courier,monospace;font-size:12px;color:${C.accentStrong};word-break:break-all;">${link}</div>
+    </td></tr>
+    <tr><td style="padding:0 32px 28px;">
+      <table role="presentation" cellpadding="0" cellspacing="0" width="100%"><tr>
+        <td style="border-top:1px solid ${C.line};padding-top:18px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:12px;color:${C.muted};line-height:1.6;">
+          🔒 This setup link expires in 7 days. If you didn't expect this email, you can ignore it.
+        </td>
+      </tr></table>
+    </td></tr>
+  `)
+}
+
+function buildPasswordResetRequestHtml(requesterEmail: string): string {
+  const email = escapeHtml(requesterEmail)
+  const usersUrl = escapeHtml(absolutizeUrl("/admin/users"))
+  return emailWrapper(`
+    ${brandRow()}
+    <tr><td style="padding:24px 32px 14px;">
+      <h1 style="margin:0 0 14px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:22px;font-weight:600;color:${C.ink};letter-spacing:-0.02em;">Password reset requested</h1>
+      <p style="margin:0 0 14px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:14.5px;color:${C.inkSoft};line-height:1.6;">
+        <strong style="color:${C.ink};">${email}</strong> has requested a password reset.
+        Visit the Users screen to send them a new setup link.
+      </p>
+    </td></tr>
+    <tr><td style="padding:0 32px 14px;">
+      <a href="${usersUrl}" style="display:inline-block;background:${C.accent};color:#ffffff;text-decoration:none;padding:14px 28px;border-radius:10px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:15px;font-weight:500;">Go to Users →</a>
+    </td></tr>
+    <tr><td style="padding:0 32px 28px;">
+      <table role="presentation" cellpadding="0" cellspacing="0" width="100%"><tr>
+        <td style="border-top:1px solid ${C.line};padding-top:18px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:12px;color:${C.muted};line-height:1.6;">
+          You received this because you are an administrator on VoteHost.
+        </td>
+      </tr></table>
+    </td></tr>
+  `)
+}
+
+async function sendRawEmail(
+  config: EmailConfig,
+  to: string,
+  subject: string,
+  html: string,
+): Promise<{ error: string | null }> {
+  try {
+    if (config.provider === "smtp") {
+      const transporter = nodemailer.createTransport({
+        host: config.host,
+        port: config.port,
+        secure: config.secure,
+        auth: { user: config.user, pass: config.pass },
+      })
+      await transporter.sendMail({ from: `${config.fromName} <${config.fromAddress}>`, to, subject, html })
+    } else {
+      const resend = new Resend(config.apiKey)
+      const { error } = await resend.emails.send({ from: `${config.fromName} <${config.fromAddress}>`, to, subject, html })
+      if (error) return { error: String(error) }
+    }
+    return { error: null }
+  } catch (err) {
+    return { error: String(err) }
+  }
+}
+
+export async function sendAdminInvite(payload: AdminInvitePayload): Promise<{ error: string | null }> {
+  const config = await getAllEmailConfig()
+  return sendRawEmail(
+    config,
+    payload.recipientEmail,
+    "You've been added to VoteHost — set up your account",
+    buildAdminInviteHtml(payload),
+  )
+}
+
+export async function sendPasswordResetRequest(requesterEmail: string): Promise<void> {
+  const config = await getAllEmailConfig()
+  const admins = await db.adminUser.findMany({
+    where: { role: "ADMIN" },
+    select: { email: true },
+  })
+  const subject = `Password reset requested — ${requesterEmail}`
+  const html = buildPasswordResetRequestHtml(requesterEmail)
+  await Promise.allSettled(admins.map((a) => sendRawEmail(config, a.email, subject, html)))
 }
