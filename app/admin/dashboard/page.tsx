@@ -55,8 +55,8 @@ function ActiveCard({ e, variant }: { e: ActiveElection; variant: "hero" | "tile
           </span>
         </div>
         <h2
-          className="font-semibold mb-4 truncate"
-          style={{ color: "white", fontSize: isHero ? 24 : 19 }}
+          className={`font-semibold mb-4 break-words ${isHero ? "text-[20px] sm:text-[24px]" : "text-[17px] sm:text-[19px]"}`}
+          style={{ color: "white" }}
           title={e.title}
         >
           {e.title}
