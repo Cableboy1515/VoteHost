@@ -4,7 +4,7 @@ import { useEffect, useState } from "react"
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
 import { BrandMark } from "@/components/ui/brand-mark"
-import { LayoutDashboard, Vote, Archive, Users, Settings, Plus, Menu } from "lucide-react"
+import { LayoutDashboard, Vote, Archive, Users, Settings, Plus, Menu, X } from "lucide-react"
 import { UnsavedChangesProvider, GuardLink } from "@/components/admin/UnsavedChangesGuard"
 
 const BARE_PATHS = ["/admin/login", "/admin/setup", "/admin/change-password"]
@@ -60,8 +60,16 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           className={`w-60 flex-shrink-0 flex flex-col bg-vh-surface fixed inset-y-0 left-0 z-40 transform transition-transform duration-200 md:static md:translate-x-0 md:transition-none ${navOpen ? "translate-x-0" : "-translate-x-full"}`}
           style={{ borderRight: "1px solid var(--vh-line)" }}
         >
-          <div className="px-5 py-5" style={{ borderBottom: "1px solid var(--vh-line)" }}>
+          <div className="flex items-center justify-between px-5 py-5" style={{ borderBottom: "1px solid var(--vh-line)" }}>
             <BrandMark size={22} />
+            <button
+              onClick={() => setNavOpen(false)}
+              className="md:hidden p-1.5 rounded-[8px]"
+              style={{ color: "var(--vh-muted)" }}
+              aria-label="Close menu"
+            >
+              <X size={18} />
+            </button>
           </div>
 
           <nav className="flex-1 p-3 flex flex-col gap-0.5">
