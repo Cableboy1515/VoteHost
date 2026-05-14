@@ -18,14 +18,12 @@ export function BrandMark({ size = 22, showWordmark = true, dark = false, classN
   const textFill = dark ? "#ffffff" : "#1B1F2A"
 
   if (showWordmark) {
-    // Trimmed viewBox (0 10 180 24) drops the 10px of vertical padding above/below the
-    // glyph in the source SVG so the lockup aligns flush with adjacent UI at small sizes.
-    const width = Math.round(size * 7.5)
+    const width = Math.round(size * (98.03 / 24))
     return (
       <svg
         width={width}
         height={size}
-        viewBox="0 10 180 24"
+        viewBox="0 10 98.03 24"
         xmlns="http://www.w3.org/2000/svg"
         role="img"
         aria-label="VoteHost Elections"
