@@ -247,7 +247,7 @@ export default function BallotBuilder({ electionId, electionStatus, initialQuest
               {qIndex + 1}
             </div>
 
-            <div className="flex-1 flex flex-col gap-2.5">
+            <div className="flex-1 min-w-0 flex flex-col gap-2.5">
               {/* Question text */}
               <input
                 placeholder="Question text"
@@ -374,7 +374,7 @@ export default function BallotBuilder({ electionId, electionStatus, initialQuest
                             value={o.text}
                             onChange={(e) => updateOption(qIndex, oIndex, { text: e.target.value })}
                             disabled={locked}
-                            className="flex-1 text-sm px-2.5 py-1.5 rounded-[8px] transition-colors"
+                            className="flex-1 min-w-0 text-sm px-2.5 py-1.5 rounded-[8px] transition-colors"
                             style={{
                               border: "1px solid var(--vh-line-strong)",
                               background: "var(--vh-surface)",
