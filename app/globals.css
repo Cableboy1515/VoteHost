@@ -91,9 +91,9 @@
   --vh-surface-3:   oklch(0.945 0.006 250);
 
   /* Accent — cobalt */
-  --vh-accent:        oklch(0.55 0.18 263);  /* #3F66D9 */
-  --vh-accent-strong: oklch(0.45 0.18 263);
-  --vh-accent-soft:   oklch(0.96 0.025 263);
+  --vh-accent:        #3F66D9;
+  --vh-accent-strong: #2D4DBA;
+  --vh-accent-soft:   #EEF2FC;
   --vh-accent-fg:     #ffffff;
 
   /* Status */
@@ -111,7 +111,7 @@
   --vh-shadow-lg: 0 20px 40px oklch(0.18 0.012 255 / 0.12), 0 2px 6px oklch(0.18 0.012 255 / 0.05);
 
   /* Focus ring */
-  --vh-ring: 0 0 0 3px oklch(0.55 0.18 263 / 0.30);
+  --vh-ring: 0 0 0 3px rgba(63, 102, 217, 0.30);
 
   /* Radii — Tactile direction applied as global defaults */
   --vh-radius:    14px;
