@@ -204,7 +204,7 @@ export default function SettingsPage() {
 
   if (loading) {
     return (
-      <div className="p-8">
+      <div className="p-4 sm:p-8">
         <p className="text-zinc-500 text-sm">Loading settings…</p>
       </div>
     )
@@ -212,7 +212,7 @@ export default function SettingsPage() {
 
   if (loadError) {
     return (
-      <div className="p-8">
+      <div className="p-4 sm:p-8">
         <h1 className="text-2xl font-bold mb-2">Email Settings</h1>
         <p className="text-red-600 text-sm">Failed to load settings: {loadError}</p>
       </div>
@@ -220,7 +220,7 @@ export default function SettingsPage() {
   }
 
   return (
-    <div className="p-8 max-w-xl">
+    <div className="p-4 sm:p-8 max-w-xl">
       <h1 className="text-2xl font-bold mb-1">Email Settings</h1>
       <p className="text-zinc-500 text-sm mb-8">
         Configure the email provider used to send voting invitations.
@@ -313,7 +313,7 @@ export default function SettingsPage() {
               />
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div className="space-y-1.5">
                 <Label htmlFor="smtp_port">Port</Label>
                 <Input
@@ -380,7 +380,7 @@ export default function SettingsPage() {
         Verify your configuration by sending a sample invitation.
       </p>
 
-      <form onSubmit={handleTest} className="flex items-end gap-3">
+      <form onSubmit={handleTest} className="flex flex-col sm:flex-row sm:items-end gap-3">
         <div className="flex-1 space-y-1.5">
           <Label htmlFor="test_email">Recipient</Label>
           <Input
@@ -391,7 +391,7 @@ export default function SettingsPage() {
             onChange={(e) => setTestEmail(e.target.value)}
           />
         </div>
-        <Button type="submit" variant="outline" disabled={testing || !testEmail}>
+        <Button type="submit" variant="outline" disabled={testing || !testEmail} className="w-full sm:w-auto">
           {testing ? "Sending…" : "Send test"}
         </Button>
       </form>
