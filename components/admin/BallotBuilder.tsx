@@ -61,6 +61,9 @@ function onFocusOut(e: React.FocusEvent<HTMLInputElement | HTMLTextAreaElement>)
   e.target.style.borderColor = "var(--vh-line-strong)"
   e.target.style.boxShadow = "none"
 }
+function blockEnter(e: React.KeyboardEvent<HTMLTextAreaElement>) {
+  if (e.key === "Enter") e.preventDefault()
+}
 
 export default function BallotBuilder({ electionId, electionStatus, initialQuestions }: Props) {
   const router = useRouter()
@@ -249,12 +252,14 @@ export default function BallotBuilder({ electionId, electionStatus, initialQuest
 
             <div className="flex-1 min-w-0 flex flex-col gap-2.5">
               {/* Question text */}
-              <input
+              <textarea
                 placeholder="Question text"
                 value={q.text}
                 onChange={(e) => updateQuestion(qIndex, { text: e.target.value })}
+                onKeyDown={blockEnter}
                 disabled={locked}
-                className={inputCls}
+                rows={1}
+                className={`${inputCls} field-sizing-content resize-none`}
                 style={{ ...inputStyle, fontSize: 15, fontWeight: 500 }}
                 onFocus={onFocusIn}
                 onBlur={onFocusOut}
@@ -369,12 +374,14 @@ export default function BallotBuilder({ electionId, electionStatus, initialQuest
                           className="flex gap-2 items-center rounded-[10px] px-2 py-1.5"
                           style={{ background: "var(--vh-surface-2)" }}
                         >
-                          <input
+                          <textarea
                             placeholder={`Option ${oIndex + 1}`}
                             value={o.text}
                             onChange={(e) => updateOption(qIndex, oIndex, { text: e.target.value })}
+                            onKeyDown={blockEnter}
                             disabled={locked}
-                            className="flex-1 min-w-0 text-sm px-2.5 py-1.5 rounded-[8px] transition-colors"
+                            rows={1}
+                            className="flex-1 min-w-0 text-sm px-2.5 py-1.5 rounded-[8px] transition-colors field-sizing-content resize-none leading-snug"
                             style={{
                               border: "1px solid var(--vh-line-strong)",
                               background: "var(--vh-surface)",
