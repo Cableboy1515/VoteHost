@@ -22,7 +22,7 @@ export async function POST(req: Request) {
 
   await writeFile(join(UPLOADS_DIR, filename), buffer)
 
-  const url = `/api/uploads/${filename}`
+  const url = `/api/files/${filename}`
   const deleteUrl = `/api/upload/image/${filename}`
 
   return NextResponse.json({ url, deleteUrl })
