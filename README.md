@@ -101,13 +101,13 @@ The app binds only to `127.0.0.1:3000` on the host. To make it reachable from th
 Requires a domain you control on Cloudflare DNS. The tunnel is free; domain registration is typically around $10/year.
 
 1. Go to [Cloudflare Zero Trust](https://one.dash.cloudflare.com) → Networks → Tunnels → Create a tunnel
-2. Choose Docker, copy the token from the `docker run` command shown
+2. Choose Docker. The dashboard shows a `docker run ... --token eyJ...` command — copy **only** the long token after `--token`, not the whole command.
 3. Add to your `.env`:
    ```
-   CLOUDFLARE_TUNNEL_TOKEN=<your-token>
+   CLOUDFLARE_TUNNEL_TOKEN=<paste only the eyJ... token>
    NEXTAUTH_URL=https://vote.example.com
    ```
-4. In the Cloudflare dashboard, configure a Public Hostname pointing your domain to `http://localhost:3000`
+4. In the Cloudflare dashboard, configure a Public Hostname for your domain. Set the origin **URL** to `http://app:3000` — `app` is the docker-compose service name. Do **not** use `http://localhost:3000`; inside the cloudflared container, `localhost` refers to cloudflared itself, not VoteHost.
 5. Start with the cloudflare profile:
    ```bash
    docker compose --profile cloudflare up -d

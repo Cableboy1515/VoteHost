@@ -75,10 +75,16 @@ case "$TUNNEL_CHOICE" in
   1)
     say "\nCloudflare Tunnel selected."
     say "Create a tunnel at: https://one.dash.cloudflare.com → Networks → Tunnels"
-    say "Then copy the tunnel token shown in the 'docker run' command."
-    ask "Paste your Cloudflare Tunnel token" ""
+    say "The dashboard shows a 'docker run' command. You only need the long token"
+    say "at the end (the part after --token, starting with 'eyJ')."
+    say "Do NOT paste the entire docker run command — token only."
+    ask "Paste only the token" ""
     CLOUDFLARE_TUNNEL_TOKEN="$REPLY"
     [ -z "$CLOUDFLARE_TUNNEL_TOKEN" ] && die "Tunnel token is required."
+    case "$CLOUDFLARE_TUNNEL_TOKEN" in
+      *" "*|docker*|*--token*)
+        die "That looks like the full docker run command, not just the token. Re-run and paste only the long string after --token (starts with 'eyJ').";;
+    esac
     ask "Your public URL (e.g. https://vote.example.com)" ""
     NEXTAUTH_URL="$REPLY"
     [ -z "$NEXTAUTH_URL" ] && die "Public URL is required."
