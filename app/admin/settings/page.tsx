@@ -247,6 +247,7 @@ export default function SettingsPage() {
   const [loadError, setLoadError] = useState("")
   const [saving, setSaving] = useState(false)
   const [saveStatus, setSaveStatus] = useState<"idle" | "saved" | "error">("idle")
+  const [saveError, setSaveError] = useState("")
   const [testEmail, setTestEmail] = useState("")
   const [testing, setTesting] = useState(false)
   const [testStatus, setTestStatus] = useState<"idle" | "sent" | "error">("idle")
@@ -291,18 +292,26 @@ export default function SettingsPage() {
     e.preventDefault()
     setSaving(true)
     setSaveStatus("idle")
+    setSaveError("")
     try {
       const res = await fetch("/api/settings/email", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(settings),
       })
-      setSaveStatus(res.ok ? "saved" : "error")
-    } catch {
+      if (res.ok) {
+        setSaveStatus("saved")
+      } else {
+        const data = await res.json().catch(() => ({}))
+        setSaveStatus("error")
+        setSaveError(data.error ?? `Server error ${res.status}`)
+      }
+    } catch (err) {
       setSaveStatus("error")
+      setSaveError(String(err))
     } finally {
       setSaving(false)
-      setTimeout(() => setSaveStatus("idle"), 3000)
+      setTimeout(() => setSaveStatus("idle"), 5000)
     }
   }
 
@@ -492,7 +501,7 @@ export default function SettingsPage() {
             {saving ? "Saving…" : "Save settings"}
           </Button>
           {saveStatus === "saved" && <span className="text-sm text-green-600">Settings saved.</span>}
-          {saveStatus === "error" && <span className="text-sm text-red-600">Failed to save.</span>}
+          {saveStatus === "error" && <span className="text-sm text-red-600">Failed to save: {saveError}</span>}
         </div>
       </form>
 

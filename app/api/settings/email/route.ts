@@ -30,7 +30,7 @@ export async function GET() {
 
     return NextResponse.json({
       email_provider:     s.email_provider     ?? "resend",
-      email_preset:       s.email_preset       ?? "resend",
+      email_preset:       s.email_preset       ?? (s.email_provider === "smtp" ? "smtp" : "resend"),
       resend_api_key:     s.resend_api_key     ? SENTINEL : "",
       email_from_address: s.email_from_address ?? "",
       email_from_name:    s.email_from_name    ?? "VoteHost",
