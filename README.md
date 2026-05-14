@@ -88,7 +88,16 @@ You should see `Postgres is ready`, `Schema applied`, and `Starting VoteHost` wi
 
 **5. Create your admin account**
 
-Visit `https://your-domain.com/admin/setup` (or `http://localhost:3000/admin/setup` for a local test).
+Once your tunnel is live, visit `https://your-domain.com/admin/setup`.
+
+If you're setting up before the tunnel/DNS is ready, or the server is headless, the app intentionally binds only to `127.0.0.1:3000` — not exposed on the LAN, because TLS termination happens at the tunnel and a plain-HTTP admin panel on the LAN is risky. Reach it from your workstation with an SSH port-forward:
+
+```bash
+ssh -L 3000:localhost:3000 user@your-server
+# then on your workstation, browse: http://localhost:3000/admin/setup
+```
+
+The forward closes when you exit the SSH session — no permanent LAN exposure.
 
 ---
 
