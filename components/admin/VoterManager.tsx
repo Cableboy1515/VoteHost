@@ -111,12 +111,25 @@ export default function VoterManager({ electionId, electionStatus, electionStart
       body: JSON.stringify({ name, email }),
     })
     if (res.ok) {
+      const { created, skipped } = await res.json()
       setName(""); setEmail("")
       setShowAddModal(false)
-      refreshVoters()
-      toast.success("Voter added")
+      if (created) {
+        refreshVoters()
+        toast.success("Voter added")
+      } else if (skipped) {
+        toast.error("That email is already a voter for this election")
+      }
+      return
+    }
+    if (res.status === 429) {
+      toast.error("Too many additions in the last hour — please wait and try again")
+    } else if (res.status === 400) {
+      toast.error("Invalid name or email")
+    } else if (res.status === 403) {
+      toast.error("You don't have permission to add voters")
     } else {
-      toast.error("Failed to add voter (duplicate email?)")
+      toast.error("Failed to add voter")
     }
   }
 
@@ -151,6 +164,8 @@ export default function VoterManager({ electionId, electionStatus, electionStart
       setShowCsvModal(false)
       refreshVoters()
       toast.success(`Imported ${created} voters${skipped ? ` (${skipped} skipped)` : ""}`)
+    } else if (res.status === 429) {
+      toast.error("Too many imports in the last hour — please wait and try again")
     } else {
       toast.error("Import failed")
     }

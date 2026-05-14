@@ -26,8 +26,10 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
 
   const { id: electionId } = await params
 
-  const rl = rateLimit(`voters-import:election:${electionId}`, { limit: 5, windowMs: 3_600_000 })
-  if (!rl.ok) return rateLimitResponse(rl.resetAt)
+  if (session.role !== "ADMIN") {
+    const rl = rateLimit(`voters-import:election:${electionId}`, { limit: 100, windowMs: 3_600_000 })
+    if (!rl.ok) return rateLimitResponse(rl.resetAt)
+  }
 
   const body = await req.json().catch(() => null)
   if (!body) return NextResponse.json({ error: "Invalid JSON" }, { status: 400 })
