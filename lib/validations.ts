@@ -11,6 +11,24 @@ const urlField = z.preprocess(
   z.string().url("Enter a valid URL")
 )
 
+// Accepts either a relative path (preferred — `/uploads/foo.jpg`, `/api/upload/image/foo.jpg`)
+// or a full URL (for backward compatibility with rows uploaded before relative URLs landed,
+// and for users who paste an external image URL).
+const imageOrPathField = z.preprocess(
+  (val) => {
+    if (typeof val !== "string") return val
+    const trimmed = val.trim()
+    if (!trimmed) return undefined
+    if (trimmed.startsWith("/")) return trimmed
+    if (!/^https?:\/\//i.test(trimmed)) return `https://${trimmed}`
+    return trimmed
+  },
+  z.string().refine(
+    (s) => s.startsWith("/") || z.string().url().safeParse(s).success,
+    "Must be a URL or path beginning with /"
+  )
+)
+
 export const ElectionBaseSchema = z.object({
   title: z.string().min(1, "Title is required"),
   description: z.string().optional(),
@@ -20,8 +38,8 @@ export const ElectionBaseSchema = z.object({
   archived: z.boolean().optional(),
   emailSubject: z.string().optional().nullable(),
   emailMessage: z.string().optional().nullable(),
-  emailLogoUrl: urlField.optional().nullable(),
-  emailLogoDeleteUrl: z.string().url().optional().nullable(),
+  emailLogoUrl: imageOrPathField.optional().nullable(),
+  emailLogoDeleteUrl: imageOrPathField.optional().nullable(),
   emailFooter: z.string().optional().nullable(),
   firstReminderDays: z.number().int().positive().nullish(),
 })
@@ -59,8 +77,8 @@ export const OptionSchema = z.object({
   text: z.string().min(1, "Option text is required"),
   order: z.number().int().min(0),
   bio: z.string().max(500).optional().nullable(),
-  photoUrl: urlField.optional().nullable(),
-  photoDeleteUrl: z.string().url().optional().nullable(),
+  photoUrl: imageOrPathField.optional().nullable(),
+  photoDeleteUrl: imageOrPathField.optional().nullable(),
   website: urlField.optional().nullable(),
 })
 

@@ -1,8 +1,20 @@
 import { NextResponse } from "next/server"
+import { unlink } from "node:fs/promises"
+import { join } from "node:path"
 import { getSession, requireRole } from "@/lib/auth"
 import { db } from "@/lib/db"
 import { ElectionBaseSchema, ElectionSchema } from "@/lib/validations"
-import { deleteImage } from "@/lib/imageHost"
+
+const UPLOADS_DIR = join(process.cwd(), "public", "uploads")
+
+function unlinkUpload(deleteUrl: string): Promise<void> {
+  // Accepts both relative `/api/upload/image/uuid.jpg` and absolute legacy URLs.
+  const match = deleteUrl.match(/\/api\/upload\/image\/([^/?#]+)/)
+  if (!match) return Promise.resolve()
+  const filename = match[1]
+  if (filename.includes("/") || filename.includes("..")) return Promise.resolve()
+  return unlink(join(UPLOADS_DIR, filename)).catch(() => undefined)
+}
 
 export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
   const session = await getSession()
@@ -60,7 +72,7 @@ export async function DELETE(_req: Request, { params }: { params: Promise<{ id: 
         if (o.photoDeleteUrl) deleteUrls.push(o.photoDeleteUrl)
       }
     }
-    await Promise.allSettled(deleteUrls.map(deleteImage))
+    await Promise.allSettled(deleteUrls.map(unlinkUpload))
   }
 
   return new NextResponse(null, { status: 204 })

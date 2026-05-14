@@ -185,9 +185,15 @@ function footerRow(emailFooter?: string | null): string {
 </td></tr>`
 }
 
+function absolutizeUrl(url: string): string {
+  if (/^https?:\/\//i.test(url)) return url
+  const base = (process.env.NEXTAUTH_URL ?? "http://localhost:3000").replace(/\/$/, "")
+  return `${base}${url.startsWith("/") ? "" : "/"}${url}`
+}
+
 function logoRow(url?: string | null): string {
   return url
-    ? `<tr><td style="padding:24px 32px 0;"><img src="${escapeHtml(url)}" alt="" style="max-width:100%;display:block;border-radius:8px;" /></td></tr>`
+    ? `<tr><td style="padding:24px 32px 0;"><img src="${escapeHtml(absolutizeUrl(url))}" alt="" style="max-width:100%;display:block;border-radius:8px;" /></td></tr>`
     : ""
 }
 

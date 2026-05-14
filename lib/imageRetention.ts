@@ -12,12 +12,14 @@ const TOMBSTONE = Buffer.from(
 )
 
 function filenameFromUrl(url: string): string | null {
-  try {
-    const u = new URL(url)
-    return basename(u.pathname)
-  } catch {
-    return null
-  }
+  // Accepts relative `/uploads/foo.jpg` and absolute URLs.
+  const path = url.startsWith("/") ? url : (() => {
+    try { return new URL(url).pathname } catch { return null }
+  })()
+  if (!path) return null
+  const name = basename(path.split(/[?#]/)[0])
+  if (!name || name.includes("..")) return null
+  return name
 }
 
 async function tombstoneFile(url: string): Promise<void> {
