@@ -140,9 +140,9 @@ const C = {
   surface: "#ffffff",
   surface2: "#f2f3f9",
   surface3: "#eaecf4",
-  accent: "#2e3a9a",
-  accentStrong: "#1e2870",
-  accentSoft: "#eef0fc",
+  accent: "#3F66D9",
+  accentStrong: "#2D4DBA",
+  accentSoft: "#EEF2FC",
   success: "#1a8f60",
   successSoft: "#eaf6f0",
   danger: "#dc2626",
@@ -167,9 +167,12 @@ function brandRow(): string {
   return `<tr><td style="padding:24px 32px 0;">
   <table role="presentation" cellpadding="0" cellspacing="0"><tr>
     <td style="width:22px;height:22px;background:${C.accent};border-radius:5px;text-align:center;vertical-align:middle;">
-      <span style="color:#fff;font-size:13px;font-weight:700;line-height:22px;">✓</span>
+      <span style="color:#fff;font-size:14px;font-weight:700;line-height:22px;">&#10004;</span>
     </td>
-    <td style="padding-left:8px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:15px;font-weight:600;color:${C.ink};letter-spacing:-0.015em;vertical-align:middle;">VoteHost</td>
+    <td style="padding-left:8px;vertical-align:middle;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;line-height:1.05;">
+      <div style="font-size:15px;font-weight:600;color:${C.ink};letter-spacing:-0.015em;">VoteHost</div>
+      <div style="font-size:7px;font-weight:500;color:${C.muted};letter-spacing:0.18em;text-transform:uppercase;margin-top:3px;">Elections</div>
+    </td>
   </tr></table>
 </td></tr>`
 }

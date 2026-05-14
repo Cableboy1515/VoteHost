@@ -9,8 +9,9 @@ interface Props {
 }
 
 export function BrandMark({ size = 22, showWordmark = true, dark = false, className }: Props) {
-  const glyphSize = Math.round(size * 0.636)
-  const fontSize = Math.round(size * 0.682)
+  const wordmarkSize = Math.round(size * 0.68)
+  const subtitleSize = Math.max(8, Math.round(size * 0.30))
+  const glyphStroke = dark ? "var(--vh-accent)" : "white"
 
   return (
     <span
@@ -19,20 +20,28 @@ export function BrandMark({ size = 22, showWordmark = true, dark = false, classN
     >
       <span
         className={cn("inline-grid place-items-center flex-shrink-0", dark ? "bg-white" : "bg-vh-accent")}
-        style={{ width: size, height: size, borderRadius: 5 }}
+        style={{ width: size, height: size, borderRadius: Math.round(size * 0.23) }}
       >
-        <svg width={glyphSize} height={glyphSize} viewBox="0 0 14 14" fill="none" aria-hidden>
+        <svg width={size} height={size} viewBox="0 0 24 24" fill="none" aria-hidden>
           <path
-            d="M2.5 7L5.5 10L11.5 4"
-            stroke={dark ? "var(--vh-accent)" : "white"}
-            strokeWidth="2"
+            d="M6.5 12.5 L10.8 16.8 L18.5 7.2"
+            stroke={glyphStroke}
+            strokeWidth="2.6"
             strokeLinecap="round"
             strokeLinejoin="round"
           />
         </svg>
       </span>
       {showWordmark && (
-        <span style={{ fontSize }}>VoteHost</span>
+        <span className="inline-flex flex-col leading-none">
+          <span style={{ fontSize: wordmarkSize }}>VoteHost</span>
+          <span
+            className="font-medium uppercase opacity-80"
+            style={{ fontSize: subtitleSize, letterSpacing: "0.12em", marginTop: 2 }}
+          >
+            Elections
+          </span>
+        </span>
       )}
     </span>
   )

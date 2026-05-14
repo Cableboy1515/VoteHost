@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 180 44" width="180" height="44" role="img" aria-label="VoteHost Elections">
+  <rect x="0" y="10" width="24" height="24" rx="5.5" ry="5.5" fill="#3F66D9"></rect>
+  <path d="M6.5 22.5 L10.8 26.8 L18.5 17.2" fill="none" stroke="#ffffff" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"></path>
+  <text x="31" y="21" font-family="'Inter', 'Helvetica Neue', Helvetica, Arial, sans-serif" font-weight="600" font-size="15" letter-spacing="-0.075" fill="#1B1F2A">VoteHost</text>
+  <text x="32" y="33" textLength="65.5" lengthAdjust="spacing" font-family="'Inter', 'Helvetica Neue', Helvetica, Arial, sans-serif" font-weight="500" font-size="6.6" fill="#1B1F2A">ELECTIONS</text>
+</svg>
