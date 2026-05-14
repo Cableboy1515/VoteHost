@@ -13,7 +13,7 @@ services:
       db:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "wget", "-q", "--spider", "http://localhost:3000/api/health"]
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3000/api/health',r=>process.exit(r.statusCode===200?0:1)).on('error',()=>process.exit(1))"]
       interval: 30s
       timeout: 5s
       start_period: 60s
@@ -45,7 +45,7 @@ services:
       CRON_SECRET: ${CRON_SECRET}
     depends_on:
       app:
-        condition: service_healthy
+        condition: service_started
 
   # ── Optional: Cloudflare Tunnel ─────────────────────────────────────────────
   # Start with: docker compose --profile cloudflare up -d
