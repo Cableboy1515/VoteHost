@@ -54,6 +54,45 @@ function Avatar({ name, size = 32 }: { name: string; size?: number }) {
   )
 }
 
+function StatusChip({ v }: { v: Voter }) {
+  const fmtDate = (iso: string) =>
+    new Date(iso).toLocaleDateString(undefined, { month: "short", day: "numeric" })
+  if (v.hasVoted) {
+    const tip = [v.invitedAt && `Invited ${fmtDate(v.invitedAt)}`, v.votedAt && `Voted ${fmtDate(v.votedAt)}`].filter(Boolean).join(" · ")
+    return (
+      <span
+        className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11.5px] font-medium border"
+        title={tip || undefined}
+        style={{ background: "var(--vh-success-soft)", color: "oklch(0.35 0.10 155)", borderColor: "oklch(0.78 0.08 155)" }}
+      >
+        <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: "oklch(0.55 0.13 155)" }} />
+        Voted
+      </span>
+    )
+  }
+  if (v.invitedAt) {
+    return (
+      <span
+        className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11.5px] font-medium border"
+        title={`Invited ${fmtDate(v.invitedAt)}`}
+        style={{ background: "var(--vh-accent-soft)", color: "var(--vh-accent-strong)", borderColor: "oklch(0.85 0.05 255)" }}
+      >
+        <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: "var(--vh-accent)" }} />
+        Invited
+      </span>
+    )
+  }
+  return (
+    <span
+      className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11.5px] font-medium border"
+      style={{ background: "var(--vh-surface-3)", color: "var(--vh-muted)", borderColor: "var(--vh-line-strong)" }}
+    >
+      <span className="w-1.5 h-1.5 rounded-full flex-shrink-0 border" style={{ borderColor: "var(--vh-muted)" }} />
+      Not invited
+    </span>
+  )
+}
+
 export default function VoterManager({ electionId, electionStatus, electionStartsAt, initialVoters }: Props) {
   const [voters, setVoters] = useState<Voter[]>(initialVoters)
   const [name, setName] = useState("")
@@ -331,62 +370,66 @@ export default function VoterManager({ electionId, electionStatus, electionStart
       >
         {/* Toolbar */}
         <div
-          className="flex gap-2 items-center p-3.5"
+          className="flex flex-col gap-2 p-3.5"
           style={{ borderBottom: "1px solid var(--vh-line)", background: "var(--vh-surface-2)" }}
         >
           <input
             placeholder="Search by name or email…"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="flex-1 text-sm rounded-[10px] px-3 py-2"
+            className="w-full text-sm rounded-[10px] px-3 py-2"
             style={inputStyle}
           />
-          <div className="flex gap-1">
-            {FILTERS.map((f) => {
-              const active = filter === f.key
-              return (
+          <div className="flex flex-wrap gap-1.5 items-center">
+            <div className="flex gap-1">
+              {FILTERS.map((f) => {
+                const active = filter === f.key
+                return (
+                  <button
+                    key={f.key}
+                    onClick={() => setFilter(f.key)}
+                    className="px-3 py-1.5 rounded-[8px] text-[13px] transition-colors"
+                    style={{
+                      background: active ? "var(--vh-surface)" : "transparent",
+                      color: active ? "var(--vh-ink)" : "var(--vh-muted)",
+                      fontWeight: active ? 500 : 400,
+                      boxShadow: active ? "var(--vh-shadow-xs)" : "none",
+                      border: active ? "1px solid var(--vh-line-strong)" : "1px solid transparent",
+                    }}
+                  >
+                    {f.label}
+                  </button>
+                )
+              })}
+            </div>
+            <div className="flex gap-1.5 ml-auto flex-shrink-0">
+              <button
+                onClick={() => setShowAddModal(true)}
+                className="px-3.5 py-1.5 rounded-[8px] text-[13px] font-medium text-white transition-colors"
+                style={{ background: "var(--vh-accent)" }}
+              >
+                + Add voter
+              </button>
+              <button
+                onClick={() => setShowCsvModal(true)}
+                className="px-3.5 py-1.5 rounded-[8px] text-[13px] transition-colors"
+                style={{ border: "1px solid var(--vh-line-strong)", background: "var(--vh-surface)", color: "var(--vh-ink-soft)" }}
+              >
+                Import CSV
+              </button>
+              {(electionStatus === "ACTIVE" || (electionStatus === "DRAFT" && canInvite)) && (
                 <button
-                  key={f.key}
-                  onClick={() => setFilter(f.key)}
-                  className="px-3 py-1.5 rounded-[8px] text-[13px] transition-colors"
-                  style={{
-                    background: active ? "var(--vh-surface)" : "transparent",
-                    color: active ? "var(--vh-ink)" : "var(--vh-muted)",
-                    fontWeight: active ? 500 : 400,
-                    boxShadow: active ? "var(--vh-shadow-xs)" : "none",
-                    border: active ? "1px solid var(--vh-line-strong)" : "1px solid transparent",
-                  }}
+                  onClick={handleSendInvites}
+                  disabled={sending || !canInvite}
+                  title={!canInvite ? "Set a start date before sending invitations" : undefined}
+                  className="px-3.5 py-1.5 rounded-[8px] text-[13px] transition-colors disabled:opacity-50"
+                  style={{ border: "1px solid var(--vh-line-strong)", background: "var(--vh-surface)", color: "var(--vh-ink-soft)" }}
                 >
-                  {f.label}
+                  {sending ? "Sending…" : "Send invitations"}
                 </button>
-              )
-            })}
+              )}
+            </div>
           </div>
-          <button
-            onClick={() => setShowAddModal(true)}
-            className="px-3.5 py-1.5 rounded-[8px] text-[13px] font-medium text-white transition-colors"
-            style={{ background: "var(--vh-accent)" }}
-          >
-            + Add voter
-          </button>
-          <button
-            onClick={() => setShowCsvModal(true)}
-            className="px-3.5 py-1.5 rounded-[8px] text-[13px] transition-colors"
-            style={{ border: "1px solid var(--vh-line-strong)", background: "var(--vh-surface)", color: "var(--vh-ink-soft)" }}
-          >
-            Import CSV
-          </button>
-          {(electionStatus === "ACTIVE" || (electionStatus === "DRAFT" && canInvite)) && (
-            <button
-              onClick={handleSendInvites}
-              disabled={sending || !canInvite}
-              title={!canInvite ? "Set a start date before sending invitations" : undefined}
-              className="px-3.5 py-1.5 rounded-[8px] text-[13px] transition-colors disabled:opacity-50"
-              style={{ border: "1px solid var(--vh-line-strong)", background: "var(--vh-surface)", color: "var(--vh-ink-soft)" }}
-            >
-              {sending ? "Sending…" : "Send invitations"}
-            </button>
-          )}
         </div>
 
         {voters.length === 0 ? (
@@ -398,106 +441,119 @@ export default function VoterManager({ electionId, electionStatus, electionStart
             No voters match this filter.
           </div>
         ) : (
-          <div className="grid" style={{ gridTemplateColumns: "1.5fr 2fr auto auto" }}>
-            {sorted.map((v, i) => (
-              <div
-                key={v.id}
-                className="grid items-center gap-4 px-[18px] py-3.5 text-[14px]"
-                style={{
-                  gridTemplateColumns: "subgrid",
-                  gridColumn: "1 / -1",
-                  borderTop: i === 0 ? "none" : "1px solid var(--vh-line)",
-                }}
-              >
-                {/* Name + avatar */}
-                <div className="flex items-center gap-3 min-w-0">
-                  <Avatar name={v.name} size={32} />
-                  <span className="font-medium truncate">{v.name}</span>
+          <>
+            {/* Mobile card layout */}
+            <div className="sm:hidden divide-y divide-vh-line">
+              {sorted.map((v) => (
+                <div key={v.id} className="px-4 py-3.5 flex items-start justify-between gap-3">
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <Avatar name={v.name} size={30} />
+                    <div className="min-w-0">
+                      <p className="text-[14px] font-medium truncate">{v.name}</p>
+                      <p
+                        className="text-[12px] truncate"
+                        style={{ color: "var(--vh-muted)", fontFamily: "var(--vh-font-mono, monospace)" }}
+                      >
+                        {v.email}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex-shrink-0 flex flex-col items-end gap-1.5">
+                    <StatusChip v={v} />
+                    <div className="flex gap-1">
+                      {v.invitedAt && !v.hasVoted && canDelete && canInvite && (
+                        <button
+                          disabled={resending.has(v.id)}
+                          onClick={() => handleResend(v)}
+                          className="px-2.5 py-1 rounded-[8px] text-[12.5px] transition-colors disabled:opacity-50"
+                          style={{ color: "var(--vh-ink-soft)", background: "transparent" }}
+                          onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = "var(--vh-surface-2)" }}
+                          onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "transparent" }}
+                        >
+                          {resending.has(v.id) ? "Sending…" : "Resend"}
+                        </button>
+                      )}
+                      <button
+                        disabled={v.hasVoted || !canDelete}
+                        title={
+                          v.hasVoted
+                            ? "Cannot remove a voter who has already voted"
+                            : !canDelete
+                            ? "Voter list cannot be modified after the election closes"
+                            : undefined
+                        }
+                        onClick={() => setDeleteTarget(v)}
+                        className="px-2.5 py-1 rounded-[8px] text-[12.5px] transition-colors disabled:opacity-30"
+                        style={{ color: "var(--vh-danger)", background: "transparent" }}
+                        onMouseEnter={(e) => { if (!v.hasVoted && canDelete) (e.currentTarget as HTMLElement).style.background = "var(--vh-danger-soft)" }}
+                        onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "transparent" }}
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  </div>
                 </div>
+              ))}
+            </div>
 
-                {/* Email */}
+            {/* Desktop grid layout */}
+            <div className="hidden sm:grid" style={{ gridTemplateColumns: "1.5fr 2fr auto auto" }}>
+              {sorted.map((v, i) => (
                 <div
-                  className="truncate text-[13px]"
-                  style={{ color: "var(--vh-muted)", fontFamily: "var(--vh-font-mono, monospace)" }}
+                  key={v.id}
+                  className="grid items-center gap-4 px-[18px] py-3.5 text-[14px]"
+                  style={{
+                    gridTemplateColumns: "subgrid",
+                    gridColumn: "1 / -1",
+                    borderTop: i === 0 ? "none" : "1px solid var(--vh-line)",
+                  }}
                 >
-                  {v.email}
-                </div>
-
-                {/* Single status chip */}
-                {(() => {
-                  const fmtDate = (iso: string) =>
-                    new Date(iso).toLocaleDateString(undefined, { month: "short", day: "numeric" })
-                  if (v.hasVoted) {
-                    const tip = [v.invitedAt && `Invited ${fmtDate(v.invitedAt)}`, v.votedAt && `Voted ${fmtDate(v.votedAt)}`].filter(Boolean).join(" · ")
-                    return (
-                      <span
-                        className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11.5px] font-medium border"
-                        title={tip || undefined}
-                        style={{ background: "var(--vh-success-soft)", color: "oklch(0.35 0.10 155)", borderColor: "oklch(0.78 0.08 155)" }}
+                  <div className="flex items-center gap-3 min-w-0">
+                    <Avatar name={v.name} size={32} />
+                    <span className="font-medium truncate">{v.name}</span>
+                  </div>
+                  <div
+                    className="truncate text-[13px]"
+                    style={{ color: "var(--vh-muted)", fontFamily: "var(--vh-font-mono, monospace)" }}
+                  >
+                    {v.email}
+                  </div>
+                  <StatusChip v={v} />
+                  <div className="flex gap-1 justify-end">
+                    {v.invitedAt && !v.hasVoted && canDelete && canInvite && (
+                      <button
+                        disabled={resending.has(v.id)}
+                        onClick={() => handleResend(v)}
+                        className="px-2.5 py-1 rounded-[8px] text-[12.5px] transition-colors disabled:opacity-50"
+                        style={{ color: "var(--vh-ink-soft)", background: "transparent" }}
+                        onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = "var(--vh-surface-2)" }}
+                        onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "transparent" }}
                       >
-                        <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: "oklch(0.55 0.13 155)" }} />
-                        Voted
-                      </span>
-                    )
-                  }
-                  if (v.invitedAt) {
-                    return (
-                      <span
-                        className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11.5px] font-medium border"
-                        title={`Invited ${fmtDate(v.invitedAt)}`}
-                        style={{ background: "var(--vh-accent-soft)", color: "var(--vh-accent-strong)", borderColor: "oklch(0.85 0.05 255)" }}
-                      >
-                        <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: "var(--vh-accent)" }} />
-                        Invited
-                      </span>
-                    )
-                  }
-                  return (
-                    <span
-                      className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11.5px] font-medium border"
-                      style={{ background: "var(--vh-surface-3)", color: "var(--vh-muted)", borderColor: "var(--vh-line-strong)" }}
-                    >
-                      <span className="w-1.5 h-1.5 rounded-full flex-shrink-0 border" style={{ borderColor: "var(--vh-muted)" }} />
-                      Not invited
-                    </span>
-                  )
-                })()}
-
-                {/* Actions */}
-                <div className="flex gap-1 justify-end">
-                  {v.invitedAt && !v.hasVoted && canDelete && canInvite && (
+                        {resending.has(v.id) ? "Sending…" : "Resend"}
+                      </button>
+                    )}
                     <button
-                      disabled={resending.has(v.id)}
-                      onClick={() => handleResend(v)}
-                      className="px-2.5 py-1 rounded-[8px] text-[12.5px] transition-colors disabled:opacity-50"
-                      style={{ color: "var(--vh-ink-soft)", background: "transparent" }}
-                      onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = "var(--vh-surface-2)" }}
+                      disabled={v.hasVoted || !canDelete}
+                      title={
+                        v.hasVoted
+                          ? "Cannot remove a voter who has already voted"
+                          : !canDelete
+                          ? "Voter list cannot be modified after the election closes"
+                          : undefined
+                      }
+                      onClick={() => setDeleteTarget(v)}
+                      className="px-2.5 py-1 rounded-[8px] text-[12.5px] transition-colors disabled:opacity-30"
+                      style={{ color: "var(--vh-danger)", background: "transparent" }}
+                      onMouseEnter={(e) => { if (!v.hasVoted && canDelete) (e.currentTarget as HTMLElement).style.background = "var(--vh-danger-soft)" }}
                       onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "transparent" }}
                     >
-                      {resending.has(v.id) ? "Sending…" : "Resend"}
+                      Remove
                     </button>
-                  )}
-                  <button
-                    disabled={v.hasVoted || !canDelete}
-                    title={
-                      v.hasVoted
-                        ? "Cannot remove a voter who has already voted"
-                        : !canDelete
-                        ? "Voter list cannot be modified after the election closes"
-                        : undefined
-                    }
-                    onClick={() => setDeleteTarget(v)}
-                    className="px-2.5 py-1 rounded-[8px] text-[12.5px] transition-colors disabled:opacity-30"
-                    style={{ color: "var(--vh-danger)", background: "transparent" }}
-                    onMouseEnter={(e) => { if (!v.hasVoted && canDelete) (e.currentTarget as HTMLElement).style.background = "var(--vh-danger-soft)" }}
-                    onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "transparent" }}
-                  >
-                    Remove
-                  </button>
+                  </div>
                 </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          </>
         )}
       </div>
 
