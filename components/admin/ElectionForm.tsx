@@ -278,7 +278,7 @@ export default function ElectionForm({ electionId, initialValues }: Props) {
 
         {/* Schedule */}
         <VhCard title="Schedule">
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <VhLabel htmlFor="startsAt">Opens</VhLabel>
               <input
@@ -389,7 +389,7 @@ export default function ElectionForm({ electionId, initialValues }: Props) {
                 onBlur={onFocusOut}
               />
             </div>
-            <div className="flex gap-2 self-start">
+            <div className="flex flex-wrap gap-2">
               <button
                 type="button"
                 onClick={() => setShowPreview((v) => !v)}

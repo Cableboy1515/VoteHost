@@ -17,7 +17,7 @@ export default async function EditElectionPage({ params }: { params: Promise<{ i
   const isClosed = election.status === "CLOSED" || election.status === "COMPLETED"
 
   return (
-    <div className="p-8 max-w-[800px]">
+    <div className="p-4 sm:p-8 max-w-[800px]">
       <div className="text-[13px] mb-3.5" style={{ color: "var(--vh-muted)" }}>
         <GuardLink href="/admin/dashboard">Elections</GuardLink>
         <span className="mx-1.5">›</span>
