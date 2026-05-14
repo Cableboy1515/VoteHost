@@ -4,7 +4,7 @@ import { useEffect, useState } from "react"
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
 import { BrandMark } from "@/components/ui/brand-mark"
-import { LayoutDashboard, Vote, Archive, Users, Settings, Plus } from "lucide-react"
+import { LayoutDashboard, Vote, Archive, Users, Settings, Plus, Menu } from "lucide-react"
 import { UnsavedChangesProvider, GuardLink } from "@/components/admin/UnsavedChangesGuard"
 
 const BARE_PATHS = ["/admin/login", "/admin/setup", "/admin/change-password"]
@@ -24,6 +24,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const pathname = usePathname()
   const router = useRouter()
   const [role, setRole] = useState<string | null>(null)
+  const [navOpen, setNavOpen] = useState(false)
 
   useEffect(() => {
     if (!BARE_PATHS.includes(pathname)) {
@@ -33,6 +34,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         .catch(() => {})
     }
   }, [pathname])
+
+  useEffect(() => { setNavOpen(false) }, [pathname])
 
   if (BARE_PATHS.includes(pathname)) return <>{children}</>
 
@@ -46,8 +49,15 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   return (
     <UnsavedChangesProvider>
       <div className="min-h-screen flex bg-vh-bg">
+        {navOpen && (
+          <div
+            className="fixed inset-0 bg-black/40 z-30 md:hidden"
+            onClick={() => setNavOpen(false)}
+          />
+        )}
+
         <aside
-          className="w-60 flex-shrink-0 flex flex-col bg-vh-surface"
+          className={`w-60 flex-shrink-0 flex flex-col bg-vh-surface fixed inset-y-0 left-0 z-40 transform transition-transform duration-200 md:static md:translate-x-0 md:transition-none ${navOpen ? "translate-x-0" : "-translate-x-full"}`}
           style={{ borderRight: "1px solid var(--vh-line)" }}
         >
           <div className="px-5 py-5" style={{ borderBottom: "1px solid var(--vh-line)" }}>
@@ -101,7 +111,23 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           </div>
         </aside>
 
-        <main className="flex-1 overflow-auto">{children}</main>
+        <div className="flex-1 flex flex-col min-w-0">
+          <header
+            className="md:hidden flex items-center gap-3 px-4 h-14 bg-vh-surface flex-shrink-0"
+            style={{ borderBottom: "1px solid var(--vh-line)" }}
+          >
+            <button
+              onClick={() => setNavOpen(true)}
+              className="p-2 -ml-2 rounded-[8px]"
+              style={{ color: "var(--vh-ink-soft)" }}
+              aria-label="Open menu"
+            >
+              <Menu size={20} />
+            </button>
+            <BrandMark size={18} />
+          </header>
+          <main className="flex-1 overflow-auto">{children}</main>
+        </div>
       </div>
     </UnsavedChangesProvider>
   )
