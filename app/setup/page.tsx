@@ -9,7 +9,7 @@ export default async function SetupPage() {
     db.setting.findUnique({ where: { key: "setup_completed" } }),
     db.adminUser.count(),
   ])
-  if (setupRow || count > 0) redirect("/admin/login")
+  if (setupRow || count > 0) redirect("/login")
 
   if (!process.env.SETUP_TOKEN) {
     return (

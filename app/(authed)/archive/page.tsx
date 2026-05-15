@@ -1,7 +1,9 @@
 export const dynamic = "force-dynamic"
 
 import Link from "next/link"
+import { redirect } from "next/navigation"
 import { db } from "@/lib/db"
+import { requireRole } from "@/lib/auth"
 import ArchiveElectionButton from "@/components/admin/ArchiveElectionButton"
 import DeleteElectionButton from "@/components/admin/DeleteElectionButton"
 import ReopenElectionButton from "@/components/admin/ReopenElectionButton"
@@ -23,6 +25,9 @@ const STATUS_STYLE: Record<ElectionStatus, React.CSSProperties> = {
 }
 
 export default async function ArchivePage() {
+  const session = await requireRole("ORGANIZER")
+  if (!session) redirect("/elections")
+
   await autoCompleteElections()
 
   const elections = await db.election.findMany({
@@ -67,7 +72,6 @@ export default async function ArchivePage() {
         <div className="flex flex-col">
           {years.map((year) => (
             <div key={year}>
-              {/* Year eyebrow */}
               <div
                 className="px-1 py-2 text-[11.5px] font-semibold uppercase tracking-widest"
                 style={{ color: "var(--vh-muted)" }}
@@ -90,7 +94,6 @@ export default async function ArchivePage() {
                       className="flex flex-wrap items-center gap-3 sm:gap-4 bg-vh-surface rounded-[12px] px-[18px] py-4"
                       style={{ border: "1px solid var(--vh-line)" }}
                     >
-                      {/* Title + date */}
                       <div className="flex-1 min-w-0">
                         <div className="text-[14.5px] font-medium truncate">{e.title}</div>
                         <div className="text-[12.5px] mt-0.5" style={{ color: "var(--vh-muted)" }}>
@@ -98,7 +101,6 @@ export default async function ArchivePage() {
                         </div>
                       </div>
 
-                      {/* Turnout */}
                       <div
                         className="text-[13px] whitespace-nowrap"
                         style={{ color: "var(--vh-ink-soft)", fontVariantNumeric: "tabular-nums" }}
@@ -109,7 +111,6 @@ export default async function ArchivePage() {
                         </span>
                       </div>
 
-                      {/* Status badge */}
                       <span
                         className="inline-flex items-center px-2 py-0.5 rounded-full text-[11.5px] font-medium border whitespace-nowrap"
                         style={STATUS_STYLE[e.status]}
@@ -117,10 +118,9 @@ export default async function ArchivePage() {
                         {STATUS_LABEL[e.status]}
                       </span>
 
-                      {/* Actions */}
                       <div className="flex flex-wrap gap-1.5">
                         <Link
-                          href={`/admin/elections/${e.id}/results`}
+                          href={`/elections/${e.id}/results`}
                           className="px-3 py-1.5 rounded-[8px] text-[13px] transition-colors"
                           style={{ color: "var(--vh-ink-soft)", background: "var(--vh-surface-2)", border: "1px solid var(--vh-line-strong)" }}
                         >

@@ -33,7 +33,7 @@ export default function SetupForm() {
 
     setLoading(false)
     if (res.ok) {
-      router.push("/admin/login")
+      router.push("/login")
     } else {
       const data = await res.json().catch(() => ({}))
       setError(data.error ?? "Failed to create account")

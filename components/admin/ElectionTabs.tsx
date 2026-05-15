@@ -12,7 +12,7 @@ const TABS = [
 
 export default function ElectionTabs({ electionId }: { electionId: string }) {
   const pathname = usePathname()
-  const base = `/admin/elections/${electionId}`
+  const base = `/elections/${electionId}`
 
   return (
     <div className="flex gap-1.5 mb-5 flex-wrap">

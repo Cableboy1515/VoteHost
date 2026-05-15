@@ -48,7 +48,7 @@ function LoginForm() {
 
     setLoading(false)
     if (res.ok) {
-      router.push("/admin/dashboard")
+      router.push("/dashboard")
     } else {
       setError("Invalid email or password")
     }

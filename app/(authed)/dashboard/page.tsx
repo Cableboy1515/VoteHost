@@ -1,7 +1,9 @@
 export const dynamic = "force-dynamic"
 
 import Link from "next/link"
+import { redirect } from "next/navigation"
 import { db } from "@/lib/db"
+import { requireRole } from "@/lib/auth"
 import { DashboardEmpty } from "@/components/admin/DashboardEmpty"
 import { autoCompleteElections } from "@/lib/autoCompleteElections"
 
@@ -87,14 +89,14 @@ function ActiveCard({ e, variant }: { e: ActiveElection; variant: "hero" | "tile
         </div>
         <div className={`flex justify-end gap-2 ${isHero ? "mt-5" : "mt-4"}`}>
           <Link
-            href={`/admin/elections/${e.id}/voters`}
+            href={`/elections/${e.id}/voters`}
             className="inline-flex items-center justify-center px-3.5 py-1.5 rounded-[10px] text-[13px] transition-colors"
             style={{ background: "rgba(255,255,255,0.12)", color: "white", border: "1px solid rgba(255,255,255,0.25)" }}
           >
             Voters
           </Link>
           <Link
-            href={`/admin/elections/${e.id}/results`}
+            href={`/elections/${e.id}/results`}
             className="inline-flex items-center justify-center px-3.5 py-1.5 rounded-[10px] text-[13px] font-semibold transition-colors"
             style={{ background: "white", color: "var(--vh-accent-strong)" }}
           >
@@ -118,6 +120,9 @@ function ActiveCard({ e, variant }: { e: ActiveElection; variant: "hero" | "tile
 }
 
 export default async function DashboardPage() {
+  const session = await requireRole("ORGANIZER")
+  if (!session) redirect("/elections")
+
   await autoCompleteElections()
 
   const elections = await db.election.findMany({
@@ -169,7 +174,7 @@ export default async function DashboardPage() {
           </p>
         </div>
         <Link
-          href="/admin/elections/new"
+          href="/elections/new"
           className="inline-flex items-center justify-center px-5 py-3 rounded-[10px] text-[15px] font-medium text-white transition-colors"
           style={{ background: "var(--vh-accent)" }}
         >
@@ -222,7 +227,7 @@ export default async function DashboardPage() {
 
           <div className="flex justify-end">
             <Link
-              href="/admin/elections"
+              href="/elections"
               className="text-[13.5px] font-medium transition-colors"
               style={{ color: "var(--vh-accent)" }}
             >

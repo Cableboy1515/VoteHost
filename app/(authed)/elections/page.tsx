@@ -1,7 +1,9 @@
 export const dynamic = "force-dynamic"
 
 import Link from "next/link"
+import { redirect } from "next/navigation"
 import { db } from "@/lib/db"
+import { requireRole } from "@/lib/auth"
 import type { ElectionStatus } from "@/lib/generated/prisma/client"
 import DeleteElectionButton from "@/components/admin/DeleteElectionButton"
 import ArchiveElectionButton from "@/components/admin/ArchiveElectionButton"
@@ -51,8 +53,76 @@ export default async function ElectionsListPage({
 }: {
   searchParams: Promise<{ status?: string }>
 }) {
+  const session = await requireRole("VIEWER")
+  if (!session) redirect("/login")
+
   await autoCompleteElections()
 
+  // Viewer-only surface: results for active/completed/closed elections
+  if (session.role === "VIEWER") {
+    const elections = await db.election.findMany({
+      where: { archived: false, status: { in: ["ACTIVE", "COMPLETED", "CLOSED"] } },
+      orderBy: { createdAt: "desc" },
+      include: { _count: { select: { voters: true } } },
+    })
+
+    if (elections.length === 1) {
+      redirect(`/elections/${elections[0].id}/results`)
+    }
+
+    return (
+      <div className="p-4 sm:p-8 max-w-[1100px]">
+        <div className="mb-6">
+          <h1 className="text-[28px] font-semibold mb-1">Elections</h1>
+          <p className="text-[14.5px]" style={{ color: "var(--vh-muted)" }}>
+            {elections.length} election{elections.length !== 1 ? "s" : ""}
+          </p>
+        </div>
+
+        {elections.length === 0 ? (
+          <div
+            className="bg-vh-surface rounded-[14px] p-10 text-center"
+            style={{ border: "1px solid var(--vh-line)" }}
+          >
+            <p className="text-[14px]" style={{ color: "var(--vh-muted)" }}>
+              No elections to view yet.
+            </p>
+          </div>
+        ) : (
+          <div className="flex flex-col gap-2.5">
+            {elections.map((e) => (
+              <div
+                key={e.id}
+                className="flex flex-wrap items-center gap-3 sm:gap-4 bg-vh-surface rounded-[14px] px-4 sm:px-5 py-4"
+                style={{ border: "1px solid var(--vh-line)" }}
+              >
+                <StatusBadge status={e.status} />
+                <div className="flex-1 min-w-0">
+                  <div className="text-[15px] font-medium truncate">{e.title}</div>
+                  {e.endsAt && (
+                    <div className="text-[12.5px] mt-0.5" style={{ color: "var(--vh-muted)" }}>
+                      {e.status === "ACTIVE"
+                        ? `Closes ${e.endsAt.toLocaleDateString()}`
+                        : `Ended ${e.endsAt.toLocaleDateString()}`}
+                    </div>
+                  )}
+                </div>
+                <Link
+                  href={`/elections/${e.id}/results`}
+                  className="px-3 py-1.5 rounded-[10px] text-[13px] transition-colors"
+                  style={{ color: "var(--vh-ink-soft)", background: "var(--vh-surface-2)", border: "1px solid var(--vh-line-strong)" }}
+                >
+                  View results →
+                </Link>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    )
+  }
+
+  // Organizer / Admin full view
   const sp = await searchParams
   const filterKey = (FILTER_TABS.find((t) => t.key === sp.status)?.key ?? "all") as FilterKey
   const filterStatus = FILTER_TABS.find((t) => t.key === filterKey)?.status
@@ -96,7 +166,7 @@ export default async function ElectionsListPage({
           </p>
         </div>
         <Link
-          href="/admin/elections/new"
+          href="/elections/new"
           className="inline-flex items-center justify-center px-5 py-3 rounded-[10px] text-[15px] font-medium text-white transition-colors"
           style={{ background: "var(--vh-accent)" }}
         >
@@ -112,7 +182,7 @@ export default async function ElectionsListPage({
           return (
             <Link
               key={tab.key}
-              href={tab.key === "all" ? "/admin/elections" : `/admin/elections?status=${tab.key}`}
+              href={tab.key === "all" ? "/elections" : `/elections?status=${tab.key}`}
               className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full text-[13px] font-medium transition-colors"
               style={{
                 background: active ? "var(--vh-accent)" : "var(--vh-surface)",
@@ -170,21 +240,21 @@ export default async function ElectionsListPage({
               )}
               <div className="flex flex-wrap gap-1.5">
                 <Link
-                  href={`/admin/elections/${e.id}`}
+                  href={`/elections/${e.id}`}
                   className="px-3 py-1.5 rounded-[10px] text-[13px] transition-colors"
                   style={{ color: "var(--vh-ink-soft)", background: "var(--vh-surface-2)", border: "1px solid var(--vh-line-strong)" }}
                 >
                   Edit
                 </Link>
                 <Link
-                  href={`/admin/elections/${e.id}/voters`}
+                  href={`/elections/${e.id}/voters`}
                   className="px-3 py-1.5 rounded-[10px] text-[13px] transition-colors"
                   style={{ color: "var(--vh-ink-soft)", background: "var(--vh-surface-2)", border: "1px solid var(--vh-line-strong)" }}
                 >
                   Voters
                 </Link>
                 <Link
-                  href={`/admin/elections/${e.id}/results`}
+                  href={`/elections/${e.id}/results`}
                   className="px-3 py-1.5 rounded-[10px] text-[13px] transition-colors"
                   style={{ color: "var(--vh-ink-soft)", background: "var(--vh-surface-2)", border: "1px solid var(--vh-line-strong)" }}
                 >

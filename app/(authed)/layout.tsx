@@ -1,53 +1,54 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
 import { BrandMark } from "@/components/ui/brand-mark"
 import { LayoutDashboard, Vote, Archive, Users, Settings, Plus, Menu, X } from "lucide-react"
 import { UnsavedChangesProvider, GuardLink } from "@/components/admin/UnsavedChangesGuard"
 
-const BARE_PATHS = ["/admin/login", "/admin/setup"]
-const BARE_PREFIXES = ["/admin/setup-account/"]
+type NavItem = {
+  label: string
+  href: string
+  icon: React.ComponentType<{ size?: number; style?: React.CSSProperties }>
+  match: (p: string) => boolean
+}
 
-const NAV_ITEMS = [
-  { label: "Dashboard", href: "/admin/dashboard", icon: LayoutDashboard, match: (p: string) => p === "/admin/dashboard" },
-  { label: "Elections", href: "/admin/elections", icon: Vote, match: (p: string) => p.startsWith("/admin/elections") },
-  { label: "Archive", href: "/admin/archive", icon: Archive, match: (p: string) => p.startsWith("/admin/archive") },
-]
+const ALL_NAV = {
+  dashboard: { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard, match: (p: string) => p === "/dashboard" },
+  elections: { label: "Elections", href: "/elections", icon: Vote, match: (p: string) => p.startsWith("/elections") },
+  archive:   { label: "Archive",   href: "/archive",   icon: Archive,         match: (p: string) => p.startsWith("/archive") },
+  users:     { label: "Users",     href: "/users",     icon: Users,           match: (p: string) => p.startsWith("/users") },
+  settings:  { label: "Settings",  href: "/settings",  icon: Settings,        match: (p: string) => p.startsWith("/settings") },
+} satisfies Record<string, NavItem>
 
-const ADMIN_NAV_ITEMS = [
-  { label: "Users", href: "/admin/users", icon: Users, match: (p: string) => p.startsWith("/admin/users") },
-  { label: "Settings", href: "/admin/settings", icon: Settings, match: (p: string) => p.startsWith("/admin/settings") },
-]
+const NAV_BY_ROLE: Record<string, NavItem[]> = {
+  VIEWER:    [ALL_NAV.elections],
+  ORGANIZER: [ALL_NAV.dashboard, ALL_NAV.elections, ALL_NAV.archive],
+  ADMIN:     [ALL_NAV.dashboard, ALL_NAV.elections, ALL_NAV.archive, ALL_NAV.users, ALL_NAV.settings],
+}
 
-export default function AdminLayout({ children }: { children: React.ReactNode }) {
+export default function AuthedLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
   const router = useRouter()
-  const [role, setRole] = useState<string | null>(null)
+  const [identity, setIdentity] = useState<{ email: string; role: string } | null>(null)
   const [navOpen, setNavOpen] = useState(false)
 
-  const isBare = BARE_PATHS.includes(pathname) || BARE_PREFIXES.some((p) => pathname.startsWith(p))
-
   useEffect(() => {
-    if (!isBare) {
-      fetch("/api/auth/me")
-        .then((r) => r.ok ? r.json() : null)
-        .then((d) => { if (d?.role) setRole(d.role) })
-        .catch(() => {})
-    }
-  }, [pathname, isBare])
+    fetch("/api/auth/me")
+      .then((r) => r.ok ? r.json() : null)
+      .then((d) => { if (d?.role) setIdentity({ email: d.email, role: d.role }) })
+      .catch(() => {})
+  }, [pathname])
 
   useEffect(() => { setNavOpen(false) }, [pathname])
 
-  if (isBare) return <>{children}</>
-
   async function handleSignOut() {
     await fetch("/api/auth/logout", { method: "POST" })
-    router.push("/admin/login")
+    router.push("/login")
   }
 
-  const allNavItems = role === "ADMIN" ? [...NAV_ITEMS, ...ADMIN_NAV_ITEMS] : NAV_ITEMS
+  const navItems: NavItem[] = identity ? (NAV_BY_ROLE[identity.role] ?? NAV_BY_ROLE.ORGANIZER) : []
+  const canCreate = identity?.role === "ORGANIZER" || identity?.role === "ADMIN"
 
   return (
     <UnsavedChangesProvider>
@@ -76,7 +77,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           </div>
 
           <nav className="flex-1 p-3 flex flex-col gap-0.5">
-            {allNavItems.map(({ label, href, icon: Icon, match }) => {
+            {navItems.map(({ label, href, icon: Icon, match }) => {
               const active = match(pathname)
               return (
                 <GuardLink
@@ -95,21 +96,29 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
               )
             })}
 
-            <div className="mt-3 pt-3" style={{ borderTop: "1px solid var(--vh-line)" }}>
-              <GuardLink
-                href="/admin/elections/new"
-                className="flex items-center gap-3 px-3 py-2.5 rounded-[10px] text-sm transition-colors"
-                style={{ color: "var(--vh-ink-soft)" }}
-                onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = "var(--vh-surface-2)"; (e.currentTarget as HTMLElement).style.color = "var(--vh-ink)" }}
-                onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "transparent"; (e.currentTarget as HTMLElement).style.color = "var(--vh-ink-soft)" }}
-              >
-                <Plus size={16} />
-                New election
-              </GuardLink>
-            </div>
+            {canCreate && (
+              <div className="mt-3 pt-3" style={{ borderTop: "1px solid var(--vh-line)" }}>
+                <GuardLink
+                  href="/elections/new"
+                  className="flex items-center gap-3 px-3 py-2.5 rounded-[10px] text-sm transition-colors"
+                  style={{ color: "var(--vh-ink-soft)" }}
+                  onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = "var(--vh-surface-2)"; (e.currentTarget as HTMLElement).style.color = "var(--vh-ink)" }}
+                  onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "transparent"; (e.currentTarget as HTMLElement).style.color = "var(--vh-ink-soft)" }}
+                >
+                  <Plus size={16} />
+                  New election
+                </GuardLink>
+              </div>
+            )}
           </nav>
 
           <div className="p-4" style={{ borderTop: "1px solid var(--vh-line)" }}>
+            <div className="px-3 pb-3" style={{ color: "var(--vh-muted)" }}>
+              <div className="text-[12.5px] truncate leading-tight">{identity?.email ?? ""}</div>
+              <div className="text-[11.5px] mt-0.5 capitalize" style={{ opacity: 0.75 }}>
+                {identity ? identity.role.toLowerCase() : ""}
+              </div>
+            </div>
             <button
               onClick={handleSignOut}
               className="text-sm transition-colors w-full text-left px-3 py-2 rounded-[10px]"

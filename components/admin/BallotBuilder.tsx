@@ -195,7 +195,7 @@ export default function BallotBuilder({ electionId, electionStatus, initialQuest
     const ok = await save()
     if (ok) {
       if (andContinue) {
-        router.push(`/admin/elections/${electionId}/voters`)
+        router.push(`/elections/${electionId}/voters`)
       } else {
         toast.success("Ballot saved")
       }

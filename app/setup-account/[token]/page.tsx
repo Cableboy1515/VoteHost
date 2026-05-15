@@ -44,7 +44,7 @@ export default function SetupAccountPage() {
     })
     setSubmitting(false)
     if (res.ok || res.status === 204) {
-      router.push("/admin/login?status=ready")
+      router.push("/login?status=ready")
     } else {
       const d = await res.json().catch(() => ({}))
       setError(d.error ?? "Something went wrong")
@@ -90,7 +90,7 @@ export default function SetupAccountPage() {
                 This setup link has expired or already been used. Ask your administrator to send a new one.
               </p>
               <a
-                href="/admin/login"
+                href="/login"
                 className="text-[13px] font-medium"
                 style={{ color: "var(--vh-accent)" }}
               >

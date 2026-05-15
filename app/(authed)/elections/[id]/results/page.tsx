@@ -1,5 +1,6 @@
+import { redirect, notFound } from "next/navigation"
 import { db } from "@/lib/db"
-import { notFound } from "next/navigation"
+import { requireRole } from "@/lib/auth"
 import { getResultsForElection } from "@/lib/results"
 import ResultsDashboard from "@/components/admin/ResultsDashboard"
 import EmailResultsButton from "@/components/admin/EmailResultsButton"
@@ -15,20 +16,31 @@ const STATUS_STYLE: Record<ElectionStatus, React.CSSProperties> = {
 }
 
 export default async function ResultsPage({ params }: { params: Promise<{ id: string }> }) {
+  const session = await requireRole("VIEWER")
+  if (!session) redirect("/login")
+
   const { id } = await params
   const election = await db.election.findUnique({ where: { id } })
   if (!election) notFound()
 
   const initialData = await getResultsForElection(id)
 
+  const isViewer = session.role === "VIEWER"
+
   return (
     <div className="p-4 sm:p-8 max-w-[1040px]">
       <div className="text-[13px] mb-3.5" style={{ color: "var(--vh-muted)" }}>
-        <GuardLink href="/admin/dashboard">Elections</GuardLink>
-        <span className="mx-1.5">›</span>
-        <GuardLink href={`/admin/elections/${id}`}>{election.title}</GuardLink>
+        {isViewer ? (
+          <GuardLink href="/elections">Elections</GuardLink>
+        ) : (
+          <>
+            <GuardLink href="/dashboard">Elections</GuardLink>
+            <span className="mx-1.5">›</span>
+            <GuardLink href={`/elections/${id}`}>{election.title}</GuardLink>
+          </>
+        )}
       </div>
-      <ElectionTabs electionId={id} />
+      {!isViewer && <ElectionTabs electionId={id} />}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between mb-5">
         <div>
           <div className="flex items-center gap-2.5 mb-1.5">
@@ -50,11 +62,13 @@ export default async function ResultsPage({ params }: { params: Promise<{ id: st
           </div>
           <h1 className="text-[26px] font-semibold">{election.title}</h1>
         </div>
-        <EmailResultsButton
-          electionId={id}
-          status={election.status}
-          resultsEmailSentAt={election.resultsEmailSentAt?.toISOString() ?? null}
-        />
+        {!isViewer && (
+          <EmailResultsButton
+            electionId={id}
+            status={election.status}
+            resultsEmailSentAt={election.resultsEmailSentAt?.toISOString() ?? null}
+          />
+        )}
       </div>
 
       <ResultsDashboard

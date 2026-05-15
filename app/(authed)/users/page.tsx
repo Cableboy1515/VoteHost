@@ -7,7 +7,7 @@ import UserManager from "@/components/admin/UserManager"
 
 export default async function UsersPage() {
   const session = await requireRole("ADMIN")
-  if (!session) redirect("/admin/dashboard")
+  if (!session) redirect("/dashboard")
 
   const rawUsers = await db.adminUser.findMany({
     select: {

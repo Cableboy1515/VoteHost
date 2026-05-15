@@ -1,11 +1,15 @@
+import { redirect, notFound } from "next/navigation"
 import { db } from "@/lib/db"
-import { notFound } from "next/navigation"
+import { requireRole } from "@/lib/auth"
 import VoterManager from "@/components/admin/VoterManager"
 import ElectionTabs from "@/components/admin/ElectionTabs"
 import { GuardLink } from "@/components/admin/UnsavedChangesGuard"
 
 export default async function VotersPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
+  const session = await requireRole("ORGANIZER")
+  if (!session) redirect(`/elections/${id}/results`)
+
   const election = await db.election.findUnique({
     where: { id },
     include: { voters: { orderBy: { name: "asc" } } },
@@ -15,9 +19,9 @@ export default async function VotersPage({ params }: { params: Promise<{ id: str
   return (
     <div className="p-4 sm:p-8 max-w-[1040px]">
       <div className="text-[13px] mb-3.5" style={{ color: "var(--vh-muted)" }}>
-        <GuardLink href="/admin/dashboard">Elections</GuardLink>
+        <GuardLink href="/dashboard">Elections</GuardLink>
         <span className="mx-1.5">›</span>
-        <GuardLink href={`/admin/elections/${id}`}>{election.title}</GuardLink>
+        <GuardLink href={`/elections/${id}`}>{election.title}</GuardLink>
       </div>
       <ElectionTabs electionId={id} />
       <div className="mb-5">

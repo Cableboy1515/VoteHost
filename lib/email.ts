@@ -480,7 +480,7 @@ function buildAdminInviteHtml(p: AdminInvitePayload): string {
 
 function buildPasswordResetRequestHtml(requesterEmail: string): string {
   const email = escapeHtml(requesterEmail)
-  const usersUrl = escapeHtml(absolutizeUrl("/admin/users"))
+  const usersUrl = escapeHtml(absolutizeUrl("/users"))
   return emailWrapper(`
     ${brandRow()}
     <tr><td style="padding:24px 32px 14px;">

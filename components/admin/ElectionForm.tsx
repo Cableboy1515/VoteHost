@@ -213,7 +213,7 @@ export default function ElectionForm({ electionId, initialValues }: Props) {
     e.preventDefault()
     const id = await save()
     if (!id) return
-    router.push(`/admin/elections/${id}/ballot`)
+    router.push(`/elections/${id}/ballot`)
   }
 
   return (

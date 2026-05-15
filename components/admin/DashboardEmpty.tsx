@@ -50,7 +50,7 @@ export function DashboardEmpty() {
 
       <div className="flex gap-3">
         <Link
-          href="/admin/elections/new"
+          href="/elections/new"
           className="inline-flex items-center justify-center px-5 py-3 rounded-[10px] text-[15px] font-medium text-white transition-colors"
           style={{ background: "var(--vh-accent)" }}
         >

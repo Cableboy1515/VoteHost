@@ -1,7 +1,8 @@
 export const dynamic = "force-dynamic"
 
+import { redirect, notFound } from "next/navigation"
 import { db } from "@/lib/db"
-import { notFound } from "next/navigation"
+import { requireRole } from "@/lib/auth"
 import ElectionForm from "@/components/admin/ElectionForm"
 import ElectionTabs from "@/components/admin/ElectionTabs"
 import PurgeImagesButton from "@/components/admin/PurgeImagesButton"
@@ -9,7 +10,10 @@ import { GuardLink } from "@/components/admin/UnsavedChangesGuard"
 import { autoCompleteElections } from "@/lib/autoCompleteElections"
 
 export default async function EditElectionPage({ params }: { params: Promise<{ id: string }> }) {
+  const session = await requireRole("ORGANIZER")
   const { id } = await params
+  if (!session) redirect(`/elections/${id}/results`)
+
   await autoCompleteElections()
   const election = await db.election.findUnique({ where: { id } })
   if (!election) notFound()
@@ -19,7 +23,7 @@ export default async function EditElectionPage({ params }: { params: Promise<{ i
   return (
     <div className="p-4 sm:p-8 max-w-[800px]">
       <div className="text-[13px] mb-3.5" style={{ color: "var(--vh-muted)" }}>
-        <GuardLink href="/admin/dashboard">Elections</GuardLink>
+        <GuardLink href="/dashboard">Elections</GuardLink>
         <span className="mx-1.5">›</span>
         <span>{election.title}</span>
       </div>

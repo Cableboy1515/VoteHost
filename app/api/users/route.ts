@@ -128,7 +128,7 @@ export async function POST(req: Request) {
     },
   })
 
-  const setupLink = absolutizeUrl(`/admin/setup-account/${raw}`)
+  const setupLink = absolutizeUrl(`/setup-account/${raw}`)
   await sendAdminInvite({ recipientEmail: email, setupLink })
 
   return NextResponse.json({ ...user, hasPassword: false }, { status: 201 })
