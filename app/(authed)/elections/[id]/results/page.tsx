@@ -27,6 +27,10 @@ export default async function ResultsPage({ params }: { params: Promise<{ id: st
 
   const isViewer = session.role === "VIEWER"
 
+  const ballotResetByEmail = election.ballotResetById
+    ? (await db.adminUser.findUnique({ where: { id: election.ballotResetById }, select: { email: true } }))?.email ?? null
+    : null
+
   return (
     <div className="p-4 sm:p-8 max-w-[1040px]">
       <div className="text-[13px] mb-3.5" style={{ color: "var(--vh-muted)" }}>
@@ -71,6 +75,16 @@ export default async function ResultsPage({ params }: { params: Promise<{ id: st
         )}
       </div>
 
+      {election.ballotResetAt && (
+        <div
+          className="mb-5 rounded-[12px] px-4 py-3 text-[13px]"
+          style={{ background: "var(--vh-surface-2)", border: "1px solid var(--vh-line-strong)", color: "var(--vh-ink-soft)" }}
+        >
+          <strong>Note:</strong> This election&rsquo;s ballot was reset on{" "}
+          {new Date(election.ballotResetAt).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}
+          {ballotResetByEmail ? ` by ${ballotResetByEmail}` : ""}. Earlier votes were discarded and voters were asked to recast their ballots.
+        </div>
+      )}
       <ResultsDashboard
         electionId={id}
         initialData={initialData}

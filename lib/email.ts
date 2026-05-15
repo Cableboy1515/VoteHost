@@ -568,3 +568,103 @@ export async function sendPasswordResetRequest(requesterEmail: string): Promise<
   })
   console.log(`[sendPasswordResetRequest] requester=${requesterEmail} sent=${sent} failed=${failed}`)
 }
+
+type BallotResetVoter = { name: string; email: string; token: string }
+type BallotResetElection = { title: string; emailLogoUrl: string | null; emailFooter: string | null }
+
+function buildBallotResetHtml(voter: BallotResetVoter, election: BallotResetElection): string {
+  const name = escapeHtml(voter.name)
+  const title = escapeHtml(election.title)
+  const link = escapeHtml(absolutizeUrl(`/vote/${voter.token}`))
+  return emailWrapper(`
+    ${brandRow()}
+    ${logoRow(election.emailLogoUrl)}
+    <tr><td style="padding:24px 32px 14px;">
+      <h1 style="margin:0 0 14px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:22px;font-weight:600;color:${C.ink};letter-spacing:-0.02em;">Please recast your vote</h1>
+      <p style="margin:0 0 14px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:14.5px;color:${C.inkSoft};line-height:1.6;">Hi ${name},</p>
+      <p style="margin:0 0 14px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:14.5px;color:${C.inkSoft};line-height:1.6;">
+        The ballot for <strong style="color:${C.ink};">${title}</strong> was updated after you voted.
+        Your previous vote was not counted. Please use the button below to open your ballot and vote again.
+      </p>
+    </td></tr>
+    <tr><td style="padding:0 32px 20px;">
+      <a href="${link}" style="display:inline-block;background:${C.accent};color:#ffffff;text-decoration:none;padding:14px 28px;border-radius:10px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:15px;font-weight:500;">Cast your vote →</a>
+    </td></tr>
+    ${footerRow(election.emailFooter)}
+  `)
+}
+
+function buildBallotResetAdminHtml(electionTitle: string, organizerEmail: string, voterCount: number): string {
+  const title = escapeHtml(electionTitle)
+  const organizer = escapeHtml(organizerEmail)
+  const resultsUrl = escapeHtml(absolutizeUrl("/elections"))
+  return emailWrapper(`
+    ${brandRow()}
+    <tr><td style="padding:24px 32px 14px;">
+      <h1 style="margin:0 0 14px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:22px;font-weight:600;color:${C.ink};letter-spacing:-0.02em;">Ballot reset</h1>
+      <p style="margin:0 0 14px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:14.5px;color:${C.inkSoft};line-height:1.6;">
+        <strong style="color:${C.ink};">${organizer}</strong> discarded all votes and reopened the ballot for
+        <strong style="color:${C.ink};">${title}</strong>.
+        ${voterCount} voter${voterCount !== 1 ? "s" : ""} who had already voted ${voterCount !== 1 ? "were" : "was"} notified by email to recast.
+      </p>
+    </td></tr>
+    <tr><td style="padding:0 32px 14px;">
+      <a href="${resultsUrl}" style="display:inline-block;background:${C.accent};color:#ffffff;text-decoration:none;padding:14px 28px;border-radius:10px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:15px;font-weight:500;">View Elections →</a>
+    </td></tr>
+    <tr><td style="padding:0 32px 28px;">
+      <table role="presentation" cellpadding="0" cellspacing="0" width="100%"><tr>
+        <td style="border-top:1px solid ${C.line};padding-top:18px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:12px;color:${C.muted};line-height:1.6;">
+          You received this because you are an administrator on VoteHost.
+        </td>
+      </tr></table>
+    </td></tr>
+  `)
+}
+
+export async function sendBallotResetNotices(voters: BallotResetVoter[], election: BallotResetElection): Promise<void> {
+  if (voters.length === 0) return
+  const config = await getAllEmailConfig()
+  const subject = `Important — please recast your vote for ${election.title}`
+  const results = await Promise.allSettled(
+    voters.map((v) => sendRawEmail(config, v.email, subject, buildBallotResetHtml(v, election)))
+  )
+  let sent = 0
+  let failed = 0
+  results.forEach((result, i) => {
+    const recipient = voters[i].email
+    if (result.status === "rejected") {
+      console.error(`[sendBallotResetNotices] send threw for ${recipient}:`, result.reason)
+      failed++
+    } else if (result.value.error !== null) {
+      console.error(`[sendBallotResetNotices] send failed for ${recipient}:`, result.value.error)
+      failed++
+    } else {
+      sent++
+    }
+  })
+  console.log(`[sendBallotResetNotices] election=${election.title} sent=${sent} failed=${failed}`)
+}
+
+export async function sendBallotResetAdminNotice(electionTitle: string, organizerEmail: string, voterCount: number): Promise<void> {
+  const config = await getAllEmailConfig()
+  const admins = await db.adminUser.findMany({ where: { role: "ADMIN" }, select: { email: true } })
+  if (admins.length === 0) return
+  const subject = `Ballot reset — ${electionTitle}`
+  const html = buildBallotResetAdminHtml(electionTitle, organizerEmail, voterCount)
+  const results = await Promise.allSettled(admins.map((a) => sendRawEmail(config, a.email, subject, html)))
+  let sent = 0
+  let failed = 0
+  results.forEach((result, i) => {
+    const recipient = admins[i].email
+    if (result.status === "rejected") {
+      console.error(`[sendBallotResetAdminNotice] send threw for ${recipient}:`, result.reason)
+      failed++
+    } else if (result.value.error !== null) {
+      console.error(`[sendBallotResetAdminNotice] send failed for ${recipient}:`, result.value.error)
+      failed++
+    } else {
+      sent++
+    }
+  })
+  console.log(`[sendBallotResetAdminNotice] election=${electionTitle} sent=${sent} failed=${failed}`)
+}
