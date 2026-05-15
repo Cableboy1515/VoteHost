@@ -1,11 +1,13 @@
 export const dynamic = "force-dynamic"
 
 import { redirect } from "next/navigation"
-import { requireRole } from "@/lib/auth"
+import { getSession, requireRole } from "@/lib/auth"
 import { db } from "@/lib/db"
 import UserManager from "@/components/admin/UserManager"
 
 export default async function UsersPage() {
+  const existing = await getSession()
+  if (!existing) redirect("/login?next=/users")
   const session = await requireRole("ADMIN")
   if (!session) redirect("/dashboard")
 

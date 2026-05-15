@@ -20,10 +20,17 @@ function onBlur(e: React.FocusEvent<HTMLInputElement>) {
   e.target.style.boxShadow = "none"
 }
 
+function safeNext(raw: string | null): string {
+  if (!raw) return "/dashboard"
+  if (!raw.startsWith("/") || raw.startsWith("//")) return "/dashboard"
+  return raw
+}
+
 function LoginForm() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const statusReady = searchParams.get("status") === "ready"
+  const nextPath = safeNext(searchParams.get("next"))
 
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
@@ -48,7 +55,7 @@ function LoginForm() {
 
     setLoading(false)
     if (res.ok) {
-      router.push("/dashboard")
+      router.push(nextPath)
     } else {
       setError("Invalid email or password")
     }
