@@ -131,12 +131,20 @@ export default async function DashboardPage() {
     include: { _count: { select: { voters: true } } },
   })
 
-  const electionsWithStats = await Promise.all(
-    elections.map(async (e) => ({
-      ...e,
-      votedCount: await db.voter.count({ where: { electionId: e.id, hasVoted: true } }),
-    }))
-  )
+  const electionIds = elections.map((e) => e.id)
+  const votedCountRows = electionIds.length > 0
+    ? await db.voter.groupBy({
+        by: ["electionId"],
+        where: { electionId: { in: electionIds }, hasVoted: true },
+        _count: { _all: true },
+      })
+    : []
+  const votedByElection = new Map(votedCountRows.map((r) => [r.electionId, r._count._all]))
+
+  const electionsWithStats = elections.map((e) => ({
+    ...e,
+    votedCount: votedByElection.get(e.id) ?? 0,
+  }))
 
   const activeElections: ActiveElection[] = electionsWithStats
     .filter((e) => e.status === "ACTIVE")

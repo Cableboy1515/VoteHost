@@ -9,17 +9,23 @@ export async function GET() {
 
   const elections = await db.election.findMany({
     orderBy: { createdAt: "desc" },
-    include: {
-      _count: { select: { voters: true } },
-    },
+    include: { _count: { select: { voters: true } } },
   })
 
-  const withVotedCount = await Promise.all(
-    elections.map(async (election) => ({
-      ...election,
-      votedCount: await db.voter.count({ where: { electionId: election.id, hasVoted: true } }),
-    }))
-  )
+  const electionIds = elections.map((e) => e.id)
+  const votedCountRows = electionIds.length > 0
+    ? await db.voter.groupBy({
+        by: ["electionId"],
+        where: { electionId: { in: electionIds }, hasVoted: true },
+        _count: { _all: true },
+      })
+    : []
+  const votedByElection = new Map(votedCountRows.map((r) => [r.electionId, r._count._all]))
+
+  const withVotedCount = elections.map((e) => ({
+    ...e,
+    votedCount: votedByElection.get(e.id) ?? 0,
+  }))
 
   return NextResponse.json(withVotedCount)
 }
