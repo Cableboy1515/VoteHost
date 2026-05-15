@@ -8,7 +8,7 @@ done
 echo "Postgres is ready."
 
 echo "Applying database schema..."
-node node_modules/prisma/build/index.js db push
+node node_modules/prisma/build/index.js db push --accept-data-loss
 echo "Schema applied."
 
 echo "Starting VoteHost..."
