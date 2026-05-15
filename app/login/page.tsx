@@ -54,8 +54,8 @@ function LoginForm() {
     }
   }
 
-  async function handleResetRequest(e: React.FormEvent) {
-    e.preventDefault()
+  async function handleResetRequest() {
+    if (!resetEmail) return
     setResetLoading(true)
     await fetch("/api/auth/request-reset", {
       method: "POST",
@@ -150,7 +150,7 @@ function LoginForm() {
                     If your account exists, an administrator has been notified.
                   </p>
                 ) : (
-                  <form onSubmit={handleResetRequest} className="flex flex-col gap-2">
+                  <div className="flex flex-col gap-2">
                     <p className="text-[12.5px]" style={{ color: "var(--vh-muted)" }}>
                       Enter your email and an administrator will be notified to send you a new setup link.
                     </p>
@@ -158,22 +158,23 @@ function LoginForm() {
                       type="email"
                       value={resetEmail}
                       onChange={(e) => setResetEmail(e.target.value)}
-                      required
                       placeholder="you@example.com"
                       className="w-full text-sm rounded-[8px] px-3 py-2 transition-colors"
                       style={inputStyle}
                       onFocus={onFocus}
                       onBlur={onBlur}
+                      onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); handleResetRequest() } }}
                     />
                     <button
-                      type="submit"
-                      disabled={resetLoading}
+                      type="button"
+                      onClick={handleResetRequest}
+                      disabled={resetLoading || !resetEmail}
                       className="text-[12.5px] font-medium py-2 rounded-[8px] transition-colors disabled:opacity-60"
                       style={{ background: "var(--vh-accent)", color: "#fff" }}
                     >
                       {resetLoading ? "Sending…" : "Send request"}
                     </button>
-                  </form>
+                  </div>
                 )}
               </div>
             )}
