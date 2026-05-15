@@ -138,6 +138,10 @@ export async function POST(req: Request) {
       })
       if (updated.count === 0) throw new Error("ALREADY_VOTED")
       await tx.vote.createMany({ data: voteRecords })
+      await tx.election.updateMany({
+        where: { id: voter.electionId, firstVoteAt: null },
+        data: { firstVoteAt: new Date() },
+      })
     })
   } catch (err) {
     if (err instanceof Error && err.message === "ALREADY_VOTED") {

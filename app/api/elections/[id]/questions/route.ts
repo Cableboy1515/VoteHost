@@ -29,6 +29,11 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
   if (!session) return NextResponse.json({ error: "Forbidden" }, { status: 403 })
 
   const { id: electionId } = await params
+
+  const electionCheck = await db.election.findUnique({ where: { id: electionId }, select: { firstVoteAt: true } })
+  if (!electionCheck) return NextResponse.json({ error: "Not found" }, { status: 404 })
+  if (electionCheck.firstVoteAt) return NextResponse.json({ error: "Ballot locked — votes have been cast" }, { status: 423 })
+
   const body = await req.json()
   const parsed = BallotSchema.safeParse(body)
   if (!parsed.success) return NextResponse.json({ error: parsed.error.issues }, { status: 400 })

@@ -36,6 +36,7 @@ interface QuestionDraft {
 interface Props {
   electionId: string
   electionStatus: "DRAFT" | "ACTIVE" | "CLOSED" | "COMPLETED"
+  firstVoteAt: string | null
   initialQuestions: QuestionDraft[]
 }
 
@@ -70,12 +71,12 @@ function autoResize(el: HTMLTextAreaElement | null) {
   el.style.height = `${el.scrollHeight}px`
 }
 
-export default function BallotBuilder({ electionId, electionStatus, initialQuestions }: Props) {
+export default function BallotBuilder({ electionId, electionStatus, firstVoteAt, initialQuestions }: Props) {
   const router = useRouter()
   const [questions, setQuestions] = useState<QuestionDraft[]>(initialQuestions)
   const [saving, setSaving] = useState(false)
   const [expandedDetails, setExpandedDetails] = useState<Set<string>>(new Set())
-  const locked = electionStatus !== "DRAFT"
+  const locked = electionStatus !== "DRAFT" || !!firstVoteAt
 
   const baseline = useRef(JSON.stringify(initialQuestions))
   const isDirty = () => JSON.stringify(questions) !== baseline.current
@@ -207,7 +208,7 @@ export default function BallotBuilder({ electionId, electionStatus, initialQuest
       <Toaster />
 
       {/* Status banners */}
-      {electionStatus === "ACTIVE" && (
+      {electionStatus === "ACTIVE" && !firstVoteAt && (
         <div
           className="flex items-center gap-3 rounded-[14px] px-[18px] py-3.5"
           style={{

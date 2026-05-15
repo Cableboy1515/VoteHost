@@ -5,6 +5,7 @@ import { db } from "@/lib/db"
 import { requireRole } from "@/lib/auth"
 import ElectionForm from "@/components/admin/ElectionForm"
 import ElectionTabs from "@/components/admin/ElectionTabs"
+import BallotLockBanner from "@/components/admin/BallotLockBanner"
 import PurgeImagesButton from "@/components/admin/PurgeImagesButton"
 import { GuardLink } from "@/components/admin/UnsavedChangesGuard"
 import { autoCompleteElections } from "@/lib/autoCompleteElections"
@@ -20,6 +21,10 @@ export default async function EditElectionPage({ params }: { params: Promise<{ i
 
   const isClosed = election.status === "CLOSED" || election.status === "COMPLETED"
 
+  const resetByEmail = election.ballotResetById
+    ? (await db.adminUser.findUnique({ where: { id: election.ballotResetById }, select: { email: true } }))?.email ?? null
+    : null
+
   return (
     <div className="p-4 sm:p-8 max-w-[800px]">
       <div className="text-[13px] mb-3.5" style={{ color: "var(--vh-muted)" }}>
@@ -28,6 +33,11 @@ export default async function EditElectionPage({ params }: { params: Promise<{ i
         <span>{election.title}</span>
       </div>
       <ElectionTabs electionId={id} />
+      <BallotLockBanner
+        firstVoteAt={election.firstVoteAt?.toISOString() ?? null}
+        ballotResetAt={election.ballotResetAt?.toISOString() ?? null}
+        ballotResetByEmail={resetByEmail}
+      />
       <h1 className="text-[26px] font-semibold mb-5">Settings</h1>
       <ElectionForm
         electionId={election.id}

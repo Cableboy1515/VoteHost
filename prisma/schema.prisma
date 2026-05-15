@@ -41,6 +41,10 @@ model Election {
   resultsEmailSentAt DateTime?
   imagesPurgedAt     DateTime?
 
+  firstVoteAt     DateTime?
+  ballotResetAt   DateTime?
+  ballotResetById String?
+
   questions Question[]
   voters    Voter[]
   votes     Vote[]

@@ -2,6 +2,7 @@ import { redirect, notFound } from "next/navigation"
 import { db } from "@/lib/db"
 import { requireRole } from "@/lib/auth"
 import BallotBuilder from "@/components/admin/BallotBuilder"
+import BallotLockBanner from "@/components/admin/BallotLockBanner"
 import ElectionTabs from "@/components/admin/ElectionTabs"
 import { GuardLink } from "@/components/admin/UnsavedChangesGuard"
 
@@ -12,7 +13,13 @@ export default async function BallotPage({ params }: { params: Promise<{ id: str
 
   const election = await db.election.findUnique({
     where: { id },
-    include: {
+    select: {
+      id: true,
+      title: true,
+      status: true,
+      firstVoteAt: true,
+      ballotResetAt: true,
+      ballotResetById: true,
       questions: {
         include: { options: { orderBy: { order: "asc" } } },
         orderBy: { order: "asc" },
@@ -20,6 +27,10 @@ export default async function BallotPage({ params }: { params: Promise<{ id: str
     },
   })
   if (!election) notFound()
+
+  const resetByEmail = election.ballotResetById
+    ? (await db.adminUser.findUnique({ where: { id: election.ballotResetById }, select: { email: true } }))?.email ?? null
+    : null
 
   return (
     <div className="p-4 sm:p-8 max-w-[860px]">
@@ -29,6 +40,11 @@ export default async function BallotPage({ params }: { params: Promise<{ id: str
         <GuardLink href={`/elections/${id}`}>{election.title}</GuardLink>
       </div>
       <ElectionTabs electionId={id} />
+      <BallotLockBanner
+        firstVoteAt={election.firstVoteAt?.toISOString() ?? null}
+        ballotResetAt={election.ballotResetAt?.toISOString() ?? null}
+        ballotResetByEmail={resetByEmail}
+      />
       <div className="mb-5">
         <h1 className="text-[26px] font-semibold mb-1">Ballot builder</h1>
         <p className="text-[14px]" style={{ color: "var(--vh-muted)" }}>
@@ -38,6 +54,7 @@ export default async function BallotPage({ params }: { params: Promise<{ id: str
       <BallotBuilder
         electionId={id}
         electionStatus={election.status}
+        firstVoteAt={election.firstVoteAt?.toISOString() ?? null}
         initialQuestions={election.questions.map((q) => ({
           id: q.id,
           text: q.text,
