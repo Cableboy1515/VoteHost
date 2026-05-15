@@ -3,13 +3,13 @@ import Link from "next/link"
 const STEPS = [
   {
     n: 1,
-    title: "Add your voters",
-    desc: "Paste names & emails or import a CSV. They don't need an account.",
+    title: "Build your ballot",
+    desc: "Single, multiple, ranked-choice, or write-in questions — mix as you like.",
   },
   {
     n: 2,
-    title: "Build your ballot",
-    desc: "Single, multiple, ranked-choice, or write-in questions — mix as you like.",
+    title: "Add your voters",
+    desc: "Manually enter names & emails or import a CSV. They don't need an account.",
   },
   {
     n: 3,
