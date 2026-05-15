@@ -4,6 +4,8 @@ import { join } from "node:path"
 import { getSession, requireRole } from "@/lib/auth"
 import { db } from "@/lib/db"
 import { ElectionBaseSchema, ElectionSchema } from "@/lib/validations"
+import { sendElectionCompletedStaffNotice } from "@/lib/email"
+import { getStaffRecipients } from "@/lib/staffRecipients"
 
 const UPLOADS_DIR = join(process.cwd(), "public", "uploads")
 
@@ -43,7 +45,63 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
   const parsed = ElectionBaseSchema.partial().safeParse(body)
   if (!parsed.success) return NextResponse.json({ error: parsed.error.issues }, { status: 400 })
 
-  const election = await db.election.update({ where: { id }, data: parsed.data })
+  const before = await db.election.findUnique({
+    where: { id },
+    select: { startsAt: true, endsAt: true, status: true, completionEmailSentAt: true },
+  })
+  if (!before) return NextResponse.json({ error: "Not found" }, { status: 404 })
+
+  const updates: Record<string, unknown> = { ...parsed.data }
+
+  // Re-arm closing-soon reminder if endsAt is being moved
+  if ("endsAt" in parsed.data) {
+    const next = parsed.data.endsAt ? new Date(parsed.data.endsAt) : null
+    const prev = before.endsAt
+    const changed = (next?.getTime() ?? null) !== (prev?.getTime() ?? null)
+    if (changed) updates.endsSoonNoticeSentAt = null
+  }
+
+  // Re-arm draft-reminder if startsAt is being moved
+  if ("startsAt" in parsed.data) {
+    const next = parsed.data.startsAt ? new Date(parsed.data.startsAt) : null
+    const prev = before.startsAt
+    const changed = (next?.getTime() ?? null) !== (prev?.getTime() ?? null)
+    if (changed) updates.startReminderSentAt = null
+  }
+
+  // Detect manual close transition so we fire the staff completion email inline
+  const transitioningToEnd =
+    parsed.data.status != null &&
+    (parsed.data.status === "COMPLETED" || parsed.data.status === "CLOSED") &&
+    before.status !== "COMPLETED" &&
+    before.status !== "CLOSED" &&
+    before.completionEmailSentAt == null
+
+  if (transitioningToEnd) {
+    updates.completionEmailSentAt = new Date()
+  }
+
+  const election = await db.election.update({ where: { id }, data: updates })
+
+  if (transitioningToEnd) {
+    const voters = await db.voter.findMany({
+      where: { electionId: id },
+      select: { hasVoted: true },
+    })
+    const totalVoters = voters.length
+    const votedCount = voters.filter((v) => v.hasVoted).length
+    getStaffRecipients()
+      .then((recipients) =>
+        sendElectionCompletedStaffNotice(
+          { id: election.id, title: election.title, endsAt: election.endsAt },
+          recipients,
+          votedCount,
+          totalVoters,
+        ),
+      )
+      .catch((err) => console.error("[PATCH election] completion email threw:", err))
+  }
+
   return NextResponse.json(election)
 }
 

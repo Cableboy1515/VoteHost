@@ -668,3 +668,151 @@ export async function sendBallotResetAdminNotice(electionTitle: string, organize
   })
   console.log(`[sendBallotResetAdminNotice] election=${electionTitle} sent=${sent} failed=${failed}`)
 }
+
+// ─── Staff lifecycle notifications (closing-soon, completed, draft-reminder) ────
+
+type StaffElection = { id: string; title: string; endsAt?: Date | null; startsAt?: Date | null }
+
+function buildClosingSoonStaffHtml(election: StaffElection, votedCount: number, totalVoters: number): string {
+  const title = escapeHtml(election.title)
+  const closeStr = election.endsAt ? escapeHtml(formatCloseDate(election.endsAt.toISOString())) : ""
+  const dashUrl = escapeHtml(absolutizeUrl("/dashboard"))
+  const turnoutLine = totalVoters > 0
+    ? `<strong style="color:${C.ink};">${votedCount}</strong> of <strong style="color:${C.ink};">${totalVoters}</strong> voters have cast a ballot so far.`
+    : `No voters have been added yet.`
+  return emailWrapper(`
+    ${brandRow()}
+    <tr><td style="padding:24px 32px 14px;">
+      <h1 style="margin:0 0 14px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:22px;font-weight:600;color:${C.ink};letter-spacing:-0.02em;">Election closing in 24 hours</h1>
+      <p style="margin:0 0 14px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:14.5px;color:${C.inkSoft};line-height:1.6;">
+        <strong style="color:${C.ink};">${title}</strong> closes ${closeStr ? `on ${closeStr}` : "tomorrow"}.
+        ${turnoutLine}
+      </p>
+    </td></tr>
+    <tr><td style="padding:0 32px 14px;">
+      <a href="${dashUrl}" style="display:inline-block;background:${C.accent};color:#ffffff;text-decoration:none;padding:14px 28px;border-radius:10px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:15px;font-weight:500;">Open Dashboard →</a>
+    </td></tr>
+    <tr><td style="padding:0 32px 28px;">
+      <table role="presentation" cellpadding="0" cellspacing="0" width="100%"><tr>
+        <td style="border-top:1px solid ${C.line};padding-top:18px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:12px;color:${C.muted};line-height:1.6;">
+          You received this because you administer or organize elections on VoteHost.
+        </td>
+      </tr></table>
+    </td></tr>
+  `)
+}
+
+function buildCompletedStaffHtml(election: StaffElection, votedCount: number, totalVoters: number): string {
+  const title = escapeHtml(election.title)
+  const resultsUrl = escapeHtml(absolutizeUrl(`/elections/${election.id}/results`))
+  const turnoutPct = totalVoters > 0 ? Math.round((votedCount / totalVoters) * 100) : 0
+  const turnoutLine = totalVoters > 0
+    ? `<strong style="color:${C.ink};">${votedCount}</strong> of <strong style="color:${C.ink};">${totalVoters}</strong> voters cast a ballot (<strong style="color:${C.ink};">${turnoutPct}%</strong> turnout).`
+    : `No voters were recorded for this election.`
+  return emailWrapper(`
+    ${brandRow()}
+    <tr><td style="padding:24px 32px 14px;">
+      <h1 style="margin:0 0 14px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:22px;font-weight:600;color:${C.ink};letter-spacing:-0.02em;">Election closed</h1>
+      <p style="margin:0 0 14px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:14.5px;color:${C.inkSoft};line-height:1.6;">
+        <strong style="color:${C.ink};">${title}</strong> has closed. ${turnoutLine}
+      </p>
+    </td></tr>
+    <tr><td style="padding:0 32px 14px;">
+      <a href="${resultsUrl}" style="display:inline-block;background:${C.accent};color:#ffffff;text-decoration:none;padding:14px 28px;border-radius:10px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:15px;font-weight:500;">View Results →</a>
+    </td></tr>
+    <tr><td style="padding:0 32px 28px;">
+      <table role="presentation" cellpadding="0" cellspacing="0" width="100%"><tr>
+        <td style="border-top:1px solid ${C.line};padding-top:18px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:12px;color:${C.muted};line-height:1.6;">
+          You received this because you administer or organize elections on VoteHost.
+        </td>
+      </tr></table>
+    </td></tr>
+  `)
+}
+
+function buildDraftReminderStaffHtml(election: StaffElection): string {
+  const title = escapeHtml(election.title)
+  const startStr = election.startsAt ? escapeHtml(formatCloseDate(election.startsAt.toISOString())) : ""
+  const editUrl = escapeHtml(absolutizeUrl(`/elections/${election.id}`))
+  return emailWrapper(`
+    ${brandRow()}
+    <tr><td style="padding:24px 32px 14px;">
+      <h1 style="margin:0 0 14px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:22px;font-weight:600;color:${C.ink};letter-spacing:-0.02em;">Election scheduled to start in 24 hours</h1>
+      <p style="margin:0 0 14px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:14.5px;color:${C.inkSoft};line-height:1.6;">
+        <strong style="color:${C.ink};">${title}</strong> is scheduled to start ${startStr ? `on ${startStr}` : "soon"}, but it is still in <strong style="color:${C.ink};">DRAFT</strong>.
+        Voters will not receive invitations until you publish it.
+      </p>
+    </td></tr>
+    <tr><td style="padding:0 32px 14px;">
+      <a href="${editUrl}" style="display:inline-block;background:${C.accent};color:#ffffff;text-decoration:none;padding:14px 28px;border-radius:10px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:15px;font-weight:500;">Open Election →</a>
+    </td></tr>
+    <tr><td style="padding:0 32px 28px;">
+      <table role="presentation" cellpadding="0" cellspacing="0" width="100%"><tr>
+        <td style="border-top:1px solid ${C.line};padding-top:18px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:12px;color:${C.muted};line-height:1.6;">
+          You received this because you administer or organize elections on VoteHost.
+        </td>
+      </tr></table>
+    </td></tr>
+  `)
+}
+
+async function sendStaffBlast(
+  label: string,
+  electionTitle: string,
+  recipients: Array<{ email: string }>,
+  subject: string,
+  html: string,
+): Promise<void> {
+  if (recipients.length === 0) {
+    console.warn(`[${label}] No staff recipients found — election=${electionTitle}`)
+    return
+  }
+  const config = await getAllEmailConfig()
+  const results = await Promise.allSettled(recipients.map((r) => sendRawEmail(config, r.email, subject, html)))
+  let sent = 0
+  let failed = 0
+  results.forEach((result, i) => {
+    const recipient = recipients[i].email
+    if (result.status === "rejected") {
+      console.error(`[${label}] send threw for ${recipient}:`, result.reason)
+      failed++
+    } else if (result.value.error !== null) {
+      console.error(`[${label}] send failed for ${recipient}:`, result.value.error)
+      failed++
+    } else {
+      sent++
+    }
+  })
+  console.log(`[${label}] election=${electionTitle} sent=${sent} failed=${failed}`)
+}
+
+export async function sendElectionClosingSoonStaffNotice(
+  election: StaffElection,
+  recipients: Array<{ email: string }>,
+  votedCount: number,
+  totalVoters: number,
+): Promise<void> {
+  const subject = `Closing in 24h — ${election.title}`
+  const html = buildClosingSoonStaffHtml(election, votedCount, totalVoters)
+  await sendStaffBlast("sendElectionClosingSoonStaffNotice", election.title, recipients, subject, html)
+}
+
+export async function sendElectionCompletedStaffNotice(
+  election: StaffElection,
+  recipients: Array<{ email: string }>,
+  votedCount: number,
+  totalVoters: number,
+): Promise<void> {
+  const subject = `Election closed — ${election.title}`
+  const html = buildCompletedStaffHtml(election, votedCount, totalVoters)
+  await sendStaffBlast("sendElectionCompletedStaffNotice", election.title, recipients, subject, html)
+}
+
+export async function sendDraftReminderStaffNotice(
+  election: StaffElection,
+  recipients: Array<{ email: string }>,
+): Promise<void> {
+  const subject = `Reminder: publish "${election.title}" — starts in 24h`
+  const html = buildDraftReminderStaffHtml(election)
+  await sendStaffBlast("sendDraftReminderStaffNotice", election.title, recipients, subject, html)
+}

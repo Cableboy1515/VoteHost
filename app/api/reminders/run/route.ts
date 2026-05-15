@@ -1,7 +1,14 @@
 import { NextResponse } from "next/server"
 import { db } from "@/lib/db"
-import { sendBallotInvitation } from "@/lib/email"
+import {
+  sendBallotInvitation,
+  sendElectionClosingSoonStaffNotice,
+  sendElectionCompletedStaffNotice,
+  sendDraftReminderStaffNotice,
+} from "@/lib/email"
+import { getStaffRecipients } from "@/lib/staffRecipients"
 import { purgeElectionImages } from "@/lib/imageRetention"
+import { autoCompleteElections } from "@/lib/autoCompleteElections"
 
 const ONE_DAY_MS = 24 * 60 * 60 * 1000
 
@@ -19,6 +26,10 @@ export async function POST(req: Request) {
   const now = new Date()
   const baseUrl = process.env.NEXTAUTH_URL ?? "http://localhost:3000"
 
+  // Auto-complete expired ACTIVE elections before doing anything else.
+  // Newly-completed IDs surface to the staff-completion sweep below.
+  await autoCompleteElections()
+
   const elections = await db.election.findMany({
     where: { status: "ACTIVE", endsAt: { not: null } },
     include: { voters: true },
@@ -26,10 +37,31 @@ export async function POST(req: Request) {
 
   let totalSent = 0
   const errors: string[] = []
+  const staffRecipients = await getStaffRecipients()
 
   for (const election of elections) {
     const msUntilEnd = election.endsAt!.getTime() - now.getTime()
     if (msUntilEnd <= 0) continue
+
+    // Closing-soon staff notice (24h before endsAt, fires once per election)
+    if (msUntilEnd <= ONE_DAY_MS && election.endsSoonNoticeSentAt == null) {
+      const totalVoters = election.voters.length
+      const votedCount = election.voters.filter((v) => v.hasVoted).length
+      try {
+        await sendElectionClosingSoonStaffNotice(
+          { id: election.id, title: election.title, endsAt: election.endsAt },
+          staffRecipients,
+          votedCount,
+          totalVoters,
+        )
+        await db.election.update({
+          where: { id: election.id },
+          data: { endsSoonNoticeSentAt: now },
+        })
+      } catch (err) {
+        errors.push(`closing-soon ${election.id}: ${String(err)}`)
+      }
+    }
 
     const sendingFinal = msUntilEnd <= ONE_DAY_MS
     const sendingEarly =
@@ -85,6 +117,62 @@ export async function POST(req: Request) {
     }
   }
 
+  // ── Staff completion sweep (covers auto-complete + any manual close that didn't fire inline) ──
+  let completionsSent = 0
+  const closedAwaitingNotice = await db.election.findMany({
+    where: {
+      status: { in: ["COMPLETED", "CLOSED"] },
+      completionEmailSentAt: null,
+    },
+    include: { voters: true },
+  })
+  for (const election of closedAwaitingNotice) {
+    const totalVoters = election.voters.length
+    const votedCount = election.voters.filter((v) => v.hasVoted).length
+    try {
+      await sendElectionCompletedStaffNotice(
+        { id: election.id, title: election.title, endsAt: election.endsAt },
+        staffRecipients,
+        votedCount,
+        totalVoters,
+      )
+      await db.election.update({
+        where: { id: election.id },
+        data: { completionEmailSentAt: now },
+      })
+      completionsSent++
+    } catch (err) {
+      errors.push(`completion ${election.id}: ${String(err)}`)
+    }
+  }
+
+  // ── Draft-reminder sweep (24h before startsAt, status still DRAFT) ──
+  let draftRemindersSent = 0
+  const draftCutoff = new Date(now.getTime() + ONE_DAY_MS)
+  const draftsStartingSoon = await db.election.findMany({
+    where: {
+      status: "DRAFT",
+      startsAt: { not: null, gt: now, lte: draftCutoff },
+      startReminderSentAt: null,
+    },
+    select: { id: true, title: true, startsAt: true },
+  })
+  for (const election of draftsStartingSoon) {
+    try {
+      await sendDraftReminderStaffNotice(
+        { id: election.id, title: election.title, startsAt: election.startsAt },
+        staffRecipients,
+      )
+      await db.election.update({
+        where: { id: election.id },
+        data: { startReminderSentAt: now },
+      })
+      draftRemindersSent++
+    } catch (err) {
+      errors.push(`draft-reminder ${election.id}: ${String(err)}`)
+    }
+  }
+
   // ── Image retention sweep ────────────────────────────────────────
   let purged = 0
   const retentionSetting = await db.setting.findUnique({ where: { key: "image_retention_days" } })
@@ -105,5 +193,12 @@ export async function POST(req: Request) {
     )
   }
 
-  return NextResponse.json({ elections: elections.length, sent: totalSent, purged, errors })
+  return NextResponse.json({
+    elections: elections.length,
+    sent: totalSent,
+    completionsSent,
+    draftRemindersSent,
+    purged,
+    errors,
+  })
 }
