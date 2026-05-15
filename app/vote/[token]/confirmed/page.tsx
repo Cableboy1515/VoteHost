@@ -18,13 +18,7 @@ export default async function ConfirmedPage({ params }: { params: Promise<{ toke
       </header>
 
       <div className="flex flex-1 flex-col items-center justify-center px-4 sm:px-6 py-10 sm:py-16 text-center">
-        <span
-          className="inline-grid place-items-center text-4xl mb-6 bg-vh-success-soft"
-          style={{ width: 72, height: 72, borderRadius: 18 }}
-          aria-hidden
-        >
-          ✓
-        </span>
+        <BrandMark size={72} showWordmark={false} className="mb-6" />
 
         <h1 className="text-2xl font-semibold text-vh-ink mb-3 max-w-sm">
           Your vote has been recorded
