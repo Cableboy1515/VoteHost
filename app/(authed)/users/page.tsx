@@ -16,17 +16,22 @@ export default async function UsersPage() {
       role: true,
       createdAt: true,
       invitationExpiresAt: true,
+      invitedAt: true,
+      invitedById: true,
       passwordResetRequestedAt: true,
       passwordHash: true,
     },
     orderBy: { createdAt: "asc" },
   })
+  const idToEmail = new Map(rawUsers.map((u) => [u.id, u.email]))
   const users = rawUsers.map((u) => ({
     id: u.id,
     email: u.email,
     role: u.role,
     createdAt: u.createdAt.toISOString(),
     invitationExpiresAt: u.invitationExpiresAt?.toISOString() ?? null,
+    invitedAt: u.invitedAt?.toISOString() ?? null,
+    invitedByEmail: u.invitedById ? (idToEmail.get(u.invitedById) ?? null) : null,
     passwordResetRequestedAt: u.passwordResetRequestedAt?.toISOString() ?? null,
     hasPassword: u.passwordHash !== null,
   }))

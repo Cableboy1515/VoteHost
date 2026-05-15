@@ -135,6 +135,7 @@ model AdminUser {
   invitationTokenHash      String?   @unique
   invitationExpiresAt      DateTime?
   invitedAt                DateTime?
+  invitedById              String?
   passwordResetRequestedAt DateTime?
 }
 

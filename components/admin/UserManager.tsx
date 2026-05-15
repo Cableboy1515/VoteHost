@@ -22,8 +22,22 @@ interface User {
   role: Role
   hasPassword: boolean
   invitationExpiresAt: string | null
+  invitedAt: string | null
+  invitedByEmail: string | null
   passwordResetRequestedAt: string | null
   createdAt: string
+}
+
+function relativeTime(iso: string): string {
+  const diff = Date.now() - new Date(iso).getTime()
+  const mins = Math.floor(diff / 60_000)
+  if (mins < 1) return "just now"
+  if (mins < 60) return `${mins} min ago`
+  const hours = Math.floor(mins / 60)
+  if (hours < 24) return `${hours}h ago`
+  const days = Math.floor(hours / 24)
+  if (days === 1) return "yesterday"
+  return `${days} days ago`
 }
 
 interface Props {
@@ -180,6 +194,11 @@ export default function UserManager({ users: initialUsers, currentUserId }: Prop
                       <p className="text-[14px] font-medium break-all">
                         {u.email} {isSelf && <span className="text-xs text-zinc-400">(you)</span>}
                       </p>
+                      {u.invitedAt && (
+                        <p className="text-[11.5px] text-zinc-400 mt-0.5">
+                          Setup link sent {relativeTime(u.invitedAt)}{u.invitedByEmail ? ` by ${u.invitedByEmail}` : " by deleted user"}
+                        </p>
+                      )}
                       <p className="text-[12px] text-zinc-500 mt-0.5">
                         Created {new Date(u.createdAt).toLocaleDateString()}
                       </p>
@@ -240,7 +259,12 @@ export default function UserManager({ users: initialUsers, currentUserId }: Prop
                 return (
                   <TableRow key={u.id}>
                     <TableCell className="font-medium">
-                      {u.email} {isSelf && <span className="text-xs text-zinc-400">(you)</span>}
+                      <div>{u.email} {isSelf && <span className="text-xs text-zinc-400">(you)</span>}</div>
+                      {u.invitedAt && (
+                        <div className="text-[11.5px] text-zinc-400 mt-0.5 font-normal">
+                          Setup link sent {relativeTime(u.invitedAt)}{u.invitedByEmail ? ` by ${u.invitedByEmail}` : " by deleted user"}
+                        </div>
+                      )}
                     </TableCell>
                     <TableCell>
                       <Select
@@ -293,9 +317,18 @@ export default function UserManager({ users: initialUsers, currentUserId }: Prop
       <Dialog open={inviteOpen} onOpenChange={setInviteOpen}>
         <DialogContent showCloseButton={false}>
           <DialogHeader><DialogTitle>Send setup link?</DialogTitle></DialogHeader>
-          <p className="text-sm text-zinc-500 py-2">
-            This will send a new setup email to <strong>{inviteUser?.email}</strong>. Any existing invite link or current password will be invalidated.
-          </p>
+          <div className="space-y-2 py-2">
+            <p className="text-sm text-zinc-500">
+              This will send a new setup email to <strong>{inviteUser?.email}</strong>. Any existing invite link or current password will be invalidated.
+            </p>
+            {inviteUser?.invitedAt && Date.now() - new Date(inviteUser.invitedAt).getTime() < 10 * 60_000 && (
+              <p className="text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-md px-3 py-2">
+                A setup link was already sent <strong>{relativeTime(inviteUser.invitedAt)}</strong>
+                {inviteUser.invitedByEmail ? <> by <strong>{inviteUser.invitedByEmail}</strong></> : " by another admin"} and is still valid.
+                Sending another will invalidate the previous link.
+              </p>
+            )}
+          </div>
           <DialogFooter>
             <DialogClose render={<Button variant="outline" />}>Cancel</DialogClose>
             <Button onClick={handleSendInvite} disabled={inviting}>

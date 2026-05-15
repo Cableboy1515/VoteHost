@@ -26,6 +26,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       invitationTokenHash: hash,
       invitationExpiresAt: expiresAt,
       invitedAt: new Date(),
+      invitedById: session.sub,
       passwordResetRequestedAt: null,
       tokenVersion: { increment: 1 },
     },

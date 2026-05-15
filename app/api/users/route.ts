@@ -117,6 +117,7 @@ export async function POST(req: Request) {
       invitationTokenHash: hash,
       invitationExpiresAt: expiresAt,
       invitedAt: new Date(),
+      invitedById: session.sub,
     },
     select: {
       id: true,
