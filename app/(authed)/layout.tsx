@@ -52,7 +52,7 @@ export default function AuthedLayout({ children }: { children: React.ReactNode }
 
   return (
     <UnsavedChangesProvider>
-      <div className="min-h-screen flex bg-vh-bg">
+      <div className="h-screen flex bg-vh-bg overflow-hidden">
         {navOpen && (
           <div
             className="fixed inset-0 bg-black/40 z-30 md:hidden"
