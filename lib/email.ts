@@ -545,7 +545,26 @@ export async function sendPasswordResetRequest(requesterEmail: string): Promise<
     where: { role: "ADMIN" },
     select: { email: true },
   })
+  if (admins.length === 0) {
+    console.warn("[sendPasswordResetRequest] No ADMIN users found — notification not sent for:", requesterEmail)
+    return
+  }
   const subject = `Password reset requested — ${requesterEmail}`
   const html = buildPasswordResetRequestHtml(requesterEmail)
-  await Promise.allSettled(admins.map((a) => sendRawEmail(config, a.email, subject, html)))
+  const results = await Promise.allSettled(admins.map((a) => sendRawEmail(config, a.email, subject, html)))
+  let sent = 0
+  let failed = 0
+  results.forEach((result, i) => {
+    const recipient = admins[i].email
+    if (result.status === "rejected") {
+      console.error(`[sendPasswordResetRequest] send threw for ${recipient}:`, result.reason)
+      failed++
+    } else if (result.value.error !== null) {
+      console.error(`[sendPasswordResetRequest] send failed for ${recipient}:`, result.value.error)
+      failed++
+    } else {
+      sent++
+    }
+  })
+  console.log(`[sendPasswordResetRequest] requester=${requesterEmail} sent=${sent} failed=${failed}`)
 }

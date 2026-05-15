@@ -31,7 +31,7 @@ export async function POST(req: Request) {
         where: { id: user.id },
         data: { passwordResetRequestedAt: new Date() },
       })
-      await sendPasswordResetRequest(email).catch(() => {})
+      await sendPasswordResetRequest(email).catch((err) => console.error("[request-reset] sendPasswordResetRequest threw:", err))
     }
   }
 
