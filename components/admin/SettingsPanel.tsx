@@ -69,7 +69,7 @@ function StorageSettings() {
                 placeholder="30"
                 value={days}
                 onChange={(e) => setDays(e.target.value)}
-                className="w-28"
+                className="w-28 bg-white"
               />
               <span className="text-sm text-zinc-400">Leave blank to never auto-purge</span>
             </div>
@@ -120,7 +120,7 @@ const DEFAULT_SETTINGS: EmailSettings = {
 }
 
 const selectClass =
-  "h-9 w-full rounded-lg border border-input bg-transparent px-2.5 text-sm outline-none " +
+  "h-9 w-full rounded-lg border border-input bg-white px-2.5 text-sm outline-none " +
   "focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
 
 type PresetConfig = {
@@ -398,6 +398,7 @@ export default function SettingsPage() {
             placeholder="VoteHost"
             value={settings.email_from_name}
             onChange={(e) => set("email_from_name", e.target.value)}
+            className="bg-white"
           />
         </div>
 
@@ -409,6 +410,7 @@ export default function SettingsPage() {
             placeholder="votes@yourdomain.com"
             value={settings.email_from_address}
             onChange={(e) => set("email_from_address", e.target.value)}
+            className="bg-white"
           />
           {settings.email_preset === "resend" ? (
             <p className="text-xs text-zinc-400">
@@ -432,6 +434,7 @@ export default function SettingsPage() {
               value={settings.resend_api_key}
               onChange={(e) => set("resend_api_key", e.target.value)}
               autoComplete="off"
+              className="bg-white"
             />
           </div>
         )}
@@ -446,6 +449,7 @@ export default function SettingsPage() {
                 placeholder="smtp.example.com"
                 value={settings.smtp_host}
                 onChange={(e) => set("smtp_host", e.target.value)}
+                className="bg-white"
               />
             </div>
 
@@ -457,6 +461,7 @@ export default function SettingsPage() {
                   placeholder="587"
                   value={settings.smtp_port}
                   onChange={(e) => set("smtp_port", e.target.value)}
+                  className="bg-white"
                 />
               </div>
               <div className="space-y-1.5">
@@ -480,6 +485,7 @@ export default function SettingsPage() {
                 placeholder="you@example.com"
                 value={settings.smtp_user}
                 onChange={(e) => set("smtp_user", e.target.value)}
+                className="bg-white"
               />
             </div>
 
@@ -491,6 +497,7 @@ export default function SettingsPage() {
                 value={settings.smtp_pass}
                 onChange={(e) => set("smtp_pass", e.target.value)}
                 autoComplete="new-password"
+                className="bg-white"
               />
             </div>
           </div>
@@ -521,6 +528,7 @@ export default function SettingsPage() {
             placeholder="you@example.com"
             value={testEmail}
             onChange={(e) => setTestEmail(e.target.value)}
+            className="bg-white"
           />
         </div>
         <Button type="submit" variant="outline" disabled={testing || !testEmail} className="w-full sm:w-auto">
