@@ -127,25 +127,32 @@ export default async function ElectionsListPage({
   const filterKey = (FILTER_TABS.find((t) => t.key === sp.status)?.key ?? "all") as FilterKey
   const filterStatus = FILTER_TABS.find((t) => t.key === filterKey)?.status
 
-  const [elections, statusCounts] = await Promise.all([
-    db.election.findMany({
-      where: { archived: false, ...(filterStatus ? { status: filterStatus } : {}) },
-      orderBy: { createdAt: "desc" },
-      include: { _count: { select: { voters: true } } },
-    }),
-    db.election.groupBy({
-      by: ["status"],
-      where: { archived: false },
-      _count: { _all: true },
-    }),
-  ])
+  const elections = await db.election.findMany({
+    where: { archived: false, ...(filterStatus ? { status: filterStatus } : {}) },
+    orderBy: { createdAt: "desc" },
+    include: { _count: { select: { voters: true } } },
+  })
 
-  const electionsWithStats = await Promise.all(
-    elections.map(async (e) => ({
-      ...e,
-      votedCount: await db.voter.count({ where: { electionId: e.id, hasVoted: true } }),
-    }))
-  )
+  const statusCounts = await db.election.groupBy({
+    by: ["status"],
+    where: { archived: false },
+    _count: { _all: true },
+  })
+
+  const electionIds = elections.map((e) => e.id)
+  const votedCountRows = electionIds.length > 0
+    ? await db.voter.groupBy({
+        by: ["electionId"],
+        where: { electionId: { in: electionIds }, hasVoted: true },
+        _count: { _all: true },
+      })
+    : []
+  const votedByElection = new Map(votedCountRows.map((r) => [r.electionId, r._count._all]))
+
+  const electionsWithStats = elections.map((e) => ({
+    ...e,
+    votedCount: votedByElection.get(e.id) ?? 0,
+  }))
 
   const totalNonArchived = statusCounts.reduce((sum, s) => sum + s._count._all, 0)
   const countByKey: Record<FilterKey, number> = {
