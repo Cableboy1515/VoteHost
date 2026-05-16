@@ -48,7 +48,7 @@ function buildPreviewHtml(opts: {
           You've been invited to vote in <strong style="color:oklch(0.32 0.012 255);">${electionTitle || "[Election Title]"}</strong>
         </p>
         ${emailMessage ? `<p style="margin-bottom:20px;font-size:14px;color:oklch(0.32 0.012 255);">${emailMessage}</p>` : ""}
-        <a href="#" style="display:inline-block;background:oklch(0.36 0.10 255);color:#fff;padding:12px 22px;border-radius:10px;text-decoration:none;font-weight:600;font-size:15px;">
+        <a href="#" style="display:inline-block;background:#3F66D9;color:#fff;padding:12px 22px;border-radius:10px;text-decoration:none;font-weight:600;font-size:15px;">
           Vote now →
         </a>
         <p style="color:oklch(0.52 0.008 255);font-size:12px;margin-top:28px;padding-top:20px;border-top:1px solid oklch(0.92 0.006 250);">
