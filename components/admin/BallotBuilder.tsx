@@ -509,7 +509,7 @@ export default function BallotBuilder({ electionId, electionStatus, firstVoteAt,
                 type="button"
                 onClick={() => moveQuestion(qIndex, -1)}
                 disabled={locked || qIndex === 0}
-                className="w-9 h-9 sm:w-7 sm:h-7 flex items-center justify-center rounded-[7px] text-sm transition-colors disabled:opacity-30"
+                className="w-10 h-10 sm:w-9 sm:h-9 flex items-center justify-center rounded-[7px] text-lg font-bold transition-colors disabled:opacity-30"
                 style={{ color: "var(--vh-muted)", background: "transparent" }}
                 onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = "var(--vh-surface-2)" }}
                 onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "transparent" }}
@@ -520,7 +520,7 @@ export default function BallotBuilder({ electionId, electionStatus, firstVoteAt,
                 type="button"
                 onClick={() => moveQuestion(qIndex, 1)}
                 disabled={locked || qIndex === questions.length - 1}
-                className="w-9 h-9 sm:w-7 sm:h-7 flex items-center justify-center rounded-[7px] text-sm transition-colors disabled:opacity-30"
+                className="w-10 h-10 sm:w-9 sm:h-9 flex items-center justify-center rounded-[7px] text-lg font-bold transition-colors disabled:opacity-30"
                 style={{ color: "var(--vh-muted)", background: "transparent" }}
                 onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = "var(--vh-surface-2)" }}
                 onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "transparent" }}
@@ -531,7 +531,7 @@ export default function BallotBuilder({ electionId, electionStatus, firstVoteAt,
                 type="button"
                 onClick={() => removeQuestion(qIndex)}
                 disabled={locked}
-                className="w-9 h-9 sm:w-7 sm:h-7 flex items-center justify-center rounded-[7px] text-sm transition-colors disabled:opacity-30"
+                className="w-10 h-10 sm:w-9 sm:h-9 flex items-center justify-center rounded-[7px] text-lg font-bold transition-colors disabled:opacity-30"
                 style={{ color: "var(--vh-danger)", background: "transparent" }}
                 onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = "var(--vh-danger-soft)" }}
                 onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "transparent" }}
