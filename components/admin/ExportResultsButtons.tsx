@@ -1,45 +1,66 @@
 "use client"
 
-const btnClass = "flex items-center justify-center gap-1.5 h-auto px-3.5 py-2 text-[13px] rounded-[10px] transition-colors border w-full"
-const btnStyle = {
+import { Menu } from "@base-ui/react/menu"
+import { ChevronDownIcon } from "lucide-react"
+
+const triggerClass =
+  "flex items-center justify-center gap-1.5 h-auto px-3.5 py-2 text-[13px] rounded-[10px] transition-colors border w-full cursor-pointer"
+const triggerStyle = {
   color: "var(--vh-ink-soft)",
   background: "var(--vh-surface)",
   borderColor: "var(--vh-line-strong)",
 }
-
-function ExportLink({ href, label }: { href: string; label: string }) {
-  return (
-    <a
-      href={href}
-      download
-      className={btnClass}
-      style={btnStyle}
-      onMouseEnter={(e) => {
-        const el = e.currentTarget as HTMLElement
-        el.style.background = "var(--vh-surface-2)"
-        el.style.color = "var(--vh-ink)"
-      }}
-      onMouseLeave={(e) => {
-        const el = e.currentTarget as HTMLElement
-        el.style.background = btnStyle.background
-        el.style.color = btnStyle.color
-      }}
-    >
-      {label}
-    </a>
-  )
+const triggerHoverStyle = {
+  background: "var(--vh-surface-2)",
+  color: "var(--vh-ink)",
 }
+
+const itemClass =
+  "block w-full px-3 py-2 text-left cursor-pointer focus:outline-none data-[highlighted]:bg-[var(--vh-surface-2)] data-[highlighted]:text-[var(--vh-ink)]"
 
 export default function ExportResultsButtons({ electionId }: { electionId: string }) {
   const base = `/api/elections/${electionId}/results/export`
   return (
-    <div className="flex flex-col gap-1.5 w-full">
-      <p className="text-[11px] font-medium uppercase tracking-wider text-right" style={{ color: "var(--vh-muted)" }}>
+    <Menu.Root>
+      <Menu.Trigger
+        className={triggerClass}
+        style={triggerStyle}
+        onMouseEnter={(e) => {
+          const el = e.currentTarget as HTMLElement
+          el.style.background = triggerHoverStyle.background
+          el.style.color = triggerHoverStyle.color
+        }}
+        onMouseLeave={(e) => {
+          const el = e.currentTarget as HTMLElement
+          el.style.background = triggerStyle.background
+          el.style.color = triggerStyle.color
+        }}
+      >
         Export
-      </p>
-      <ExportLink href={`${base}/xlsx`} label="Excel (.xlsx)" />
-      <ExportLink href={`${base}/pdf`} label="PDF certificate" />
-      <ExportLink href={`${base}/csv`} label="CSV" />
-    </div>
+        <ChevronDownIcon className="size-3.5" />
+      </Menu.Trigger>
+      <Menu.Portal>
+        <Menu.Positioner side="bottom" align="end" sideOffset={4} className="isolate z-50">
+          <Menu.Popup
+            className="min-w-[180px] rounded-[10px] py-1 text-[13px] shadow-md"
+            style={{
+              background: "var(--vh-surface)",
+              border: "1px solid var(--vh-line-strong)",
+              color: "var(--vh-ink-soft)",
+            }}
+          >
+            <Menu.LinkItem href={`${base}/xlsx`} download closeOnClick className={itemClass}>
+              Excel (.xlsx)
+            </Menu.LinkItem>
+            <Menu.LinkItem href={`${base}/pdf`} download closeOnClick className={itemClass}>
+              PDF certificate
+            </Menu.LinkItem>
+            <Menu.LinkItem href={`${base}/csv`} download closeOnClick className={itemClass}>
+              CSV
+            </Menu.LinkItem>
+          </Menu.Popup>
+        </Menu.Positioner>
+      </Menu.Portal>
+    </Menu.Root>
   )
 }
