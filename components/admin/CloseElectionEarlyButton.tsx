@@ -12,7 +12,15 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 
-export default function CloseElectionEarlyButton({ id, title }: { id: string; title: string }) {
+export default function CloseElectionEarlyButton({
+  id,
+  title,
+  variant = "neutral",
+}: {
+  id: string
+  title: string
+  variant?: "neutral" | "danger"
+}) {
   const router = useRouter()
   const [stage, setStage] = useState<"closed" | "warn" | "confirm">("closed")
   const [checked, setChecked] = useState(false)
@@ -34,26 +42,29 @@ export default function CloseElectionEarlyButton({ id, title }: { id: string; ti
     router.refresh()
   }
 
+  const isDanger = variant === "danger"
+  const restingStyle = isDanger
+    ? { color: "var(--vh-danger)", background: "transparent", border: "1px solid var(--vh-danger)" }
+    : { color: "var(--vh-ink-soft)", background: "var(--vh-surface-2)", border: "1px solid var(--vh-line-strong)" }
+  const hoverBg = isDanger ? "var(--vh-danger-soft, #fef2f2)" : "var(--vh-surface-3)"
+  const hoverColor = isDanger ? "var(--vh-danger)" : "var(--vh-ink)"
+
   return (
     <>
       <button
         type="button"
         onClick={openWarn}
         className="px-3 py-1.5 rounded-[10px] text-[13px] font-medium transition-colors"
-        style={{
-          color: "var(--vh-ink-soft)",
-          background: "var(--vh-surface-2)",
-          border: "1px solid var(--vh-line-strong)",
-        }}
+        style={restingStyle}
         onMouseEnter={(e) => {
           const el = e.currentTarget as HTMLElement
-          el.style.background = "var(--vh-surface-3)"
-          el.style.color = "var(--vh-ink)"
+          el.style.background = hoverBg
+          el.style.color = hoverColor
         }}
         onMouseLeave={(e) => {
           const el = e.currentTarget as HTMLElement
-          el.style.background = "var(--vh-surface-2)"
-          el.style.color = "var(--vh-ink-soft)"
+          el.style.background = restingStyle.background
+          el.style.color = restingStyle.color
         }}
       >
         Close election now

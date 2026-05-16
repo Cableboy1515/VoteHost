@@ -58,10 +58,10 @@ function buildPreviewHtml(opts: {
   </body></html>`
 }
 
-const STATUSES = ["DRAFT", "ACTIVE", "COMPLETED"] as const
+const STATUSES = ["DRAFT", "ACTIVE"] as const
 type Status = typeof STATUSES[number]
 const STATUS_LABEL: Record<Status, string> = {
-  DRAFT: "Draft", ACTIVE: "Active", COMPLETED: "Completed",
+  DRAFT: "Draft", ACTIVE: "Active",
 }
 
 const inputCls = "w-full text-sm rounded-[10px] px-3 py-2.5 transition-colors"
@@ -252,26 +252,44 @@ export default function ElectionForm({ electionId, initialValues }: Props) {
             </div>
             <div>
               <VhLabel>Status</VhLabel>
-              <div className="flex gap-1.5 flex-wrap">
-                {STATUSES.map((s) => {
-                  const active = status === s
-                  return (
-                    <button
-                      key={s}
-                      type="button"
-                      onClick={() => setStatus(s)}
-                      className="px-3.5 py-2 rounded-full text-[12.5px] font-medium cursor-pointer transition-colors"
-                      style={{
-                        border: `1px solid ${active ? "var(--vh-accent)" : "var(--vh-line-strong)"}`,
-                        background: active ? "var(--vh-accent)" : "var(--vh-surface)",
-                        color: active ? "white" : "var(--vh-ink-soft)",
-                      }}
-                    >
-                      {STATUS_LABEL[s]}
-                    </button>
-                  )
-                })}
-              </div>
+              {status === "COMPLETED" ? (
+                <div className="flex flex-wrap items-center gap-2">
+                  <span
+                    className="px-3 py-1 rounded-full text-[12.5px] font-medium border"
+                    style={{
+                      background: "var(--vh-accent-soft)",
+                      color: "var(--vh-accent-strong)",
+                      borderColor: "oklch(0.85 0.05 255)",
+                    }}
+                  >
+                    Completed
+                  </span>
+                  <span className="text-[12.5px]" style={{ color: "var(--vh-muted)" }}>
+                    Use Reopen from the Elections list to make changes.
+                  </span>
+                </div>
+              ) : (
+                <div className="flex gap-1.5 flex-wrap">
+                  {STATUSES.map((s) => {
+                    const active = status === s
+                    return (
+                      <button
+                        key={s}
+                        type="button"
+                        onClick={() => setStatus(s)}
+                        className="px-3.5 py-2 rounded-full text-[12.5px] font-medium cursor-pointer transition-colors"
+                        style={{
+                          border: `1px solid ${active ? "var(--vh-accent)" : "var(--vh-line-strong)"}`,
+                          background: active ? "var(--vh-accent)" : "var(--vh-surface)",
+                          color: active ? "white" : "var(--vh-ink-soft)",
+                        }}
+                      >
+                        {STATUS_LABEL[s]}
+                      </button>
+                    )
+                  })}
+                </div>
+              )}
             </div>
           </div>
         </VhCard>

@@ -10,6 +10,7 @@ import FullTurnoutBanner from "@/components/admin/FullTurnoutBanner"
 import DiscardBallotButton from "@/components/admin/DiscardBallotButton"
 import PurgeImagesButton from "@/components/admin/PurgeImagesButton"
 import DeleteElectionButton from "@/components/admin/DeleteElectionButton"
+import CloseElectionEarlyButton from "@/components/admin/CloseElectionEarlyButton"
 import { GuardLink } from "@/components/admin/UnsavedChangesGuard"
 import { autoCompleteElections } from "@/lib/autoCompleteElections"
 
@@ -88,6 +89,9 @@ export default async function EditElectionPage({ params }: { params: Promise<{ i
         <h2 className="text-[15px] font-semibold mb-1" style={{ color: "var(--vh-danger)" }}>Danger zone</h2>
         <p className="text-[13px] mb-4" style={{ color: "var(--vh-muted)" }}>These actions are permanent and cannot be undone.</p>
         <div className="flex flex-wrap gap-3">
+          {election.status === "ACTIVE" && (
+            <CloseElectionEarlyButton id={id} title={election.title} variant="danger" />
+          )}
           {canDiscard && (
             <DiscardBallotButton electionId={id} votedCount={election._count.voters} />
           )}
