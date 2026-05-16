@@ -159,7 +159,16 @@ function TestResultsEmailButton({ electionId, disabled }: { electionId: string; 
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogTrigger render={<Button variant="outline" className="h-auto px-3.5 py-2 text-[13px] rounded-[10px]" disabled={disabled} />}>
+      <DialogTrigger render={
+        <Button
+          variant="outline"
+          className="h-auto px-3.5 py-2 text-[13px] rounded-[10px]"
+          disabled={disabled}
+          style={{ background: "var(--vh-surface)", borderColor: "var(--vh-line-strong)", color: "var(--vh-ink-soft)" }}
+          onMouseEnter={disabled ? undefined : (e) => { (e.currentTarget as HTMLElement).style.background = "var(--vh-surface-2)"; (e.currentTarget as HTMLElement).style.color = "var(--vh-ink)" }}
+          onMouseLeave={disabled ? undefined : (e) => { (e.currentTarget as HTMLElement).style.background = "var(--vh-surface)"; (e.currentTarget as HTMLElement).style.color = "var(--vh-ink-soft)" }}
+        />
+      }>
         Preview email
       </DialogTrigger>
       <DialogContent showCloseButton={false}>

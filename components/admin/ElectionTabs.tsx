@@ -30,6 +30,8 @@ export default function ElectionTabs({ electionId }: { electionId: string }) {
                 ? { background: "var(--vh-accent)", color: "white", border: "1px solid var(--vh-accent)" }
                 : { background: "var(--vh-surface)", color: "var(--vh-ink-soft)", border: "1px solid var(--vh-line-strong)" }
             }
+            onMouseEnter={active ? undefined : (e) => { (e.currentTarget as HTMLElement).style.background = "var(--vh-surface-2)"; (e.currentTarget as HTMLElement).style.color = "var(--vh-ink)" }}
+            onMouseLeave={active ? undefined : (e) => { (e.currentTarget as HTMLElement).style.background = "var(--vh-surface)"; (e.currentTarget as HTMLElement).style.color = "var(--vh-ink-soft)" }}
           >
             {t.label}
           </GuardLink>
