@@ -43,6 +43,15 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     skipDuplicates: true,
   })
 
+  // Re-arm the full-turnout notice so a new voter addition doesn't suppress it
+  // permanently if turnout was already at 100% before this import.
+  if (result.count > 0) {
+    await db.election.update({
+      where: { id: electionId },
+      data: { fullTurnoutNoticeSentAt: null },
+    })
+  }
+
   return NextResponse.json(
     { created: result.count, skipped: parsed.data.length - result.count },
     { status: 201 }
