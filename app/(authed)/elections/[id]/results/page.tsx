@@ -4,6 +4,7 @@ import { requireRole } from "@/lib/auth"
 import { getResultsForElection } from "@/lib/results"
 import ResultsDashboard from "@/components/admin/ResultsDashboard"
 import EmailResultsButton from "@/components/admin/EmailResultsButton"
+import ExportResultsButtons from "@/components/admin/ExportResultsButtons"
 import ElectionTabs from "@/components/admin/ElectionTabs"
 import { GuardLink } from "@/components/admin/UnsavedChangesGuard"
 import type { ElectionStatus } from "@/lib/generated/prisma/client"
@@ -68,13 +69,18 @@ export default async function ResultsPage({ params }: { params: Promise<{ id: st
           </div>
           <h1 className="text-[26px] font-semibold">{election.title}</h1>
         </div>
-        {!isViewer && (
-          <EmailResultsButton
-            electionId={id}
-            status={election.status}
-            resultsEmailSentAt={election.resultsEmailSentAt?.toISOString() ?? null}
-          />
-        )}
+        <div className="flex flex-col items-end gap-3">
+          {!isViewer && (
+            <EmailResultsButton
+              electionId={id}
+              status={election.status}
+              resultsEmailSentAt={election.resultsEmailSentAt?.toISOString() ?? null}
+            />
+          )}
+          {election.status === "COMPLETED" && (
+            <ExportResultsButtons electionId={id} />
+          )}
+        </div>
       </div>
 
       {election.ballotResetAt && (
