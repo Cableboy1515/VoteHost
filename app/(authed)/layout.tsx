@@ -89,6 +89,8 @@ export default function AuthedLayout({ children }: { children: React.ReactNode }
                     background: active ? "var(--vh-accent)" : "transparent",
                     fontWeight: active ? 500 : 400,
                   }}
+                  onMouseEnter={active ? undefined : (e) => { (e.currentTarget as HTMLElement).style.background = "var(--vh-surface-2)"; (e.currentTarget as HTMLElement).style.color = "var(--vh-ink)" }}
+                  onMouseLeave={active ? undefined : (e) => { (e.currentTarget as HTMLElement).style.background = "transparent"; (e.currentTarget as HTMLElement).style.color = "var(--vh-ink-soft)" }}
                 >
                   <Icon size={16} style={{ opacity: 0.9 }} />
                   {label}

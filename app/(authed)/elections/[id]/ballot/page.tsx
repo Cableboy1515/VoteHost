@@ -46,7 +46,7 @@ export default async function BallotPage({ params }: { params: Promise<{ id: str
         ballotResetByEmail={resetByEmail}
       />
       <div className="mb-5">
-        <h1 className="text-[26px] font-semibold mb-1">Ballot builder</h1>
+        <h1 className="text-[26px] font-semibold mb-1">Ballot Builder</h1>
         <p className="text-[14px]" style={{ color: "var(--vh-muted)" }}>
           {election.questions.length} question{election.questions.length !== 1 ? "s" : ""}
         </p>
