@@ -261,7 +261,7 @@ export default function VoterManager({ electionId, electionStatus, electionStart
     }
   }
 
-  const canDelete = electionStatus !== "CLOSED" && electionStatus !== "COMPLETED"
+  const canDelete = electionStatus !== "COMPLETED"
   // Invitations require either ACTIVE status or a scheduled start date in DRAFT.
   const canInvite = electionStatus === "ACTIVE" || (electionStatus === "DRAFT" && !!electionStartsAt)
   const uninvited = voters.filter((v) => !v.invitedAt).length

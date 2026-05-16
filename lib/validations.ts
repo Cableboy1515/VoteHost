@@ -34,7 +34,7 @@ export const ElectionBaseSchema = z.object({
   description: z.string().optional(),
   startsAt: z.string().datetime().optional().nullable(),
   endsAt: z.string().datetime().optional().nullable(),
-  status: z.enum(["DRAFT", "ACTIVE", "CLOSED", "COMPLETED"]).optional(),
+  status: z.enum(["DRAFT", "ACTIVE", "COMPLETED"]).optional(),
   archived: z.boolean().optional(),
   emailSubject: z.string().optional().nullable(),
   emailMessage: z.string().optional().nullable(),

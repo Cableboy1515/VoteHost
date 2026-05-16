@@ -13,14 +13,12 @@ import type { ElectionStatus } from "@/lib/generated/prisma/client"
 const STATUS_LABEL: Record<ElectionStatus, string> = {
   DRAFT: "Draft",
   ACTIVE: "Active",
-  CLOSED: "Closed",
   COMPLETED: "Completed",
 }
 
 const STATUS_STYLE: Record<ElectionStatus, React.CSSProperties> = {
   DRAFT: { background: "var(--vh-surface-3)", color: "var(--vh-ink-soft)", borderColor: "var(--vh-line-strong)" },
   ACTIVE: { background: "var(--vh-success-soft)", color: "oklch(0.35 0.10 155)", borderColor: "oklch(0.78 0.08 155)" },
-  CLOSED: { background: "var(--vh-surface-3)", color: "var(--vh-muted)", borderColor: "var(--vh-line-strong)" },
   COMPLETED: { background: "var(--vh-accent-soft)", color: "var(--vh-accent-strong)", borderColor: "oklch(0.85 0.05 255)" },
 }
 

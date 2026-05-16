@@ -23,7 +23,7 @@ export async function DELETE(
     )
   }
 
-  if (voter.election.status === "CLOSED" || voter.election.status === "COMPLETED") {
+  if (voter.election.status === "COMPLETED") {
     return NextResponse.json(
       { error: "Voter list cannot be modified after an election is closed" },
       { status: 409 }

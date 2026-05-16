@@ -122,7 +122,7 @@ export async function POST(req: Request) {
   let completionsSent = 0
   const closedAwaitingNotice = await db.election.findMany({
     where: {
-      status: { in: ["COMPLETED", "CLOSED"] },
+      status: "COMPLETED",
       completionEmailSentAt: null,
     },
     include: { voters: true },
@@ -211,7 +211,7 @@ export async function POST(req: Request) {
     const cutoff = new Date(now.getTime() - retentionDays * ONE_DAY_MS)
     const stale = await db.election.findMany({
       where: {
-        status: { in: ["CLOSED", "COMPLETED"] },
+        status: "COMPLETED",
         endsAt: { lt: cutoff },
         imagesPurgedAt: null,
       },

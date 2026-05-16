@@ -72,9 +72,8 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
   // Detect manual close transition so we fire the staff completion email inline
   const transitioningToEnd =
     parsed.data.status != null &&
-    (parsed.data.status === "COMPLETED" || parsed.data.status === "CLOSED") &&
+    parsed.data.status === "COMPLETED" &&
     before.status !== "COMPLETED" &&
-    before.status !== "CLOSED" &&
     before.completionEmailSentAt == null
 
   if (transitioningToEnd) {

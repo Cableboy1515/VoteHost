@@ -39,7 +39,7 @@ export async function POST(
   if (voter.election.status === "DRAFT" && !voter.election.startsAt) {
     return NextResponse.json({ error: "Set a start date before sending invitations." }, { status: 409 })
   }
-  if (voter.election.status === "CLOSED" || voter.election.status === "COMPLETED") {
+  if (voter.election.status === "COMPLETED") {
     return NextResponse.json({ error: "Election is closed" }, { status: 409 })
   }
 

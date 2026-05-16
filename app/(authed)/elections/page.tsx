@@ -10,19 +10,17 @@ import ArchiveElectionButton from "@/components/admin/ArchiveElectionButton"
 import ReopenElectionButton from "@/components/admin/ReopenElectionButton"
 import { autoCompleteElections } from "@/lib/autoCompleteElections"
 
-type FilterKey = "all" | "active" | "draft" | "closed" | "completed"
+type FilterKey = "all" | "active" | "draft" | "completed"
 
 const STATUS_LABEL: Record<ElectionStatus, string> = {
   DRAFT: "Draft",
   ACTIVE: "Active",
-  CLOSED: "Closed",
   COMPLETED: "Completed",
 }
 
 const STATUS_STYLE: Record<ElectionStatus, React.CSSProperties> = {
   DRAFT: { background: "var(--vh-surface-3)", color: "var(--vh-ink-soft)", borderColor: "var(--vh-line-strong)" },
   ACTIVE: { background: "var(--vh-success-soft)", color: "oklch(0.35 0.10 155)", borderColor: "oklch(0.78 0.08 155)" },
-  CLOSED: { background: "var(--vh-surface-3)", color: "var(--vh-muted)", borderColor: "var(--vh-line-strong)" },
   COMPLETED: { background: "var(--vh-accent-soft)", color: "var(--vh-accent-strong)", borderColor: "oklch(0.85 0.05 255)" },
 }
 
@@ -44,7 +42,6 @@ const FILTER_TABS: { key: FilterKey; label: string; status?: ElectionStatus }[] 
   { key: "all", label: "All" },
   { key: "active", label: "Active", status: "ACTIVE" },
   { key: "draft", label: "Drafts", status: "DRAFT" },
-  { key: "closed", label: "Closed", status: "CLOSED" },
   { key: "completed", label: "Completed", status: "COMPLETED" },
 ]
 
@@ -61,7 +58,7 @@ export default async function ElectionsListPage({
   // Viewer-only surface: results for active/completed/closed elections
   if (session.role === "VIEWER") {
     const elections = await db.election.findMany({
-      where: { archived: false, status: { in: ["ACTIVE", "COMPLETED", "CLOSED"] } },
+      where: { archived: false, status: { in: ["ACTIVE", "COMPLETED"] } },
       orderBy: { createdAt: "desc" },
       include: { _count: { select: { voters: true } } },
     })
@@ -159,7 +156,6 @@ export default async function ElectionsListPage({
     all: totalNonArchived,
     active: statusCounts.find((s) => s.status === "ACTIVE")?._count._all ?? 0,
     draft: statusCounts.find((s) => s.status === "DRAFT")?._count._all ?? 0,
-    closed: statusCounts.find((s) => s.status === "CLOSED")?._count._all ?? 0,
     completed: statusCounts.find((s) => s.status === "COMPLETED")?._count._all ?? 0,
   }
 

@@ -10,7 +10,6 @@ datasource db {
 enum ElectionStatus {
   DRAFT
   ACTIVE
-  CLOSED
   COMPLETED
 }
 

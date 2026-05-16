@@ -58,10 +58,10 @@ function buildPreviewHtml(opts: {
   </body></html>`
 }
 
-const STATUSES = ["DRAFT", "ACTIVE", "CLOSED", "COMPLETED"] as const
+const STATUSES = ["DRAFT", "ACTIVE", "COMPLETED"] as const
 type Status = typeof STATUSES[number]
 const STATUS_LABEL: Record<Status, string> = {
-  DRAFT: "Draft", ACTIVE: "Active", CLOSED: "Closed", COMPLETED: "Completed",
+  DRAFT: "Draft", ACTIVE: "Active", COMPLETED: "Completed",
 }
 
 const inputCls = "w-full text-sm rounded-[10px] px-3 py-2.5 transition-colors"

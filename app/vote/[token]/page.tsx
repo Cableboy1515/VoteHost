@@ -26,7 +26,7 @@ export default async function VotePage({ params }: { params: Promise<{ token: st
   }
   // DRAFT with no startsAt, or past startsAt the organizer hasn't activated yet.
   if (quick.election.status === "DRAFT") return <ErrorScreen type="draft-pending" />
-  // Genuinely finished (COMPLETED or CLOSED), or ACTIVE but past endsAt.
+  // Genuinely finished (COMPLETED), or ACTIVE but past endsAt.
   if (quick.election.status !== "ACTIVE") return <ErrorScreen type="closed" />
   if (quick.election.endsAt && now > quick.election.endsAt) return <ErrorScreen type="closed" />
 

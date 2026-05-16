@@ -28,7 +28,7 @@ export default async function EditElectionPage({ params }: { params: Promise<{ i
   })
   if (!election) notFound()
 
-  const isClosed = election.status === "CLOSED" || election.status === "COMPLETED"
+  const isClosed = election.status === "COMPLETED"
   const canDiscard = !!election.firstVoteAt && election.status !== "COMPLETED"
   const votedCount = election._count.voters
   const invitedCount = election.voters.filter((v) => v.invitedAt !== null).length

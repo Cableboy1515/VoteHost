@@ -25,7 +25,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       { status: 409 }
     )
   }
-  if (election.status === "CLOSED" || election.status === "COMPLETED") {
+  if (election.status === "COMPLETED") {
     return NextResponse.json({ error: "Election is closed." }, { status: 409 })
   }
 
