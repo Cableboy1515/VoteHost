@@ -45,9 +45,10 @@ model Election {
   ballotResetAt   DateTime?
   ballotResetById String?
 
-  endsSoonNoticeSentAt  DateTime?
-  completionEmailSentAt DateTime?
-  startReminderSentAt   DateTime?
+  endsSoonNoticeSentAt    DateTime?
+  completionEmailSentAt   DateTime?
+  startReminderSentAt     DateTime?
+  fullTurnoutNoticeSentAt DateTime?
 
   questions Question[]
   voters    Voter[]

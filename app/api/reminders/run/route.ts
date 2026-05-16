@@ -5,6 +5,7 @@ import {
   sendElectionClosingSoonStaffNotice,
   sendElectionCompletedStaffNotice,
   sendDraftReminderStaffNotice,
+  sendFullTurnoutStaffNotice,
 } from "@/lib/email"
 import { getStaffRecipients } from "@/lib/staffRecipients"
 import { purgeElectionImages } from "@/lib/imageRetention"
@@ -173,6 +174,34 @@ export async function POST(req: Request) {
     }
   }
 
+  // ── Full-turnout sweep (ACTIVE elections where every invited voter has voted) ──
+  let fullTurnoutNoticesSent = 0
+  const turnoutCandidates = await db.election.findMany({
+    where: { status: "ACTIVE", fullTurnoutNoticeSentAt: null },
+    include: { voters: true },
+  })
+  for (const election of turnoutCandidates) {
+    const invited = election.voters.filter((v) => v.invitedAt != null)
+    if (invited.length === 0) continue
+    const voted = invited.filter((v) => v.hasVoted)
+    if (voted.length !== invited.length) continue
+    try {
+      await sendFullTurnoutStaffNotice(
+        { id: election.id, title: election.title, endsAt: election.endsAt },
+        staffRecipients,
+        voted.length,
+        invited.length,
+      )
+      await db.election.update({
+        where: { id: election.id },
+        data: { fullTurnoutNoticeSentAt: now },
+      })
+      fullTurnoutNoticesSent++
+    } catch (err) {
+      errors.push(`full-turnout ${election.id}: ${String(err)}`)
+    }
+  }
+
   // ── Image retention sweep ────────────────────────────────────────
   let purged = 0
   const retentionSetting = await db.setting.findUnique({ where: { key: "image_retention_days" } })
@@ -198,6 +227,7 @@ export async function POST(req: Request) {
     sent: totalSent,
     completionsSent,
     draftRemindersSent,
+    fullTurnoutNoticesSent,
     purged,
     errors,
   })
