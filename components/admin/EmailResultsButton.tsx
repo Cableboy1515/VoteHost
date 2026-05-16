@@ -159,8 +159,8 @@ function TestResultsEmailButton({ electionId, disabled }: { electionId: string; 
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogTrigger render={<Button variant="outline" size="sm" disabled={disabled} />}>
-        Preview
+      <DialogTrigger render={<Button variant="outline" className="h-auto px-3.5 py-2 text-[13px] rounded-[10px]" disabled={disabled} />}>
+        Preview email
       </DialogTrigger>
       <DialogContent showCloseButton={false}>
         <DialogHeader>
