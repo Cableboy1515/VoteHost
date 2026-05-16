@@ -9,6 +9,8 @@ import ImageUploadField from "@/components/admin/ImageUploadField"
 
 interface Props {
   electionId?: string
+  closedAt?: string | null
+  closedByEmail?: string | null
   initialValues?: {
     title: string
     description?: string | null
@@ -106,7 +108,7 @@ function VhCard({ children, title }: { children: React.ReactNode; title?: string
   )
 }
 
-export default function ElectionForm({ electionId, initialValues }: Props) {
+export default function ElectionForm({ electionId, closedAt, closedByEmail, initialValues }: Props) {
   const router = useRouter()
   const [title, setTitle] = useState(initialValues?.title ?? "")
   const [description, setDescription] = useState(initialValues?.description ?? "")
@@ -265,7 +267,12 @@ export default function ElectionForm({ electionId, initialValues }: Props) {
                     Completed
                   </span>
                   <span className="text-[12.5px]" style={{ color: "var(--vh-muted)" }}>
-                    Use Reopen from the Elections list to make changes.
+                    {closedAt && closedByEmail
+                      ? `Closed early on ${new Date(closedAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })} by ${closedByEmail}.`
+                      : closedAt
+                      ? `Closed early on ${new Date(closedAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}.`
+                      : "Auto-closed at scheduled end date."}
+                    {" "}Use Reopen from the Elections list to make changes.
                   </span>
                 </div>
               ) : (

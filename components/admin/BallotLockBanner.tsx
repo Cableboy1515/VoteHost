@@ -2,6 +2,8 @@ interface Props {
   firstVoteAt: string | null
   ballotResetAt: string | null
   ballotResetByEmail: string | null
+  reopenedAt?: string | null
+  reopenedByEmail?: string | null
 }
 
 function relativeTime(iso: string): string {
@@ -16,7 +18,7 @@ function relativeTime(iso: string): string {
   return `${days} days ago`
 }
 
-export default function BallotLockBanner({ firstVoteAt, ballotResetAt, ballotResetByEmail }: Props) {
+export default function BallotLockBanner({ firstVoteAt, ballotResetAt, ballotResetByEmail, reopenedAt, reopenedByEmail }: Props) {
   if (firstVoteAt) {
     return (
       <div
@@ -28,6 +30,21 @@ export default function BallotLockBanner({ firstVoteAt, ballotResetAt, ballotRes
           <strong>Ballot locked</strong> — first vote cast {relativeTime(firstVoteAt)}.
           Ballot structure cannot be edited. To restart with a fresh ballot, use{" "}
           <strong>Discard &amp; Reopen</strong> on the Settings tab.
+        </p>
+      </div>
+    )
+  }
+
+  if (reopenedAt) {
+    return (
+      <div
+        className="flex items-start gap-3 rounded-[14px] px-[18px] py-3.5 mb-4"
+        style={{ background: "var(--vh-surface-2)", border: "1px solid var(--vh-line-strong)" }}
+      >
+        <span className="text-base mt-0.5 flex-shrink-0">↺</span>
+        <p className="text-[13.5px]" style={{ color: "var(--vh-ink-soft)" }}>
+          Election was reopened {relativeTime(reopenedAt)} by{" "}
+          <strong>{reopenedByEmail ?? "a deleted user"}</strong>.
         </p>
       </div>
     )

@@ -29,6 +29,9 @@ export default async function ResultsPage({ params }: { params: Promise<{ id: st
   const ballotResetByEmail = election.ballotResetById
     ? (await db.adminUser.findUnique({ where: { id: election.ballotResetById }, select: { email: true } }))?.email ?? null
     : null
+  const closedByEmail = election.closedById
+    ? (await db.adminUser.findUnique({ where: { id: election.closedById }, select: { email: true } }))?.email ?? null
+    : null
 
   return (
     <div className="p-4 sm:p-8 max-w-[1040px]">
@@ -82,6 +85,16 @@ export default async function ResultsPage({ params }: { params: Promise<{ id: st
           <strong>Note:</strong> This election&rsquo;s ballot was reset on{" "}
           {new Date(election.ballotResetAt).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}
           {ballotResetByEmail ? ` by ${ballotResetByEmail}` : ""}. Earlier votes were discarded and voters were asked to recast their ballots.
+        </div>
+      )}
+      {election.closedAt && (
+        <div
+          className="mb-5 rounded-[12px] px-4 py-3 text-[13px]"
+          style={{ background: "var(--vh-surface-2)", border: "1px solid var(--vh-line-strong)", color: "var(--vh-ink-soft)" }}
+        >
+          <strong>Note:</strong> This election was closed early on{" "}
+          {new Date(election.closedAt).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}
+          {closedByEmail ? ` by ${closedByEmail}` : ""}.
         </div>
       )}
       <ResultsDashboard

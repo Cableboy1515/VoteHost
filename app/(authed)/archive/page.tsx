@@ -44,15 +44,22 @@ export default async function ArchivePage() {
     : []
   const votedByElection = new Map(votedCountRows.map((r) => [r.electionId, r._count._all]))
 
+  const closerIds = [...new Set(elections.map((e) => e.closedById).filter(Boolean) as string[])]
+  const closerRows = closerIds.length > 0
+    ? await db.adminUser.findMany({ where: { id: { in: closerIds } }, select: { id: true, email: true } })
+    : []
+  const closerEmailById = new Map(closerRows.map((r) => [r.id, r.email]))
+
   const electionsWithStats = elections.map((e) => ({
     ...e,
     votedCount: votedByElection.get(e.id) ?? 0,
+    closedByEmail: e.closedById ? (closerEmailById.get(e.closedById) ?? null) : null,
   }))
 
-  // Group by close year (fall back to createdAt year)
+  // Group by close year (prefer closedAt, fall back to endsAt, then createdAt)
   const byYear = new Map<string, typeof electionsWithStats>()
   for (const e of electionsWithStats) {
-    const year = String((e.endsAt ?? e.createdAt).getFullYear())
+    const year = String((e.closedAt ?? e.endsAt ?? e.createdAt).getFullYear())
     if (!byYear.has(year)) byYear.set(year, [])
     byYear.get(year)!.push(e)
   }
@@ -90,9 +97,8 @@ export default async function ArchivePage() {
                   const turnoutPct = e._count.voters > 0
                     ? Math.round((e.votedCount / e._count.voters) * 100)
                     : 0
-                  const dateStr = e.endsAt
-                    ? e.endsAt.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
-                    : e.createdAt.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
+                  const closeDate = e.closedAt ?? e.endsAt ?? e.createdAt
+                  const dateStr = closeDate.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
 
                   return (
                     <div
@@ -104,6 +110,7 @@ export default async function ArchivePage() {
                         <div className="text-[14.5px] font-medium truncate">{e.title}</div>
                         <div className="text-[12.5px] mt-0.5" style={{ color: "var(--vh-muted)" }}>
                           Closed {dateStr}
+                          {e.closedByEmail && ` · by ${e.closedByEmail}`}
                         </div>
                       </div>
 

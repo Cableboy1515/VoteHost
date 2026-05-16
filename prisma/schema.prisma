@@ -44,6 +44,11 @@ model Election {
   ballotResetAt   DateTime?
   ballotResetById String?
 
+  closedAt     DateTime?
+  closedById   String?
+  reopenedAt   DateTime?
+  reopenedById String?
+
   endsSoonNoticeSentAt    DateTime?
   completionEmailSentAt   DateTime?
   startReminderSentAt     DateTime?

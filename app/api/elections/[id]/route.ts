@@ -78,6 +78,23 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
 
   if (transitioningToEnd) {
     updates.completionEmailSentAt = new Date()
+    updates.closedAt = new Date()
+    updates.closedById = session.sub
+    updates.reopenedAt = null
+    updates.reopenedById = null
+  }
+
+  const transitioningFromEnd =
+    parsed.data.status != null &&
+    parsed.data.status !== "COMPLETED" &&
+    before.status === "COMPLETED"
+
+  if (transitioningFromEnd) {
+    updates.reopenedAt = new Date()
+    updates.reopenedById = session.sub
+    updates.closedAt = null
+    updates.closedById = null
+    updates.completionEmailSentAt = null
   }
 
   const election = await db.election.update({ where: { id }, data: updates })

@@ -37,6 +37,12 @@ export default async function EditElectionPage({ params }: { params: Promise<{ i
   const resetByEmail = election.ballotResetById
     ? (await db.adminUser.findUnique({ where: { id: election.ballotResetById }, select: { email: true } }))?.email ?? null
     : null
+  const closedByEmail = election.closedById
+    ? (await db.adminUser.findUnique({ where: { id: election.closedById }, select: { email: true } }))?.email ?? null
+    : null
+  const reopenedByEmail = election.reopenedById
+    ? (await db.adminUser.findUnique({ where: { id: election.reopenedById }, select: { email: true } }))?.email ?? null
+    : null
 
   return (
     <div className="p-4 sm:p-8 max-w-[800px]">
@@ -50,6 +56,8 @@ export default async function EditElectionPage({ params }: { params: Promise<{ i
         firstVoteAt={election.firstVoteAt?.toISOString() ?? null}
         ballotResetAt={election.ballotResetAt?.toISOString() ?? null}
         ballotResetByEmail={resetByEmail}
+        reopenedAt={election.reopenedAt?.toISOString() ?? null}
+        reopenedByEmail={reopenedByEmail}
       />
       <FullTurnoutBanner
         electionId={id}
@@ -62,6 +70,8 @@ export default async function EditElectionPage({ params }: { params: Promise<{ i
       <h1 className="text-[26px] font-semibold mb-5">Settings</h1>
       <ElectionForm
         electionId={election.id}
+        closedAt={election.closedAt?.toISOString() ?? null}
+        closedByEmail={closedByEmail}
         initialValues={{
           title: election.title,
           description: election.description,
