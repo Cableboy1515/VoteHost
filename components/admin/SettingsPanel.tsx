@@ -4,6 +4,7 @@ import { useEffect, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import BackupRestorePanel from "@/components/admin/BackupRestorePanel"
 
 function StorageSettings() {
   const [days, setDays] = useState("30")
@@ -241,7 +242,7 @@ const PRESETS: Record<EmailPreset, PresetConfig> = {
   },
 }
 
-export default function SettingsPage() {
+export default function SettingsPage({ hasActiveElections }: { hasActiveElections: boolean }) {
   const [settings, setSettings] = useState<EmailSettings>(DEFAULT_SETTINGS)
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState("")
@@ -545,6 +546,9 @@ export default function SettingsPage() {
 
       <hr className="my-8 border-zinc-200" />
       <StorageSettings />
+
+      <hr className="my-8 border-zinc-200" />
+      <BackupRestorePanel hasActiveElections={hasActiveElections} />
     </div>
   )
 }
