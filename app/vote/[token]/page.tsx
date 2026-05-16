@@ -20,11 +20,13 @@ export default async function VotePage({ params }: { params: Promise<{ token: st
   if (quick.hasVoted) return <ErrorScreen type="already-voted" />
 
   const now = new Date()
-  // Future start date — show "not-open" with the date, regardless of DRAFT/ACTIVE status.
-  // (DRAFT + future startsAt is the pre-invitation case; voters got a save-the-date.)
+  // Future startsAt (DRAFT or ACTIVE) → save-the-date with concrete open date.
   if (quick.election.startsAt && now < quick.election.startsAt) {
     return <ErrorScreen type="not-open" startsAt={quick.election.startsAt.toISOString()} />
   }
+  // DRAFT with no startsAt, or past startsAt the organizer hasn't activated yet.
+  if (quick.election.status === "DRAFT") return <ErrorScreen type="draft-pending" />
+  // Genuinely finished (COMPLETED or CLOSED), or ACTIVE but past endsAt.
   if (quick.election.status !== "ACTIVE") return <ErrorScreen type="closed" />
   if (quick.election.endsAt && now > quick.election.endsAt) return <ErrorScreen type="closed" />
 

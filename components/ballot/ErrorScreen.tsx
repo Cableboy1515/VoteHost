@@ -30,6 +30,14 @@ const CONFIGS: Record<string, Config> = {
     title: "Voting has closed",
     body: "This election is no longer accepting votes.",
   },
+  "draft-pending": {
+    icon: "🕐",
+    iconBg: "bg-vh-warn-soft",
+    title: "Election hasn't opened yet",
+    body: "Check back shortly, or contact the organizer if you were expecting it to be open.",
+    primaryLabel: "Contact organizer",
+    primaryHref: "mailto:",
+  },
   "not-open": {
     icon: "🕐",
     iconBg: "bg-vh-warn-soft",
