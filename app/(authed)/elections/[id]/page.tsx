@@ -6,6 +6,7 @@ import { requireRole } from "@/lib/auth"
 import ElectionForm from "@/components/admin/ElectionForm"
 import ElectionTabs from "@/components/admin/ElectionTabs"
 import BallotLockBanner from "@/components/admin/BallotLockBanner"
+import FullTurnoutBanner from "@/components/admin/FullTurnoutBanner"
 import DiscardBallotButton from "@/components/admin/DiscardBallotButton"
 import PurgeImagesButton from "@/components/admin/PurgeImagesButton"
 import DeleteElectionButton from "@/components/admin/DeleteElectionButton"
@@ -20,12 +21,17 @@ export default async function EditElectionPage({ params }: { params: Promise<{ i
   await autoCompleteElections()
   const election = await db.election.findUnique({
     where: { id },
-    include: { _count: { select: { voters: { where: { hasVoted: true } } } } },
+    include: {
+      _count: { select: { voters: { where: { hasVoted: true } } } },
+      voters: { select: { invitedAt: true } },
+    },
   })
   if (!election) notFound()
 
   const isClosed = election.status === "CLOSED" || election.status === "COMPLETED"
   const canDiscard = !!election.firstVoteAt && election.status !== "COMPLETED"
+  const votedCount = election._count.voters
+  const invitedCount = election.voters.filter((v) => v.invitedAt !== null).length
 
   const resetByEmail = election.ballotResetById
     ? (await db.adminUser.findUnique({ where: { id: election.ballotResetById }, select: { email: true } }))?.email ?? null
@@ -43,6 +49,14 @@ export default async function EditElectionPage({ params }: { params: Promise<{ i
         firstVoteAt={election.firstVoteAt?.toISOString() ?? null}
         ballotResetAt={election.ballotResetAt?.toISOString() ?? null}
         ballotResetByEmail={resetByEmail}
+      />
+      <FullTurnoutBanner
+        electionId={id}
+        electionTitle={election.title}
+        votedCount={votedCount}
+        invitedCount={invitedCount}
+        status={election.status}
+        endsAt={election.endsAt?.toISOString() ?? null}
       />
       <h1 className="text-[26px] font-semibold mb-5">Settings</h1>
       <ElectionForm
