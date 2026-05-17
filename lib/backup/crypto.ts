@@ -10,7 +10,11 @@ type KdfOpts = { N: number; r: number; p: number }
 
 function scryptAsync(passphrase: string, salt: Buffer, opts: ScryptOptions): Promise<Buffer> {
   return new Promise((resolve, reject) => {
-    _scrypt(passphrase, salt, KEY_LENGTH, opts, (err, key) => {
+    const N = (opts.N as number) ?? 16384
+    const r = (opts.r as number) ?? 8
+    // maxmem must cover 128·N·r bytes; default OpenSSL cap is 32 MiB which is too low for N≥2^17
+    const maxmem = 128 * N * r * 2
+    _scrypt(passphrase, salt, KEY_LENGTH, { ...opts, maxmem }, (err, key) => {
       if (err) reject(err)
       else resolve(key)
     })

@@ -3,9 +3,6 @@ export const runtime = "nodejs"
 import { NextResponse } from "next/server"
 import { promises as fs } from "node:fs"
 import path from "node:path"
-// archiver v8 is ESM-only with no matching @types; require bypasses the stale CJS typedefs
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-const { ZipArchive } = require("archiver") as { ZipArchive: new (opts?: object) => NodeJS.ReadableStream & { append(src: NodeJS.ReadableStream | Buffer | string, data: { name: string }): void; finalize(): void } }
 import { PassThrough } from "node:stream"
 import { requireRole } from "@/lib/auth"
 import { csrfCheck } from "@/lib/csrf"
@@ -14,7 +11,8 @@ import { packHeader, type BackupHeader, type BackupType } from "@/lib/backup/for
 import { encryptZip, generateSalt, generateIV } from "@/lib/backup/crypto"
 import { createHash } from "node:crypto"
 
-function buildZip(dataJson: string, manifestJson: string, uploadFiles: { name: string; buf: Buffer }[]): Promise<Buffer> {
+async function buildZip(dataJson: string, manifestJson: string, uploadFiles: { name: string; buf: Buffer }[]): Promise<Buffer> {
+  const { ZipArchive } = await import("archiver")
   return new Promise((resolve, reject) => {
     const archive = new ZipArchive({ zlib: { level: 6 } })
     const passThrough = new PassThrough()

@@ -14,7 +14,8 @@ import {
 import { EyeIcon, EyeOffIcon } from "lucide-react"
 
 const MAGIC = "VHBK"
-const FORMAT_VERSION = 1
+// Must stay in sync with FORMAT_VERSION in lib/backup/format.ts
+const MAX_FORMAT_VERSION = 2
 
 type ParsedHeader = {
   type: "full" | "elections"
@@ -38,7 +39,7 @@ function parseHeaderFromBytes(buf: ArrayBuffer): ParsedHeader {
   )
   if (magic !== MAGIC) throw new Error("Not a VoteHost backup file")
   const version = view.getUint16(4, false)
-  if (version !== FORMAT_VERSION) throw new Error(`Unsupported format version: ${version}`)
+  if (version < 1 || version > MAX_FORMAT_VERSION) throw new Error(`Unsupported format version: ${version}`)
   const headerLen = view.getUint16(6, false)
   const jsonBytes = new Uint8Array(buf, 8, headerLen)
   const jsonStr = new TextDecoder().decode(jsonBytes)
