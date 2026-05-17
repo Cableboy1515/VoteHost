@@ -11,5 +11,5 @@ echo "Applying database schema..."
 node node_modules/prisma/build/index.js db push --accept-data-loss
 echo "Schema applied."
 
-echo "Starting VoteHost..."
+echo "Starting VoteHost Elections..."
 exec node server.js

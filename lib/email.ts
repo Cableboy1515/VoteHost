@@ -1,4 +1,5 @@
 import { Resend } from "resend"
+import { BRAND_NAME } from "@/lib/branding"
 import nodemailer from "nodemailer"
 import { db } from "@/lib/db"
 import { absolutizeUrl } from "@/lib/absolutize-url"
@@ -41,7 +42,7 @@ async function getAllEmailConfig(): Promise<EmailConfig> {
   for (const row of rows) map[row.key] = row.value
 
   const fromAddress = map.email_from_address || "onboarding@resend.dev"
-  const fromName = map.email_from_name || "VoteHost"
+  const fromName = map.email_from_name || BRAND_NAME
 
   if ((map.email_provider ?? "resend") === "smtp") {
     return {
@@ -153,7 +154,7 @@ const C = {
 }
 
 function emailWrapper(content: string): string {
-  return `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="light"><title>VoteHost</title></head><body style="margin:0;padding:0;background:${C.bg};-webkit-font-smoothing:antialiased;">
+  return `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="light"><title>${BRAND_NAME}</title></head><body style="margin:0;padding:0;background:${C.bg};-webkit-font-smoothing:antialiased;">
 <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="background:${C.bg};padding:32px 16px;">
 <tr><td align="center">
 <table role="presentation" cellpadding="0" cellspacing="0" width="560" style="max-width:560px;width:100%;background:${C.surface};border-radius:12px;overflow:hidden;border:1px solid ${C.line};">
@@ -167,7 +168,7 @@ ${content}
 function brandRow(): string {
   const logoSrc = absolutizeUrl("/email-logo.png")
   return `<tr><td style="padding:24px 32px 0;">
-  <img src="${logoSrc}" alt="VoteHost Elections" height="28" style="display:block;height:28px;width:auto;border:0;outline:none;text-decoration:none;" />
+  <img src="${logoSrc}" alt="${BRAND_NAME}" height="28" style="display:block;height:28px;width:auto;border:0;outline:none;text-decoration:none;" />
 </td></tr>`
 }
 
@@ -215,7 +216,7 @@ function buildInviteHtml(p: Payload): string {
       <h1 style="margin:0 0 12px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:22px;font-weight:600;color:${C.ink};letter-spacing:-0.02em;">You're invited to vote</h1>
       <p style="margin:0 0 14px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:14.5px;color:${C.inkSoft};line-height:1.6;">Hi ${name},</p>
       <p style="margin:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:14.5px;color:${C.inkSoft};line-height:1.6;">
-        <strong style="color:${C.ink};">VoteHost</strong> is holding an election: <strong style="color:${C.ink};">${title}</strong>.
+        <strong style="color:${C.ink};">${BRAND_NAME}</strong> is holding an election: <strong style="color:${C.ink};">${title}</strong>.
       </p>
     </td></tr>
     ${customMsg}
@@ -455,9 +456,9 @@ function buildAdminInviteHtml(p: AdminInvitePayload): string {
   return emailWrapper(`
     ${brandRow()}
     <tr><td style="padding:24px 32px 14px;">
-      <h1 style="margin:0 0 14px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:22px;font-weight:600;color:${C.ink};letter-spacing:-0.02em;">You've been added to VoteHost</h1>
+      <h1 style="margin:0 0 14px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:22px;font-weight:600;color:${C.ink};letter-spacing:-0.02em;">You've been added to ${BRAND_NAME}</h1>
       <p style="margin:0 0 14px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:14.5px;color:${C.inkSoft};line-height:1.6;">
-        An administrator has created an account for <strong style="color:${C.ink};">${email}</strong> on <strong style="color:${C.ink};">VoteHost</strong>.
+        An administrator has created an account for <strong style="color:${C.ink};">${email}</strong> on <strong style="color:${C.ink};">${BRAND_NAME}</strong>.
         Click below to choose a password and finish setting up your account.
       </p>
     </td></tr>
@@ -544,7 +545,7 @@ function buildPasswordResetActivityHtml(event: "requested" | "completed", reques
     <tr><td style="padding:0 32px 28px;">
       <table role="presentation" cellpadding="0" cellspacing="0" width="100%"><tr>
         <td style="border-top:1px solid ${C.line};padding-top:18px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:12px;color:${C.muted};line-height:1.6;">
-          You received this because password reset notifications are enabled on this VoteHost installation.
+          You received this because password reset notifications are enabled on this ${BRAND_NAME} installation.
         </td>
       </tr></table>
     </td></tr>
@@ -582,7 +583,7 @@ export async function sendAdminInvite(payload: AdminInvitePayload): Promise<{ er
   return sendRawEmail(
     config,
     payload.recipientEmail,
-    "You've been added to VoteHost — set up your account",
+    `You've been added to ${BRAND_NAME} — set up your account`,
     buildAdminInviteHtml(payload),
   )
 }
@@ -596,7 +597,7 @@ export async function sendPasswordResetLink(payload: {
   return sendRawEmail(
     config,
     payload.recipientEmail,
-    "Reset your VoteHost password",
+    `Reset your ${BRAND_NAME} password`,
     buildPasswordResetLinkHtml(payload.recipientEmail, payload.resetLink, payload.expiresAt),
   )
 }
@@ -609,7 +610,7 @@ export async function sendPasswordChangedNotice(payload: {
   const result = await sendRawEmail(
     config,
     payload.recipientEmail,
-    "Your VoteHost password was changed",
+    `Your ${BRAND_NAME} password was changed`,
     buildPasswordChangedNoticeHtml(payload.recipientEmail, payload.changedAt),
   )
   if (result.error) console.error("[sendPasswordChangedNotice] failed:", result.error)
@@ -623,7 +624,7 @@ export async function sendPasswordResetActivityToAdmins(payload: {
   const config = await getAllEmailConfig()
   const admins = await db.adminUser.findMany({ where: { role: "ADMIN" }, select: { email: true } })
   if (admins.length === 0) return
-  const subject = `Password reset ${payload.event} — VoteHost`
+  const subject = `Password reset ${payload.event} — ${BRAND_NAME}`
   const html = buildPasswordResetActivityHtml(payload.event, payload.requesterEmail, payload.occurredAt)
   const results = await Promise.allSettled(admins.map((a) => sendRawEmail(config, a.email, subject, html)))
   let failed = 0
@@ -676,7 +677,7 @@ function buildBallotResetAdminHtml(electionTitle: string, organizerEmail: string
     <tr><td style="padding:0 32px 28px;">
       <table role="presentation" cellpadding="0" cellspacing="0" width="100%"><tr>
         <td style="border-top:1px solid ${C.line};padding-top:18px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:12px;color:${C.muted};line-height:1.6;">
-          You received this because you are an administrator on VoteHost.
+          You received this because you are an administrator on ${BRAND_NAME}.
         </td>
       </tr></table>
     </td></tr>
@@ -757,7 +758,7 @@ function buildClosingSoonStaffHtml(election: StaffElection, votedCount: number, 
     <tr><td style="padding:0 32px 28px;">
       <table role="presentation" cellpadding="0" cellspacing="0" width="100%"><tr>
         <td style="border-top:1px solid ${C.line};padding-top:18px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:12px;color:${C.muted};line-height:1.6;">
-          You received this because you administer or organize elections on VoteHost.
+          You received this because you administer or organize elections on ${BRAND_NAME}.
         </td>
       </tr></table>
     </td></tr>
@@ -785,7 +786,7 @@ function buildCompletedStaffHtml(election: StaffElection, votedCount: number, to
     <tr><td style="padding:0 32px 28px;">
       <table role="presentation" cellpadding="0" cellspacing="0" width="100%"><tr>
         <td style="border-top:1px solid ${C.line};padding-top:18px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:12px;color:${C.muted};line-height:1.6;">
-          You received this because you administer or organize elections on VoteHost.
+          You received this because you administer or organize elections on ${BRAND_NAME}.
         </td>
       </tr></table>
     </td></tr>
@@ -811,7 +812,7 @@ function buildDraftReminderStaffHtml(election: StaffElection): string {
     <tr><td style="padding:0 32px 28px;">
       <table role="presentation" cellpadding="0" cellspacing="0" width="100%"><tr>
         <td style="border-top:1px solid ${C.line};padding-top:18px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:12px;color:${C.muted};line-height:1.6;">
-          You received this because you administer or organize elections on VoteHost.
+          You received this because you administer or organize elections on ${BRAND_NAME}.
         </td>
       </tr></table>
     </td></tr>
@@ -901,7 +902,7 @@ function buildFullTurnoutStaffHtml(election: StaffElection, voted: number, invit
     <tr><td style="padding:0 32px 28px;">
       <table role="presentation" cellpadding="0" cellspacing="0" width="100%"><tr>
         <td style="border-top:1px solid ${C.line};padding-top:18px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:12px;color:${C.muted};line-height:1.6;">
-          You received this because you administer or organize elections on VoteHost.
+          You received this because you administer or organize elections on ${BRAND_NAME}.
         </td>
       </tr></table>
     </td></tr>

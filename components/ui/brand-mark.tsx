@@ -1,4 +1,5 @@
 import { cn } from "@/lib/utils"
+import { BRAND_NAME } from "@/lib/branding"
 
 interface Props {
   size?: number
@@ -26,7 +27,7 @@ export function BrandMark({ size = 22, showWordmark = true, dark = false, classN
         viewBox="0 10 98.03 24"
         xmlns="http://www.w3.org/2000/svg"
         role="img"
-        aria-label="VoteHost Elections"
+        aria-label={BRAND_NAME}
         className={className}
       >
         <rect x="0" y="10" width="24" height="24" rx="5.5" ry="5.5" fill={squareFill} />

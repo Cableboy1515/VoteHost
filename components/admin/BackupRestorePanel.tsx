@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useRef } from "react"
+import { BRAND_NAME } from "@/lib/branding"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -37,7 +38,7 @@ function parseHeaderFromBytes(buf: ArrayBuffer): ParsedHeader {
     view.getUint8(2),
     view.getUint8(3),
   )
-  if (magic !== MAGIC) throw new Error("Not a VoteHost backup file")
+  if (magic !== MAGIC) throw new Error(`Not a ${BRAND_NAME} backup file`)
   const version = view.getUint16(4, false)
   if (version < 1 || version > MAX_FORMAT_VERSION) throw new Error(`Unsupported format version: ${version}`)
   const headerLen = view.getUint16(6, false)
@@ -385,7 +386,7 @@ export default function BackupRestorePanel({ hasActiveElections }: Props) {
     <div>
       <h2 className="text-lg font-semibold mb-1">Backup &amp; Restore</h2>
       <p className="text-zinc-500 text-sm mb-4">
-        Create an encrypted archive of your VoteHost data, or restore from a previous backup. All
+        Create an encrypted archive of your {BRAND_NAME} data, or restore from a previous backup. All
         archives are encrypted with AES-256-GCM using a passphrase you choose.
       </p>
 

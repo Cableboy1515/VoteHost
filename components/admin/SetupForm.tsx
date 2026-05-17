@@ -1,6 +1,7 @@
 "use client"
 
 import { useState } from "react"
+import { BRAND_NAME } from "@/lib/branding"
 import { useRouter } from "next/navigation"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -43,7 +44,7 @@ export default function SetupForm() {
   return (
     <Card className="w-full max-w-sm">
       <CardHeader>
-        <CardTitle>Set up VoteHost</CardTitle>
+        <CardTitle>Set up {BRAND_NAME}</CardTitle>
         <p className="text-sm text-zinc-500">
           Create your admin account. The setup token is the <code className="font-mono bg-zinc-100 px-0.5 rounded text-xs">SETUP_TOKEN</code> value in your server&apos;s <code className="font-mono bg-zinc-100 px-0.5 rounded text-xs">.env</code> file.
         </p>

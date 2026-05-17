@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
+import { BRAND_NAME } from "@/lib/branding"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -183,7 +184,7 @@ const DEFAULT_SETTINGS: EmailSettings = {
   email_preset: "resend",
   resend_api_key: "",
   email_from_address: "",
-  email_from_name: "VoteHost",
+  email_from_name: BRAND_NAME,
   smtp_host: "",
   smtp_port: "587",
   smtp_user: "",
@@ -436,7 +437,7 @@ export default function SettingsPage({ hasActiveElections }: { hasActiveElection
     <div className="p-4 sm:p-8 max-w-xl">
       <h1 className="text-2xl font-bold mb-1">Settings</h1>
       <p className="text-zinc-500 text-sm mb-8">
-        Configure email delivery, security, storage, and backups for this VoteHost install.
+        Configure email delivery, security, storage, and backups for this {BRAND_NAME} install.
       </p>
 
       <h2 className="text-lg font-semibold mb-1">Email Settings</h2>
@@ -472,7 +473,7 @@ export default function SettingsPage({ hasActiveElections }: { hasActiveElection
           <Label htmlFor="email_from_name">From Name</Label>
           <Input
             id="email_from_name"
-            placeholder="VoteHost"
+            placeholder={BRAND_NAME}
             value={settings.email_from_name}
             onChange={(e) => set("email_from_name", e.target.value)}
             className="bg-white"

@@ -24,7 +24,7 @@ Run these before opening the app to the public:
 
 ## Voter reminder cron job
 
-VoteHost does not run a background scheduler — reminders are triggered by an external cron job calling a protected endpoint. Set up a system cron to run every hour:
+VoteHost Elections does not run a background scheduler — reminders are triggered by an external cron job calling a protected endpoint. Set up a system cron to run every hour:
 
 ```
 # Edit with: crontab -e
@@ -40,7 +40,7 @@ VoteHost does not run a background scheduler — reminders are triggered by an e
 
 ## Image storage
 
-Election logo images and candidate avatar photos are uploaded through VoteHost's own server and stored in `public/uploads/` on disk. No external image host, API key, or account is required.
+Election logo images and candidate avatar photos are uploaded through VoteHost Elections' own server and stored in `public/uploads/` on disk. No external image host, API key, or account is required.
 
 **Image sizes:** avatars are resized to 256×256 px JPEG; email logos are scaled to a max width of 1120 px JPEG before upload. Resizing happens in the browser — no large originals are stored.
 
@@ -52,7 +52,7 @@ Election logo images and candidate avatar photos are uploaded through VoteHost's
 
 ## Image retention (reducing long-tail server load)
 
-After an election closes, old emails (invites, reminders, results) may continue to trigger image loads for months as voters revisit their inbox. VoteHost reduces this automatically:
+After an election closes, old emails (invites, reminders, results) may continue to trigger image loads for months as voters revisit their inbox. VoteHost Elections reduces this automatically:
 
 **Automatic sweep (cron-driven):** the existing hourly cron at `/api/reminders/run` also scans for closed elections whose `endsAt` is older than the configured retention period. For each, it overwrites the image files on disk with a 1×1 transparent GIF (~70 bytes). The image URLs remain valid — voters see a blank area instead of a broken-image icon — and cache headers ensure even those 70 bytes are only transferred once per client.
 

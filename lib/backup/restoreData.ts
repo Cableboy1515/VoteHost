@@ -1,4 +1,5 @@
 import { db } from "@/lib/db"
+import { BRAND_NAME } from "@/lib/branding"
 import { CURRENT_SCHEMA_VERSION, type BackupCounts, type BackupType } from "./format"
 import type { BackupData } from "./dumpData"
 
@@ -10,7 +11,7 @@ export async function restoreDatabase(
   if (schemaVersion !== CURRENT_SCHEMA_VERSION) {
     throw new Error(
       `Archive schema version "${schemaVersion}" does not match current version "${CURRENT_SCHEMA_VERSION}". ` +
-        "Upgrade your VoteHost installation to match the archive version before restoring.",
+        `Upgrade your ${BRAND_NAME} installation to match the archive version before restoring.`,
     )
   }
 

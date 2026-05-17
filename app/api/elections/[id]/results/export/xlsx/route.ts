@@ -1,6 +1,7 @@
 export const runtime = "nodejs"
 
 import ExcelJS from "exceljs"
+import { BRAND_NAME } from "@/lib/branding"
 import { requireRole } from "@/lib/auth"
 import { loadExportData, exportFilename } from "@/lib/exportData"
 
@@ -27,7 +28,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
   const { election, totalVoters, votedCount, turnoutPct, questions, voters } = data
 
   const workbook = new ExcelJS.Workbook()
-  workbook.creator = "VoteHost"
+  workbook.creator = BRAND_NAME
   workbook.created = new Date()
 
   // ─── Sheet 1: Results ────────────────────────────────────────────────

@@ -1,5 +1,5 @@
 #!/bin/sh
-# VoteHost install wizard — interactive first-time setup
+# VoteHost Elections install wizard — interactive first-time setup
 # Creates .env and optionally starts the stack.
 set -e
 
@@ -25,7 +25,7 @@ ask() {
 }
 
 # ── Preflight ──────────────────────────────────────────────────────────────────
-printf "\n${BOLD}VoteHost Setup${NC}\n\n"
+printf "\n${BOLD}VoteHost Elections Setup${NC}\n\n"
 
 command -v docker >/dev/null 2>&1 || die "Docker not found. Install Docker Engine: https://docs.docker.com/engine/install/"
 
@@ -59,7 +59,7 @@ POSTGRES_USER=votehost
 POSTGRES_DB=votehost
 
 # ── Public URL / tunnel ────────────────────────────────────────────────────────
-printf "\n${BOLD}How will VoteHost be reachable from the internet?${NC}\n"
+printf "\n${BOLD}How will VoteHost Elections be reachable from the internet?${NC}\n"
 printf "  1) Cloudflare Tunnel  (recommended — requires a domain on Cloudflare DNS)\n"
 printf "  2) Tailscale Funnel   (free, no domain needed — uses *.ts.net URL)\n"
 printf "  3) My own reverse proxy / LAN only (I'll set up the URL myself)\n\n"
@@ -159,19 +159,19 @@ chmod 600 .env
 ok ".env written (mode 600)"
 
 # ── Launch ─────────────────────────────────────────────────────────────────────
-printf "\n${BOLD}Ready to start VoteHost.${NC}\n"
+printf "\n${BOLD}Ready to start VoteHost Elections.${NC}\n"
 if [ -n "$PROFILE" ]; then
   COMPOSE_UP="${COMPOSE_CMD} --profile ${PROFILE} up -d"
 else
   COMPOSE_UP="${COMPOSE_CMD} up -d"
 fi
 
-ask "Start VoteHost now? (y/N)" "y"
+ask "Start VoteHost Elections now? (y/N)" "y"
 case "$REPLY" in
   [yY]*)
     say "Building and starting containers..."
     eval "$COMPOSE_UP --build"
-    ok "VoteHost is running!"
+    ok "VoteHost Elections is running!"
     if [ "$TUNNEL_CHOICE" = "2" ]; then
       warn "Tailscale: check '${COMPOSE_CMD} logs tailscale' for your full *.ts.net URL, then update NEXTAUTH_URL in .env."
     fi

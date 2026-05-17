@@ -1,6 +1,7 @@
 "use client"
 
 import { useState } from "react"
+import { BRAND_NAME } from "@/lib/branding"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -344,7 +345,7 @@ export default function UserManager({ users: initialUsers, currentUserId }: Prop
           <DialogHeader>
             <DialogTitle>Delete &ldquo;{deleteUser?.email}&rdquo;?</DialogTitle>
           </DialogHeader>
-          <p className="text-sm text-zinc-500 py-2">This user will permanently lose access to VoteHost.</p>
+          <p className="text-sm text-zinc-500 py-2">This user will permanently lose access to {BRAND_NAME}.</p>
           <DialogFooter>
             <DialogClose render={<Button variant="outline" />}>Cancel</DialogClose>
             <Button variant="destructive" onClick={handleDelete} disabled={deleting}>

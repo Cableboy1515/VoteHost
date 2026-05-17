@@ -1,3 +1,5 @@
+import { BRAND_NAME } from "@/lib/branding"
+
 export const MAGIC = Buffer.from("VHBK", "ascii")
 export const FORMAT_VERSION = 2  // v2 adds GCM AAD over the outer header
 export const CURRENT_SCHEMA_VERSION = "1"
@@ -45,10 +47,10 @@ export function packHeader(header: BackupHeader): Buffer {
 }
 
 export function unpackHeader(buf: Buffer): { header: BackupHeader; dataOffset: number; formatVersion: number } {
-  if (buf.length < 8) throw new Error("File too small to be a VoteHost backup")
+  if (buf.length < 8) throw new Error(`File too small to be a ${BRAND_NAME} backup`)
 
   const magic = buf.slice(0, 4)
-  if (!magic.equals(MAGIC)) throw new Error("Not a VoteHost backup file (bad magic bytes)")
+  if (!magic.equals(MAGIC)) throw new Error(`Not a ${BRAND_NAME} backup file (bad magic bytes)`)
 
   const formatVersion = buf.readUInt16BE(4)
   if (formatVersion < 1 || formatVersion > FORMAT_VERSION)

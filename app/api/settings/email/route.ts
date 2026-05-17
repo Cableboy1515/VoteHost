@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server"
+import { BRAND_NAME } from "@/lib/branding"
 import { requireRole } from "@/lib/auth"
 import { db } from "@/lib/db"
 import { csrfCheck } from "@/lib/csrf"
@@ -33,7 +34,7 @@ export async function GET() {
       email_preset:       s.email_preset       ?? (s.email_provider === "smtp" ? "smtp" : "resend"),
       resend_api_key:     s.resend_api_key     ? SENTINEL : "",
       email_from_address: s.email_from_address ?? "",
-      email_from_name:    s.email_from_name    ?? "VoteHost",
+      email_from_name:    s.email_from_name    ?? BRAND_NAME,
       smtp_host:          s.smtp_host          ?? "",
       smtp_port:          s.smtp_port          ?? "587",
       smtp_user:          s.smtp_user          ?? "",
@@ -68,7 +69,7 @@ export async function PUT(req: Request) {
       upsert("email_preset",       body.email_preset       ?? "resend",  "email_preset"),
       upsert("resend_api_key",     body.resend_api_key,                  "resend_api_key"),
       upsert("email_from_address", body.email_from_address ?? "",        "email_from_address"),
-      upsert("email_from_name",    body.email_from_name    ?? "VoteHost", "email_from_name"),
+      upsert("email_from_name",    body.email_from_name    ?? BRAND_NAME, "email_from_name"),
       upsert("smtp_host",          body.smtp_host          ?? "",        "smtp_host"),
       upsert("smtp_port",          body.smtp_port          ?? "587",     "smtp_port"),
       upsert("smtp_user",          body.smtp_user          ?? "",        "smtp_user"),

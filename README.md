@@ -1,8 +1,10 @@
-# VoteHost
+# VoteHost Elections
 
-VoteHost is a self-hosted election platform for organizations that need secure, private voting without relying on third-party services. Admins manage elections and voters through a web panel; voters receive a magic link by email and cast their ballot anonymously without creating an account.
+VoteHost Elections is a self-hosted election platform for organizations that need secure, private voting without relying on third-party services. Admins manage elections and voters through a web panel; voters receive a magic link by email and cast their ballot anonymously without creating an account.
 
 Designed to run on a Raspberry Pi, mini PC, or any Linux server — single `docker compose up` and you're live.
+
+> Source code lives at [github.com/Cableboy1515/VoteHost](https://github.com/Cableboy1515/VoteHost) — the repository keeps the original short name.
 
 ---
 
@@ -85,7 +87,7 @@ The app container will wait for Postgres to be ready, apply the database schema 
 docker compose logs -f app
 ```
 
-You should see `Postgres is ready`, `Schema applied`, and `Starting VoteHost` within about 30 seconds.
+You should see `Postgres is ready`, `Schema applied`, and `Starting VoteHost Elections` within about 30 seconds.
 
 **5. Create your admin account**
 
@@ -112,7 +114,7 @@ Requires a domain you control on Cloudflare DNS. The tunnel is free; domain regi
    CLOUDFLARE_TUNNEL_TOKEN=<paste only the eyJ... token>
    NEXTAUTH_URL=https://vote.example.com
    ```
-4. In the Cloudflare dashboard, configure a Public Hostname for your domain. Set the origin **URL** to `http://app:3000` — `app` is the docker-compose service name. Do **not** use `http://localhost:3000`; inside the cloudflared container, `localhost` refers to cloudflared itself, not VoteHost.
+4. In the Cloudflare dashboard, configure a Public Hostname for your domain. Set the origin **URL** to `http://app:3000` — `app` is the docker-compose service name. Do **not** use `http://localhost:3000`; inside the cloudflared container, `localhost` refers to cloudflared itself, not VoteHost Elections.
 5. Start with the cloudflare profile:
    ```bash
    docker compose --profile cloudflare up -d
@@ -149,7 +151,7 @@ Leave the tunnel profiles unused. The app is at `http://127.0.0.1:3000` on the h
 
 ## Email setup
 
-VoteHost sends email for ballot invitations, reminders, and results announcements. Configure email in the admin panel under **Settings** after your first login.
+VoteHost Elections sends email for ballot invitations, reminders, and results announcements. Configure email in the admin panel under **Settings** after your first login.
 
 ### SMTP (recommended for most self-hosters)
 
