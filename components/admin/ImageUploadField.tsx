@@ -18,7 +18,6 @@ export default function ImageUploadField({ preset, url, setUrl, deleteUrl, setDe
   const fileRef = useRef<HTMLInputElement>(null)
   const [uploading, setUploading] = useState(false)
   const [error, setError] = useState("")
-  const [hovered, setHovered] = useState(false)
   const [dragging, setDragging] = useState(false)
 
   const isAvatar = preset === "avatar"
@@ -63,14 +62,9 @@ export default function ImageUploadField({ preset, url, setUrl, deleteUrl, setDe
   if (isAvatar) {
     return (
       <div className="flex flex-col gap-1.5">
-        <div
-          className="relative"
-          style={{ width: 48, height: 48 }}
-          onMouseEnter={() => setHovered(true)}
-          onMouseLeave={() => setHovered(false)}
-        >
-          {url ? (
-            <>
+        {url ? (
+          <div className="flex items-center gap-3">
+            <div className="relative flex-shrink-0" style={{ width: 48, height: 48 }}>
               <img
                 src={url}
                 alt=""
@@ -81,31 +75,6 @@ export default function ImageUploadField({ preset, url, setUrl, deleteUrl, setDe
                   transition: "opacity 0.15s",
                 }}
               />
-              {hovered && !disabled && !uploading && (
-                <div
-                  className="absolute inset-0 rounded-full flex items-center justify-center gap-1.5"
-                  style={{ background: "rgba(0,0,0,0.52)" }}
-                >
-                  <button
-                    type="button"
-                    onClick={pick}
-                    title="Change photo"
-                    className="flex items-center justify-center rounded-full p-1 transition-colors hover:bg-white/20"
-                    style={{ color: "#fff", background: "none", border: "none", cursor: "pointer" }}
-                  >
-                    <Pencil size={12} />
-                  </button>
-                  <button
-                    type="button"
-                    onClick={handleRemove}
-                    title="Remove photo"
-                    className="flex items-center justify-center rounded-full p-1 transition-colors hover:bg-white/20"
-                    style={{ color: "#fff", background: "none", border: "none", cursor: "pointer" }}
-                  >
-                    <Trash2 size={12} />
-                  </button>
-                </div>
-              )}
               {uploading && (
                 <div className="absolute inset-0 rounded-full flex items-center justify-center">
                   <div
@@ -114,8 +83,42 @@ export default function ImageUploadField({ preset, url, setUrl, deleteUrl, setDe
                   />
                 </div>
               )}
-            </>
-          ) : (
+            </div>
+            {!disabled && (
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={pick}
+                  disabled={uploading}
+                  className="text-[13px] font-medium px-3 py-1.5 rounded-[8px] transition-colors"
+                  style={{
+                    border: "1px solid var(--vh-line-strong)",
+                    background: "var(--vh-surface)",
+                    color: uploading ? "var(--vh-muted)" : "var(--vh-ink-soft)",
+                    cursor: uploading ? "not-allowed" : "pointer",
+                  }}
+                >
+                  {uploading ? "Uploading…" : "Change"}
+                </button>
+                <button
+                  type="button"
+                  onClick={handleRemove}
+                  disabled={uploading}
+                  className="text-[13px] font-medium px-3 py-1.5 rounded-[8px] transition-colors"
+                  style={{
+                    border: "1px solid var(--vh-line-strong)",
+                    background: "var(--vh-surface)",
+                    color: "var(--vh-danger, #e11d48)",
+                    cursor: uploading ? "not-allowed" : "pointer",
+                  }}
+                >
+                  Remove
+                </button>
+              </div>
+            )}
+          </div>
+        ) : (
+          <div className="relative" style={{ width: 48, height: 48 }}>
             <button
               type="button"
               onClick={pick}
@@ -134,8 +137,8 @@ export default function ImageUploadField({ preset, url, setUrl, deleteUrl, setDe
                 : <Pencil size={13} />
               }
             </button>
-          )}
-        </div>
+          </div>
+        )}
         {error && <p className="text-[11.5px]" style={{ color: "var(--vh-danger, #e11d48)" }}>{error}</p>}
         {hiddenInput}
       </div>
