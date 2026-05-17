@@ -1,5 +1,5 @@
 export const MAGIC = Buffer.from("VHBK", "ascii")
-export const FORMAT_VERSION = 1
+export const FORMAT_VERSION = 2  // v2 adds GCM AAD over the outer header
 export const CURRENT_SCHEMA_VERSION = "1"
 export const GCM_TAG_LENGTH = 16
 
@@ -44,14 +44,15 @@ export function packHeader(header: BackupHeader): Buffer {
   return out
 }
 
-export function unpackHeader(buf: Buffer): { header: BackupHeader; dataOffset: number } {
+export function unpackHeader(buf: Buffer): { header: BackupHeader; dataOffset: number; formatVersion: number } {
   if (buf.length < 8) throw new Error("File too small to be a VoteHost backup")
 
   const magic = buf.slice(0, 4)
   if (!magic.equals(MAGIC)) throw new Error("Not a VoteHost backup file (bad magic bytes)")
 
-  const version = buf.readUInt16BE(4)
-  if (version !== FORMAT_VERSION) throw new Error(`Unsupported backup format version: ${version}`)
+  const formatVersion = buf.readUInt16BE(4)
+  if (formatVersion < 1 || formatVersion > FORMAT_VERSION)
+    throw new Error(`Unsupported backup format version: ${formatVersion}`)
 
   const headerLen = buf.readUInt16BE(6)
   if (buf.length < 8 + headerLen) throw new Error("Backup file is truncated (header incomplete)")
@@ -59,5 +60,5 @@ export function unpackHeader(buf: Buffer): { header: BackupHeader; dataOffset: n
   const headerJson = buf.slice(8, 8 + headerLen).toString("utf8")
   const header = JSON.parse(headerJson) as BackupHeader
 
-  return { header, dataOffset: 8 + headerLen }
+  return { header, dataOffset: 8 + headerLen, formatVersion }
 }

@@ -75,7 +75,7 @@ export async function POST(req: Request) {
   if (uploadsExist) {
     const files = await fs.readdir(uploadsDir).catch(() => [] as string[])
     for (const filename of files) {
-      if (dataJson.includes(filename)) {
+      if (dataJson.includes(`/uploads/${filename}`)) {
         try {
           const buf = await fs.readFile(path.join(uploadsDir, filename))
           uploadFiles.push({ name: filename, buf })
@@ -102,8 +102,6 @@ export async function POST(req: Request) {
 
   const zipBuffer = await buildZip(dataJson, manifestJson, uploadFiles)
 
-  const ciphertextWithTag = await encryptZip(passphrase, zipBuffer, salt, iv)
-
   const header: BackupHeader = {
     type,
     schemaVersion: "1",
@@ -111,7 +109,7 @@ export async function POST(req: Request) {
     createdAt,
     kdf: {
       name: "scrypt",
-      N: 16384,
+      N: 131072,
       r: 8,
       p: 1,
       saltB64: salt.toString("base64"),
@@ -120,7 +118,10 @@ export async function POST(req: Request) {
     counts,
   }
 
+  // Pack header first so its bytes can serve as GCM AAD — binds the plaintext header
+  // to the ciphertext, preventing undetected tampering of type/schemaVersion fields.
   const headerBuf = packHeader(header)
+  const ciphertextWithTag = await encryptZip(passphrase, zipBuffer, salt, iv, headerBuf)
   const vhbak = Buffer.concat([headerBuf, ciphertextWithTag])
 
   const dateStr = new Date().toISOString().slice(0, 10)
