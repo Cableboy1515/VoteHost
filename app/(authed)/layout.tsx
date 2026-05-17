@@ -121,6 +121,15 @@ export default function AuthedLayout({ children }: { children: React.ReactNode }
                 {identity ? identity.role.toLowerCase() : ""}
               </div>
             </div>
+            <GuardLink
+              href="/settings/security"
+              className="text-sm transition-colors w-full text-left px-3 py-2 rounded-[10px] block"
+              style={{ color: "var(--vh-muted)" }}
+              onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = "var(--vh-ink)"; (e.currentTarget as HTMLElement).style.background = "var(--vh-surface-2)" }}
+              onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = "var(--vh-muted)"; (e.currentTarget as HTMLElement).style.background = "transparent" }}
+            >
+              Change password
+            </GuardLink>
             <button
               onClick={handleSignOut}
               className="text-sm transition-colors w-full text-left px-3 py-2 rounded-[10px]"

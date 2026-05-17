@@ -150,6 +150,8 @@ model AdminUser {
   invitedAt                DateTime?
   invitedById              String?
   passwordResetRequestedAt DateTime?
+  passwordResetTokenHash   String?   @unique
+  passwordResetExpiresAt   DateTime?
 }
 
 model Setting {

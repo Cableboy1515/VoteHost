@@ -478,25 +478,73 @@ function buildAdminInviteHtml(p: AdminInvitePayload): string {
   `)
 }
 
-function buildPasswordResetRequestHtml(requesterEmail: string): string {
-  const email = escapeHtml(requesterEmail)
-  const usersUrl = escapeHtml(absolutizeUrl("/users"))
+function buildPasswordResetLinkHtml(recipientEmail: string, resetLink: string, expiresAt: Date): string {
+  const email = escapeHtml(recipientEmail)
+  const link = escapeHtml(resetLink)
+  const expiry = expiresAt.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", timeZoneName: "short" })
   return emailWrapper(`
     ${brandRow()}
     <tr><td style="padding:24px 32px 14px;">
-      <h1 style="margin:0 0 14px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:22px;font-weight:600;color:${C.ink};letter-spacing:-0.02em;">Password reset requested</h1>
+      <h1 style="margin:0 0 14px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:22px;font-weight:600;color:${C.ink};letter-spacing:-0.02em;">Reset your password</h1>
       <p style="margin:0 0 14px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:14.5px;color:${C.inkSoft};line-height:1.6;">
-        <strong style="color:${C.ink};">${email}</strong> has requested a password reset.
-        Visit the Users screen to send them a new setup link.
+        We received a password reset request for <strong style="color:${C.ink};">${email}</strong>.
+        Click below to choose a new password.
       </p>
     </td></tr>
     <tr><td style="padding:0 32px 14px;">
-      <a href="${usersUrl}" style="display:inline-block;background:${C.accent};color:#ffffff;text-decoration:none;padding:14px 28px;border-radius:10px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:15px;font-weight:500;">Go to Users →</a>
+      <a href="${link}" style="display:inline-block;background:${C.accent};color:#ffffff;text-decoration:none;padding:14px 28px;border-radius:10px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:15px;font-weight:500;">Reset my password →</a>
+    </td></tr>
+    <tr><td style="padding:0 32px 20px;">
+      <p style="margin:0 0 4px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:12.5px;color:${C.muted};">Or paste this link into your browser:</p>
+      <div style="font-family:'Courier New',Courier,monospace;font-size:12px;color:${C.accentStrong};word-break:break-all;">${link}</div>
     </td></tr>
     <tr><td style="padding:0 32px 28px;">
       <table role="presentation" cellpadding="0" cellspacing="0" width="100%"><tr>
         <td style="border-top:1px solid ${C.line};padding-top:18px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:12px;color:${C.muted};line-height:1.6;">
-          You received this because you are an administrator on VoteHost.
+          🔒 This link expires at ${expiry}. If you didn't request a password reset, you can safely ignore this email — your password has not changed.
+        </td>
+      </tr></table>
+    </td></tr>
+  `)
+}
+
+function buildPasswordChangedNoticeHtml(recipientEmail: string, changedAt: Date): string {
+  const email = escapeHtml(recipientEmail)
+  const when = changedAt.toLocaleString("en-US", { dateStyle: "medium", timeStyle: "short" })
+  return emailWrapper(`
+    ${brandRow()}
+    <tr><td style="padding:24px 32px 14px;">
+      <h1 style="margin:0 0 14px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:22px;font-weight:600;color:${C.ink};letter-spacing:-0.02em;">Your password was changed</h1>
+      <p style="margin:0 0 14px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:14.5px;color:${C.inkSoft};line-height:1.6;">
+        The password for <strong style="color:${C.ink};">${email}</strong> was changed on <strong style="color:${C.ink};">${when}</strong>.
+      </p>
+      <p style="margin:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:14.5px;color:${C.inkSoft};line-height:1.6;">
+        If you made this change, no action is needed. If you didn't, contact your administrator immediately.
+      </p>
+    </td></tr>
+  `)
+}
+
+function buildPasswordResetActivityHtml(event: "requested" | "completed", requesterEmail: string, occurredAt: Date): string {
+  const email = escapeHtml(requesterEmail)
+  const when = occurredAt.toLocaleString("en-US", { dateStyle: "medium", timeStyle: "short" })
+  const verb = event === "requested" ? "requested" : "completed"
+  const usersUrl = escapeHtml(absolutizeUrl("/users"))
+  return emailWrapper(`
+    ${brandRow()}
+    <tr><td style="padding:24px 32px 14px;">
+      <h1 style="margin:0 0 14px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:22px;font-weight:600;color:${C.ink};letter-spacing:-0.02em;">Password reset ${verb}</h1>
+      <p style="margin:0 0 14px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:14.5px;color:${C.inkSoft};line-height:1.6;">
+        A password reset was <strong style="color:${C.ink};">${verb}</strong> for account <strong style="color:${C.ink};">${email}</strong> at ${when}.
+      </p>
+    </td></tr>
+    <tr><td style="padding:0 32px 14px;">
+      <a href="${usersUrl}" style="display:inline-block;background:${C.accent};color:#ffffff;text-decoration:none;padding:14px 28px;border-radius:10px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:15px;font-weight:500;">View Users →</a>
+    </td></tr>
+    <tr><td style="padding:0 32px 28px;">
+      <table role="presentation" cellpadding="0" cellspacing="0" width="100%"><tr>
+        <td style="border-top:1px solid ${C.line};padding-top:18px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:12px;color:${C.muted};line-height:1.6;">
+          You received this because password reset notifications are enabled on this VoteHost installation.
         </td>
       </tr></table>
     </td></tr>
@@ -539,34 +587,48 @@ export async function sendAdminInvite(payload: AdminInvitePayload): Promise<{ er
   )
 }
 
-export async function sendPasswordResetRequest(requesterEmail: string): Promise<void> {
+export async function sendPasswordResetLink(payload: {
+  recipientEmail: string
+  resetLink: string
+  expiresAt: Date
+}): Promise<{ error: string | null }> {
   const config = await getAllEmailConfig()
-  const admins = await db.adminUser.findMany({
-    where: { role: "ADMIN" },
-    select: { email: true },
-  })
-  if (admins.length === 0) {
-    console.warn("[sendPasswordResetRequest] No ADMIN users found — notification not sent for:", requesterEmail)
-    return
-  }
-  const subject = `Password reset requested — ${requesterEmail}`
-  const html = buildPasswordResetRequestHtml(requesterEmail)
+  return sendRawEmail(
+    config,
+    payload.recipientEmail,
+    "Reset your VoteHost password",
+    buildPasswordResetLinkHtml(payload.recipientEmail, payload.resetLink, payload.expiresAt),
+  )
+}
+
+export async function sendPasswordChangedNotice(payload: {
+  recipientEmail: string
+  changedAt: Date
+}): Promise<void> {
+  const config = await getAllEmailConfig()
+  const result = await sendRawEmail(
+    config,
+    payload.recipientEmail,
+    "Your VoteHost password was changed",
+    buildPasswordChangedNoticeHtml(payload.recipientEmail, payload.changedAt),
+  )
+  if (result.error) console.error("[sendPasswordChangedNotice] failed:", result.error)
+}
+
+export async function sendPasswordResetActivityToAdmins(payload: {
+  event: "requested" | "completed"
+  requesterEmail: string
+  occurredAt: Date
+}): Promise<void> {
+  const config = await getAllEmailConfig()
+  const admins = await db.adminUser.findMany({ where: { role: "ADMIN" }, select: { email: true } })
+  if (admins.length === 0) return
+  const subject = `Password reset ${payload.event} — VoteHost`
+  const html = buildPasswordResetActivityHtml(payload.event, payload.requesterEmail, payload.occurredAt)
   const results = await Promise.allSettled(admins.map((a) => sendRawEmail(config, a.email, subject, html)))
-  let sent = 0
   let failed = 0
-  results.forEach((result, i) => {
-    const recipient = admins[i].email
-    if (result.status === "rejected") {
-      console.error(`[sendPasswordResetRequest] send threw for ${recipient}:`, result.reason)
-      failed++
-    } else if (result.value.error !== null) {
-      console.error(`[sendPasswordResetRequest] send failed for ${recipient}:`, result.value.error)
-      failed++
-    } else {
-      sent++
-    }
-  })
-  console.log(`[sendPasswordResetRequest] requester=${requesterEmail} sent=${sent} failed=${failed}`)
+  results.forEach((r) => { if (r.status === "rejected" || r.value.error !== null) failed++ })
+  if (failed > 0) console.error(`[sendPasswordResetActivityToAdmins] ${failed}/${admins.length} failed`)
 }
 
 type BallotResetVoter = { name: string; email: string; token: string }

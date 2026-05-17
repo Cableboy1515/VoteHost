@@ -154,12 +154,12 @@ function LoginForm() {
               >
                 {resetSent ? (
                   <p className="text-[12.5px]" style={{ color: "var(--vh-ink-soft)" }}>
-                    If your account exists, an administrator has been notified.
+                    If your account exists, we&apos;ve emailed you a reset link. It expires in 1 hour.
                   </p>
                 ) : (
                   <div className="flex flex-col gap-2">
                     <p className="text-[12.5px]" style={{ color: "var(--vh-muted)" }}>
-                      Enter your email and an administrator will be notified to send you a new setup link.
+                      Enter your email and we&apos;ll send you a link to reset your password.
                     </p>
                     <input
                       type="email"
@@ -179,7 +179,7 @@ function LoginForm() {
                       className="text-[12.5px] font-medium py-2 rounded-[8px] transition-colors disabled:opacity-60"
                       style={{ background: "var(--vh-accent)", color: "#fff" }}
                     >
-                      {resetLoading ? "Sending…" : "Send request"}
+                      {resetLoading ? "Sending…" : "Send reset link"}
                     </button>
                   </div>
                 )}
