@@ -6,6 +6,7 @@ import { hashResetToken } from "@/lib/passwordReset"
 import { csrfCheck } from "@/lib/csrf"
 import { rateLimit, rateLimitResponse } from "@/lib/rateLimit"
 import { sendPasswordChangedNotice, sendPasswordResetActivityToAdmins } from "@/lib/email"
+import { createSession, COOKIE, SESSION_COOKIE_OPTIONS } from "@/lib/auth"
 
 export async function GET(_req: Request, { params }: { params: Promise<{ token: string }> }) {
   const { token } = await params
@@ -48,7 +49,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ token: 
   const passwordHash = await bcrypt.hash(parsed.data.password, 12)
   const changedAt = new Date()
 
-  await db.adminUser.update({
+  const updatedUser = await db.adminUser.update({
     where: { id: user.id },
     data: {
       passwordHash,
@@ -58,7 +59,12 @@ export async function POST(req: Request, { params }: { params: Promise<{ token: 
       passwordChangedAt: changedAt,
       tokenVersion: { increment: 1 },
     },
+    select: { id: true, email: true, role: true, tokenVersion: true },
   })
+
+  const sessionToken = await createSession(updatedUser)
+  const res = NextResponse.json({ ok: true })
+  res.cookies.set(COOKIE, sessionToken, SESSION_COOKIE_OPTIONS)
 
   await sendPasswordChangedNotice({ recipientEmail: user.email, changedAt })
     .catch((err) => console.error("[reset] sendPasswordChangedNotice threw:", err))
@@ -71,5 +77,5 @@ export async function POST(req: Request, { params }: { params: Promise<{ token: 
       .catch((err) => console.error("[reset] sendPasswordResetActivityToAdmins threw:", err))
   }
 
-  return new NextResponse(null, { status: 204 })
+  return res
 }

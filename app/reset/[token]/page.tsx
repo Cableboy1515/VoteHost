@@ -1,12 +1,11 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { useRouter, useParams } from "next/navigation"
+import { useParams } from "next/navigation"
 import { BrandMark } from "@/components/ui/brand-mark"
 import { passwordStrength, STRENGTH_COLOR } from "@/lib/password-strength"
 
 export default function ResetPasswordPage() {
-  const router = useRouter()
   const { token } = useParams<{ token: string }>()
 
   const [email, setEmail] = useState<string | null>(null)
@@ -43,8 +42,8 @@ export default function ResetPasswordPage() {
       body: JSON.stringify({ password }),
     })
     setSubmitting(false)
-    if (res.ok || res.status === 204) {
-      router.push("/login?status=ready")
+    if (res.ok) {
+      window.location.href = "/"
     } else {
       const d = await res.json().catch(() => ({}))
       setError(d.error ?? "Something went wrong")

@@ -43,7 +43,7 @@ export async function verifyAdminCredentials(email: string, password: string): P
   return user
 }
 
-export async function createSession(user: AdminUser): Promise<string> {
+export async function createSession(user: Pick<AdminUser, "id" | "email" | "role" | "tokenVersion">): Promise<string> {
   return new SignJWT({
     sub: user.id,
     email: user.email,

@@ -4,6 +4,7 @@ import { db } from "@/lib/db"
 import { SetupAccountSchema } from "@/lib/validations"
 import { hashInvitationToken } from "@/lib/invitations"
 import { csrfCheck } from "@/lib/csrf"
+import { createSession, COOKIE, SESSION_COOKIE_OPTIONS } from "@/lib/auth"
 
 export async function GET(_req: Request, { params }: { params: Promise<{ token: string }> }) {
   const { token } = await params
@@ -41,7 +42,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ token: 
 
   const passwordHash = await bcrypt.hash(parsed.data.password, 12)
 
-  await db.adminUser.update({
+  const updatedUser = await db.adminUser.update({
     where: { id: user.id },
     data: {
       passwordHash,
@@ -51,7 +52,11 @@ export async function POST(req: Request, { params }: { params: Promise<{ token: 
       passwordChangedAt: new Date(),
       tokenVersion: { increment: 1 },
     },
+    select: { id: true, email: true, role: true, tokenVersion: true },
   })
 
-  return new NextResponse(null, { status: 204 })
+  const sessionToken = await createSession(updatedUser)
+  const res = NextResponse.json({ ok: true })
+  res.cookies.set(COOKIE, sessionToken, SESSION_COOKIE_OPTIONS)
+  return res
 }
