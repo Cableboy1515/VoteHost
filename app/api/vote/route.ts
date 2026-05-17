@@ -63,7 +63,7 @@ export async function POST(req: Request) {
         return NextResponse.json({ error: "Invalid option" }, { status: 400 })
       }
     } else if (answer.type === "MULTIPLE_CHOICE") {
-      const max = question.maxSelections ?? 1
+      const max = question.maxSelections ?? question.options.length
       const unique = [...new Set(answer.optionIds)]
       if (unique.length > max) {
         return NextResponse.json(
