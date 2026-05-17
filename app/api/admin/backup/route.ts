@@ -12,7 +12,13 @@ import { encryptZip, generateSalt, generateIV } from "@/lib/backup/crypto"
 import { createHash } from "node:crypto"
 
 async function buildZip(dataJson: string, manifestJson: string, uploadFiles: { name: string; buf: Buffer }[]): Promise<Buffer> {
-  const { ZipArchive } = await import("archiver")
+  // @types/archiver@7 doesn't include v8's named class exports; remove cast when @types/archiver@8 ships
+  const { ZipArchive } = (await import("archiver")) as unknown as {
+    ZipArchive: new (opts?: { zlib?: { level?: number } }) => NodeJS.ReadableStream & {
+      append(src: Buffer | string | NodeJS.ReadableStream, data: { name: string }): void
+      finalize(): void
+    }
+  }
   return new Promise((resolve, reject) => {
     const archive = new ZipArchive({ zlib: { level: 6 } })
     const passThrough = new PassThrough()
