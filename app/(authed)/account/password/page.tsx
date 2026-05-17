@@ -1,10 +1,10 @@
 import { redirect } from "next/navigation"
 import { requireRole } from "@/lib/auth"
-import SecurityPanel from "@/components/admin/SecurityPanel"
+import PasswordPanel from "@/components/account/PasswordPanel"
 
-export default async function SecuritySettingsPage() {
+export default async function ChangePasswordPage() {
   const session = await requireRole("VIEWER")
   if (!session) redirect("/login")
 
-  return <SecurityPanel role={session.role} />
+  return <PasswordPanel />
 }

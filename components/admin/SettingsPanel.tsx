@@ -6,6 +6,77 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import BackupRestorePanel from "@/components/admin/BackupRestorePanel"
 
+function SecuritySettings() {
+  const [notifyAdmins, setNotifyAdmins] = useState(false)
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
+  const [status, setStatus] = useState<"idle" | "saved" | "error">("idle")
+
+  useEffect(() => {
+    fetch("/api/settings/security")
+      .then((r) => r.json())
+      .then((d) => { setNotifyAdmins(d.notifyAdminsOnReset ?? false); setLoading(false) })
+      .catch(() => setLoading(false))
+  }, [])
+
+  async function handleToggle(checked: boolean) {
+    setSaving(true)
+    setStatus("idle")
+    try {
+      const res = await fetch("/api/settings/security", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ notifyAdminsOnReset: checked }),
+      })
+      if (res.ok) {
+        setNotifyAdmins(checked)
+        setStatus("saved")
+        setTimeout(() => setStatus("idle"), 3000)
+      } else {
+        setStatus("error")
+      }
+    } catch {
+      setStatus("error")
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <div>
+      <h2 className="text-lg font-semibold mb-1">Security</h2>
+      <p className="text-zinc-500 text-sm mb-4">
+        When enabled, all administrators will receive an email whenever a password reset is requested
+        or completed by any user. Useful as an audit signal for security-conscious installations. Off by default.
+      </p>
+      {loading ? (
+        <p className="text-zinc-400 text-sm">Loading…</p>
+      ) : (
+        <div className="flex items-start gap-3">
+          <button
+            role="switch"
+            aria-checked={notifyAdmins}
+            disabled={saving}
+            onClick={() => handleToggle(!notifyAdmins)}
+            className="mt-0.5 relative inline-flex h-5 w-9 flex-shrink-0 rounded-full border-2 border-transparent transition-colors focus:outline-none disabled:opacity-60"
+            style={{ background: notifyAdmins ? "var(--vh-accent)" : "var(--vh-surface-3)" }}
+          >
+            <span
+              className="pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform"
+              style={{ transform: notifyAdmins ? "translateX(16px)" : "translateX(0)" }}
+            />
+          </button>
+          <div>
+            <p className="text-sm font-medium text-zinc-700">Email administrators about password reset activity</p>
+            {status === "saved" && <p className="text-xs text-green-600 mt-0.5">Saved.</p>}
+            {status === "error" && <p className="text-xs text-red-600 mt-0.5">Failed to save.</p>}
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
 function StorageSettings() {
   const [days, setDays] = useState("30")
   const [loading, setLoading] = useState(true)
@@ -365,7 +436,7 @@ export default function SettingsPage({ hasActiveElections }: { hasActiveElection
     <div className="p-4 sm:p-8 max-w-xl">
       <h1 className="text-2xl font-bold mb-1">Settings</h1>
       <p className="text-zinc-500 text-sm mb-8">
-        Configure email delivery, storage, and backups for this VoteHost install.
+        Configure email delivery, security, storage, and backups for this VoteHost install.
       </p>
 
       <h2 className="text-lg font-semibold mb-1">Email Settings</h2>
@@ -548,6 +619,9 @@ export default function SettingsPage({ hasActiveElections }: { hasActiveElection
       {testStatus === "error" && (
         <p className="text-sm text-red-600 mt-3">Failed: {testError}</p>
       )}
+
+      <hr className="my-8 border-zinc-200" />
+      <SecuritySettings />
 
       <hr className="my-8 border-zinc-200" />
       <StorageSettings />
