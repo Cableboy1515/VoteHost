@@ -6,6 +6,7 @@ import { db } from "@/lib/db"
 import { ElectionBaseSchema, ElectionSchema } from "@/lib/validations"
 import { sendElectionCompletedStaffNotice } from "@/lib/email"
 import { getStaffRecipients } from "@/lib/staffRecipients"
+import { canActivate, CANNOT_ACTIVATE_MESSAGES } from "@/lib/canActivate"
 
 const UPLOADS_DIR = join(process.cwd(), "public", "uploads")
 
@@ -47,9 +48,32 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
 
   const before = await db.election.findUnique({
     where: { id },
-    select: { startsAt: true, endsAt: true, status: true, completionEmailSentAt: true },
+    select: {
+      startsAt: true,
+      endsAt: true,
+      status: true,
+      completionEmailSentAt: true,
+      _count: { select: { questions: true, voters: true } },
+    },
   })
   if (!before) return NextResponse.json({ error: "Not found" }, { status: 404 })
+
+  // Validate DRAFT → ACTIVE transition via the settings form path.
+  const transitioningToActive =
+    parsed.data.status === "ACTIVE" && before.status === "DRAFT"
+  if (transitioningToActive) {
+    const endsAt = parsed.data.endsAt !== undefined
+      ? (parsed.data.endsAt ? new Date(parsed.data.endsAt) : null)
+      : before.endsAt
+    const check = canActivate({
+      questionCount: before._count.questions,
+      voterCount: before._count.voters,
+      endsAt,
+    })
+    if (!check.ok) {
+      return NextResponse.json({ error: CANNOT_ACTIVATE_MESSAGES[check.reason] }, { status: 409 })
+    }
+  }
 
   const updates: Record<string, unknown> = { ...parsed.data }
 
@@ -61,12 +85,25 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     if (changed) updates.endsSoonNoticeSentAt = null
   }
 
-  // Re-arm draft-reminder if startsAt is being moved
+  // Re-arm draft-reminder and auto-activate failed notice if startsAt is being moved
   if ("startsAt" in parsed.data) {
     const next = parsed.data.startsAt ? new Date(parsed.data.startsAt) : null
     const prev = before.startsAt
     const changed = (next?.getTime() ?? null) !== (prev?.getTime() ?? null)
-    if (changed) updates.startReminderSentAt = null
+    if (changed) {
+      updates.startReminderSentAt = null
+      updates.autoActivateFailedNoticeSentAt = null
+    }
+  }
+
+  // Stamp activation audit fields on DRAFT → ACTIVE via settings form.
+  if (transitioningToActive) {
+    const now = new Date()
+    updates.activatedAt = now
+    updates.activatedById = session.sub
+    if (!before.startsAt && !parsed.data.startsAt) {
+      updates.startsAt = now
+    }
   }
 
   // Detect manual close transition so we fire the staff completion email inline

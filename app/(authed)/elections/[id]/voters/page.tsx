@@ -12,7 +12,10 @@ export default async function VotersPage({ params }: { params: Promise<{ id: str
 
   const election = await db.election.findUnique({
     where: { id },
-    include: { voters: { orderBy: { name: "asc" } } },
+    include: {
+      voters: { orderBy: { name: "asc" } },
+      _count: { select: { questions: true } },
+    },
   })
   if (!election) notFound()
 
@@ -34,6 +37,9 @@ export default async function VotersPage({ params }: { params: Promise<{ id: str
         electionId={id}
         electionStatus={election.status}
         electionStartsAt={election.startsAt?.toISOString() ?? null}
+        electionAutoActivate={election.autoActivate}
+        electionTitle={election.title}
+        questionCount={election._count.questions}
         initialVoters={election.voters.map((v) => ({
           id: v.id,
           name: v.name,

@@ -36,11 +36,11 @@ export async function POST(
   if (voter.hasVoted) {
     return NextResponse.json({ error: "Voter has already voted" }, { status: 409 })
   }
-  if (voter.election.status === "DRAFT" && !voter.election.startsAt) {
-    return NextResponse.json({ error: "Set a start date before sending invitations." }, { status: 409 })
-  }
-  if (voter.election.status === "COMPLETED") {
-    return NextResponse.json({ error: "Election is closed" }, { status: 409 })
+  if (voter.election.status !== "ACTIVE") {
+    return NextResponse.json(
+      { error: voter.election.status === "COMPLETED" ? "Election is closed." : "Activate the election before sending invitations." },
+      { status: 409 }
+    )
   }
 
   const baseUrl = process.env.NEXTAUTH_URL ?? "http://localhost:3000"

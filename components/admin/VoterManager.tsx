@@ -1,12 +1,14 @@
 "use client"
 
 import { useState, useRef } from "react"
+import { useRouter } from "next/navigation"
 import {
   Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog"
 import { Toaster } from "@/components/ui/sonner"
 import { toast } from "sonner"
 import Papa from "papaparse"
+import ActivateElectionButton from "@/components/admin/ActivateElectionButton"
 
 interface Voter {
   id: string
@@ -21,6 +23,9 @@ interface Props {
   electionId: string
   electionStatus: string
   electionStartsAt: string | null
+  electionAutoActivate: boolean
+  electionTitle: string
+  questionCount: number
   initialVoters: Voter[]
 }
 
@@ -93,7 +98,27 @@ function StatusChip({ v }: { v: Voter }) {
   )
 }
 
-export default function VoterManager({ electionId, electionStatus, electionStartsAt, initialVoters }: Props) {
+function isToday(d: Date): boolean {
+  const n = new Date()
+  return d.getFullYear() === n.getFullYear() && d.getMonth() === n.getMonth() && d.getDate() === n.getDate()
+}
+
+function formatScheduledOpen(iso: string): string {
+  const d = new Date(iso)
+  if (isToday(d)) return `today at ${d.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" })}`
+  return d.toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" })
+}
+
+export default function VoterManager({
+  electionId,
+  electionStatus,
+  electionStartsAt,
+  electionAutoActivate,
+  electionTitle,
+  questionCount,
+  initialVoters,
+}: Props) {
+  const router = useRouter()
   const [voters, setVoters] = useState<Voter[]>(initialVoters)
   const [name, setName] = useState("")
   const [email, setEmail] = useState("")
@@ -262,11 +287,18 @@ export default function VoterManager({ electionId, electionStatus, electionStart
   }
 
   const canDelete = electionStatus !== "COMPLETED"
-  // Invitations require either ACTIVE status or a scheduled start date in DRAFT.
-  const canInvite = electionStatus === "ACTIVE" || (electionStatus === "DRAFT" && !!electionStartsAt)
+  // Invitations and resend are only available on ACTIVE elections.
+  const canInvite = electionStatus === "ACTIVE"
   const uninvited = voters.filter((v) => !v.invitedAt).length
+  // canActivate mirrors server-side logic: need at least one race and one voter.
+  const draftCanActivate = questionCount > 0 && voters.length > 0
   const voted = voters.filter((v) => v.hasVoted).length
   const invited = voters.filter((v) => v.invitedAt).length
+  // A past (or present) startsAt is the same shape as "no start date" from the banner's perspective:
+  // the election is ready to activate manually rather than waiting for a scheduled auto-start.
+  const isPastStarts = !!electionStartsAt && new Date(electionStartsAt) <= new Date()
+  const effectivelyUnscheduled = !electionStartsAt || isPastStarts
+  const isTodayFuture = !effectivelyUnscheduled && isToday(new Date(electionStartsAt!))
 
   const inputStyle = {
     border: "1px solid var(--vh-line-strong)",
@@ -315,34 +347,117 @@ export default function VoterManager({ electionId, electionStatus, electionStart
         ))}
       </div>
 
-      {/* Draft invite banners */}
-      {electionStatus === "DRAFT" && !canInvite && (
+      {/* Draft activation banners */}
+      {electionStatus === "DRAFT" && questionCount === 0 && (
         <div
           className="flex items-center gap-3 rounded-[14px] px-[18px] py-3.5"
-          style={{ background: "var(--vh-warn-soft)", border: "1px solid oklch(0.85 0.08 80)" }}
+          style={{ background: "var(--vh-surface-2)", border: "1px solid var(--vh-line-strong)" }}
         >
-          <span className="text-lg flex-shrink-0">📅</span>
-          <p className="text-[13.5px]" style={{ color: "oklch(0.4 0.12 65)" }}>
-            <strong>Set a start date</strong> before sending invitations — voters need to know when to come back.
+          <span className="text-lg flex-shrink-0">🗳️</span>
+          <p className="text-[13.5px]" style={{ color: "var(--vh-ink-soft)" }}>
+            <strong>No races yet.</strong>{" "}
+            <a href={`/elections/${electionId}/ballot`} style={{ color: "var(--vh-accent)" }}>
+              Add at least one race on the Ballot tab
+            </a>{" "}
+            before activating.
           </p>
         </div>
       )}
-      {electionStatus === "DRAFT" && canInvite && (
+      {electionStatus === "DRAFT" && questionCount > 0 && voters.length === 0 && (
         <div
           className="flex items-center gap-3 rounded-[14px] px-[18px] py-3.5"
+          style={{ background: "var(--vh-surface-2)", border: "1px solid var(--vh-line-strong)" }}
+        >
+          <span className="text-lg flex-shrink-0">👥</span>
+          <p className="text-[13.5px]" style={{ color: "var(--vh-ink-soft)" }}>
+            <strong>No voters yet.</strong> Add voters below before activating.
+          </p>
+        </div>
+      )}
+      {electionStatus === "DRAFT" && draftCanActivate && effectivelyUnscheduled && (
+        <div
+          className="flex items-center justify-between gap-4 rounded-[14px] px-[18px] py-3.5"
           style={{ background: "var(--vh-accent-soft)", border: "1px solid oklch(0.85 0.05 255)" }}
         >
-          <span className="text-lg flex-shrink-0">📨</span>
-          <p className="text-[13.5px]" style={{ color: "var(--vh-accent-strong)" }}>
-            <strong>Election is in Draft.</strong> Invited voters will see "Voting opens{" "}
-            {new Date(electionStartsAt!).toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" })}
-            " when they click their link.
-          </p>
+          <div className="flex items-center gap-3">
+            <span className="text-lg flex-shrink-0">🗳️</span>
+            <p className="text-[13.5px]" style={{ color: "var(--vh-accent-strong)" }}>
+              <strong>Ready to open voting?</strong> Activate now to send invitations and open the ballot.
+            </p>
+          </div>
+          <div className="flex items-center gap-3 flex-shrink-0">
+            <ActivateElectionButton
+              electionId={electionId}
+              electionTitle={electionTitle}
+              uninvitedCount={uninvited}
+              onActivated={() => router.refresh()}
+            >
+              <button
+                type="button"
+                className="px-4 py-2 rounded-[10px] text-[13px] font-medium text-white transition-colors"
+                style={{ background: "var(--vh-accent)" }}
+              >
+                Activate &amp; Send Invitations
+              </button>
+            </ActivateElectionButton>
+            <a
+              href={`/elections/${electionId}`}
+              className="text-[13px]"
+              style={{ color: "var(--vh-accent-strong)" }}
+            >
+              Schedule for later ›
+            </a>
+          </div>
+        </div>
+      )}
+      {electionStatus === "DRAFT" && draftCanActivate && !effectivelyUnscheduled && (
+        <div
+          className="flex items-center justify-between gap-4 rounded-[14px] px-[18px] py-3.5"
+          style={{ background: "var(--vh-accent-soft)", border: "1px solid oklch(0.85 0.05 255)" }}
+        >
+          <div className="flex items-center gap-3">
+            <span className="text-lg flex-shrink-0">📅</span>
+            <p className="text-[13.5px]" style={{ color: "var(--vh-accent-strong)" }}>
+              {electionAutoActivate ? (
+                <>
+                  <strong>Voting opens{" "}
+                  {formatScheduledOpen(electionStartsAt!)}.
+                  </strong>{" "}
+                  Invitations will send automatically when the election opens.
+                </>
+              ) : (
+                <>
+                  <strong>Voting opens{" "}
+                  {formatScheduledOpen(electionStartsAt!)}.
+                  </strong>{" "}
+                  Auto-start is off — you&apos;ll need to activate manually.
+                </>
+              )}
+            </p>
+          </div>
+          <ActivateElectionButton
+            electionId={electionId}
+            electionTitle={electionTitle}
+            uninvitedCount={uninvited}
+            onActivated={() => router.refresh()}
+          >
+            <button
+              type="button"
+              className="px-3.5 py-2 rounded-[10px] text-[13px] font-medium flex-shrink-0 transition-colors"
+              style={{
+                border: "1px solid var(--vh-accent)",
+                background: "transparent",
+                color: "var(--vh-accent-strong)",
+              }}
+            >
+              Activate now
+            </button>
+          </ActivateElectionButton>
         </div>
       )}
 
-      {/* Uninvited alert */}
-      {uninvited > 0 && (
+      {/* Uninvited alert — only relevant once election is ACTIVE */}
+      {electionStatus === "ACTIVE" && uninvited > 0 && (
         <div
           className="flex items-center gap-3 rounded-[14px] px-[18px] py-3.5"
           style={{ background: "var(--vh-accent-soft)" }}
@@ -353,8 +468,7 @@ export default function VoterManager({ electionId, electionStatus, electionStart
           </div>
           <button
             onClick={handleSendInvites}
-            disabled={sending || !canInvite}
-            title={!canInvite ? "Set a start date before sending invitations" : undefined}
+            disabled={sending}
             className="px-3.5 py-2 rounded-[10px] text-[13px] font-medium text-white transition-colors disabled:opacity-60"
             style={{ background: "var(--vh-accent)" }}
           >
@@ -417,11 +531,10 @@ export default function VoterManager({ electionId, electionStatus, electionStart
               >
                 Import CSV
               </button>
-              {(electionStatus === "ACTIVE" || (electionStatus === "DRAFT" && canInvite)) && (
+              {electionStatus === "ACTIVE" && (
                 <button
                   onClick={handleSendInvites}
-                  disabled={sending || !canInvite}
-                  title={!canInvite ? "Set a start date before sending invitations" : undefined}
+                  disabled={sending}
                   className="px-3.5 py-1.5 rounded-[8px] text-[13px] transition-colors disabled:opacity-50"
                   style={{ border: "1px solid var(--vh-line-strong)", background: "var(--vh-surface)", color: "var(--vh-ink-soft)" }}
                 >

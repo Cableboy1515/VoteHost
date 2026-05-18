@@ -10,6 +10,11 @@ import {
 import { getStaffRecipients } from "@/lib/staffRecipients"
 import { purgeElectionImages } from "@/lib/imageRetention"
 import { autoCompleteElections } from "@/lib/autoCompleteElections"
+import { autoActivateElections } from "@/lib/autoActivateElections"
+
+// Guards for sweeps that should run at most once per hour despite 1-minute cron frequency.
+let lastHeavySweepAt = 0
+const HEAVY_SWEEP_INTERVAL_MS = 55 * 60 * 1000 // 55 minutes
 
 const ONE_DAY_MS = 24 * 60 * 60 * 1000
 
@@ -26,6 +31,9 @@ export async function POST(req: Request) {
 
   const now = new Date()
   const baseUrl = process.env.NEXTAUTH_URL ?? "http://localhost:3000"
+
+  // Auto-activate DRAFT elections whose startsAt has arrived — runs every tick.
+  await autoActivateElections()
 
   // Auto-complete expired ACTIVE elections before doing anything else.
   // Newly-completed IDs surface to the staff-completion sweep below.
@@ -174,53 +182,62 @@ export async function POST(req: Request) {
     }
   }
 
+  // ── Heavy sweeps — run at most once per hour even on 1-minute cron ──
+  const runHeavy = now.getTime() - lastHeavySweepAt >= HEAVY_SWEEP_INTERVAL_MS
+
   // ── Full-turnout sweep (ACTIVE elections where every invited voter has voted) ──
   let fullTurnoutNoticesSent = 0
-  const turnoutCandidates = await db.election.findMany({
-    where: { status: "ACTIVE", fullTurnoutNoticeSentAt: null },
-    include: { voters: true },
-  })
-  for (const election of turnoutCandidates) {
-    const invited = election.voters.filter((v) => v.invitedAt != null)
-    if (invited.length === 0) continue
-    const voted = invited.filter((v) => v.hasVoted)
-    if (voted.length !== invited.length) continue
-    try {
-      await sendFullTurnoutStaffNotice(
-        { id: election.id, title: election.title, endsAt: election.endsAt },
-        staffRecipients,
-        voted.length,
-        invited.length,
-      )
-      await db.election.update({
-        where: { id: election.id },
-        data: { fullTurnoutNoticeSentAt: now },
-      })
-      fullTurnoutNoticesSent++
-    } catch (err) {
-      errors.push(`full-turnout ${election.id}: ${String(err)}`)
+  if (runHeavy) {
+    const turnoutCandidates = await db.election.findMany({
+      where: { status: "ACTIVE", fullTurnoutNoticeSentAt: null },
+      include: { voters: true },
+    })
+    for (const election of turnoutCandidates) {
+      const invited = election.voters.filter((v) => v.invitedAt != null)
+      if (invited.length === 0) continue
+      const voted = invited.filter((v) => v.hasVoted)
+      if (voted.length !== invited.length) continue
+      try {
+        await sendFullTurnoutStaffNotice(
+          { id: election.id, title: election.title, endsAt: election.endsAt },
+          staffRecipients,
+          voted.length,
+          invited.length,
+        )
+        await db.election.update({
+          where: { id: election.id },
+          data: { fullTurnoutNoticeSentAt: now },
+        })
+        fullTurnoutNoticesSent++
+      } catch (err) {
+        errors.push(`full-turnout ${election.id}: ${String(err)}`)
+      }
     }
   }
 
   // ── Image retention sweep ────────────────────────────────────────
   let purged = 0
-  const retentionSetting = await db.setting.findUnique({ where: { key: "image_retention_days" } })
-  const retentionDays = retentionSetting?.value ? parseInt(retentionSetting.value, 10) : 30
+  if (runHeavy) {
+    const retentionSetting = await db.setting.findUnique({ where: { key: "image_retention_days" } })
+    const retentionDays = retentionSetting?.value ? parseInt(retentionSetting.value, 10) : 30
 
-  if (retentionDays > 0) {
-    const cutoff = new Date(now.getTime() - retentionDays * ONE_DAY_MS)
-    const stale = await db.election.findMany({
-      where: {
-        status: "COMPLETED",
-        endsAt: { lt: cutoff },
-        imagesPurgedAt: null,
-      },
-      select: { id: true },
-    })
-    await Promise.allSettled(
-      stale.map(async (e) => { await purgeElectionImages(e.id); purged++ })
-    )
+    if (retentionDays > 0) {
+      const cutoff = new Date(now.getTime() - retentionDays * ONE_DAY_MS)
+      const stale = await db.election.findMany({
+        where: {
+          status: "COMPLETED",
+          endsAt: { lt: cutoff },
+          imagesPurgedAt: null,
+        },
+        select: { id: true },
+      })
+      await Promise.allSettled(
+        stale.map(async (e) => { await purgeElectionImages(e.id); purged++ })
+      )
+    }
   }
+
+  if (runHeavy) lastHeavySweepAt = now.getTime()
 
   return NextResponse.json({
     elections: elections.length,

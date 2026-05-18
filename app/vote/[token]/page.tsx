@@ -1,6 +1,7 @@
 import { db } from "@/lib/db"
 import ErrorScreen from "@/components/ballot/ErrorScreen"
 import BallotForm from "@/components/ballot/BallotForm"
+import { canActivate } from "@/lib/canActivate"
 
 export default async function VotePage({ params }: { params: Promise<{ token: string }> }) {
   const { token } = await params
@@ -12,7 +13,16 @@ export default async function VotePage({ params }: { params: Promise<{ token: st
     select: {
       id: true,
       hasVoted: true,
-      election: { select: { status: true, startsAt: true, endsAt: true } },
+      election: {
+        select: {
+          id: true,
+          status: true,
+          startsAt: true,
+          endsAt: true,
+          autoActivate: true,
+          _count: { select: { questions: true, voters: true } },
+        },
+      },
     },
   })
 
@@ -20,6 +30,29 @@ export default async function VotePage({ params }: { params: Promise<{ token: st
   if (quick.hasVoted) return <ErrorScreen type="already-voted" />
 
   const now = new Date()
+
+  // Lazy auto-activation safety net: if cron hasn't ticked yet but startsAt has passed.
+  if (
+    quick.election.status === "DRAFT" &&
+    quick.election.autoActivate &&
+    quick.election.startsAt &&
+    quick.election.startsAt <= now
+  ) {
+    const check = canActivate({
+      questionCount: quick.election._count.questions,
+      voterCount: quick.election._count.voters,
+      endsAt: quick.election.endsAt,
+    })
+    if (check.ok) {
+      await db.election.update({
+        where: { id: quick.election.id },
+        data: { status: "ACTIVE", activatedAt: quick.election.startsAt, activatedById: null },
+      })
+      // Re-read with updated status by falling through — treat as ACTIVE below.
+      quick.election.status = "ACTIVE"
+    }
+  }
+
   // Future startsAt (DRAFT or ACTIVE) → save-the-date with concrete open date.
   if (quick.election.startsAt && now < quick.election.startsAt) {
     return <ErrorScreen type="not-open" startsAt={quick.election.startsAt.toISOString()} />

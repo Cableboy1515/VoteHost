@@ -378,54 +378,86 @@ export default function BallotForm({ token, electionTitle, electionDescription, 
               ←
             </button>
             <BrandMark size={28} />
-            <p className="flex-1 text-sm font-semibold text-vh-ink">Review your ballot</p>
+            <div className="flex-1 min-w-0">
+              <p className="text-base font-semibold text-vh-ink">Review your ballot</p>
+              <p className="text-xs text-vh-muted truncate">{electionTitle}</p>
+            </div>
           </div>
         </header>
 
-        <div className="max-w-xl mx-auto px-4 py-8 space-y-3">
-          <p className="text-[13px] text-vh-muted pb-1">
+        <div className="max-w-xl mx-auto px-4 py-8 space-y-4">
+          <p className="text-sm text-vh-muted pb-1">
             Check your answers below. Use Edit to change any response before submitting.
           </p>
 
           {questions.map((q, i) => (
             <div key={q.id} className="bg-vh-surface border border-vh-line rounded-card p-4">
-              <div className="flex items-start justify-between gap-3 mb-2">
+              <div className="flex items-start justify-between gap-3 mb-3">
                 <div className="min-w-0 flex-1">
                   <span
-                    className="inline-flex items-center text-[11px] font-semibold rounded-pill px-2 py-0.5 mb-1.5"
+                    className="inline-flex items-center text-xs font-semibold rounded-pill px-2 py-0.5 mb-1.5"
                     style={{ background: "var(--vh-accent-soft)", color: "var(--vh-accent-strong)" }}
                   >
                     Q{i + 1}
                   </span>
-                  <p className="text-[14px] font-medium text-vh-ink break-words">{q.text}</p>
+                  <p className="text-base font-medium text-vh-ink break-words">{q.text}</p>
                 </div>
                 <button
                   type="button"
                   onClick={() => { setStep(i); setError("") }}
-                  className="shrink-0 text-xs text-vh-ink-soft border border-vh-line px-2.5 py-1 rounded-[8px] hover:bg-vh-surface-2 transition-colors"
+                  className="shrink-0 text-sm text-vh-ink-soft border border-vh-line px-3 py-1.5 rounded-[8px] hover:bg-vh-surface-2 transition-colors"
                 >
                   Edit
                 </button>
               </div>
-              <div className="space-y-0.5">
-                {getSummaryLines(q).map((line, j) => (
-                  <p key={j} className="text-[13px] text-vh-muted">{line}</p>
-                ))}
-              </div>
+              {q.type === "RANKED_CHOICE" ? (
+                <div className="space-y-2">
+                  {(rankedOrders[q.id] ?? []).length === 0 ? (
+                    <p className="text-base text-vh-muted">(not ranked)</p>
+                  ) : (
+                    (rankedOrders[q.id] ?? []).map((id, idx) => {
+                      const opt = q.options.find((o) => o.id === id)
+                      return (
+                        <div
+                          key={id}
+                          className="flex items-center gap-3 px-3 py-2 rounded-[12px] border"
+                          style={{ background: "var(--vh-accent-soft)", borderColor: "oklch(0.85 0.05 255)" }}
+                        >
+                          <span
+                            className="w-8 h-8 flex-shrink-0 inline-grid place-items-center rounded-full text-white text-sm font-semibold"
+                            style={{ background: "var(--vh-accent)" }}
+                          >
+                            {idx + 1}
+                          </span>
+                          <span className="flex-1 min-w-0 break-words text-base font-medium text-vh-ink">
+                            {opt?.text ?? id}
+                          </span>
+                        </div>
+                      )
+                    })
+                  )}
+                </div>
+              ) : (
+                <div className="space-y-1">
+                  {getSummaryLines(q).map((line, j) => (
+                    <p key={j} className="text-base font-medium text-vh-ink break-words">{line}</p>
+                  ))}
+                </div>
+              )}
             </div>
           ))}
 
-          <p className="text-[12px] text-vh-muted text-center py-1">
+          <p className="text-sm text-vh-muted text-center py-1">
             🔒 Once submitted, your ballot is final and recorded anonymously.
           </p>
 
-          {error && <p className="text-sm text-center" style={{ color: "var(--vh-danger)" }}>{error}</p>}
+          {error && <p className="text-base text-center" style={{ color: "var(--vh-danger)" }}>{error}</p>}
 
           <button
             type="button"
             onClick={handleConfirmSubmit}
             disabled={submitting}
-            className="w-full py-3.5 font-semibold text-white text-[15px] rounded-[var(--vh-radius-sm)] transition-opacity disabled:opacity-60"
+            className="w-full py-3.5 font-semibold text-white text-base rounded-[var(--vh-radius-sm)] transition-opacity disabled:opacity-60"
             style={{ background: "var(--vh-accent)" }}
           >
             {submitting ? "Submitting…" : "Submit my ballot"}

@@ -49,10 +49,15 @@ model Election {
   reopenedAt   DateTime?
   reopenedById String?
 
-  endsSoonNoticeSentAt    DateTime?
-  completionEmailSentAt   DateTime?
-  startReminderSentAt     DateTime?
-  fullTurnoutNoticeSentAt DateTime?
+  endsSoonNoticeSentAt           DateTime?
+  completionEmailSentAt          DateTime?
+  startReminderSentAt            DateTime?
+  fullTurnoutNoticeSentAt        DateTime?
+
+  activatedAt                    DateTime?
+  activatedById                  String?
+  autoActivate                   Boolean   @default(true)
+  autoActivateFailedNoticeSentAt DateTime?
 
   questions Question[]
   voters    Voter[]

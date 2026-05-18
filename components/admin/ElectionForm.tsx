@@ -11,6 +11,9 @@ interface Props {
   electionId?: string
   closedAt?: string | null
   closedByEmail?: string | null
+  questionCount?: number
+  voterCount?: number
+  uninvitedCount?: number
   initialValues?: {
     title: string
     description?: string | null
@@ -23,6 +26,7 @@ interface Props {
     emailLogoDeleteUrl?: string | null
     emailFooter?: string | null
     firstReminderDays?: number | null
+    autoActivate?: boolean | null
   }
 }
 
@@ -30,6 +34,20 @@ function toLocalInput(iso: string): string {
   const d = new Date(iso)
   const pad = (n: number) => String(n).padStart(2, "0")
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
+}
+
+function dateOnly(localStr: string): string {
+  return localStr.slice(0, 10)
+}
+
+function isMidnightLocal(iso: string): boolean {
+  const d = new Date(iso)
+  return d.getHours() === 0 && d.getMinutes() === 0 && d.getSeconds() === 0 && d.getMilliseconds() === 0
+}
+
+function isEndOfDayLocal(iso: string): boolean {
+  const d = new Date(iso)
+  return d.getHours() === 23 && d.getMinutes() === 59 && d.getSeconds() === 59
 }
 
 function buildPreviewHtml(opts: {
@@ -108,7 +126,15 @@ function VhCard({ children, title }: { children: React.ReactNode; title?: string
   )
 }
 
-export default function ElectionForm({ electionId, closedAt, closedByEmail, initialValues }: Props) {
+export default function ElectionForm({
+  electionId,
+  closedAt,
+  closedByEmail,
+  questionCount = 0,
+  voterCount = 0,
+  uninvitedCount = 0,
+  initialValues,
+}: Props) {
   const router = useRouter()
   const [title, setTitle] = useState(initialValues?.title ?? "")
   const [description, setDescription] = useState(initialValues?.description ?? "")
@@ -122,6 +148,13 @@ export default function ElectionForm({ electionId, closedAt, closedByEmail, init
   const [emailFooter, setEmailFooter] = useState(initialValues?.emailFooter ?? "")
   const [firstReminderDays, setFirstReminderDays] = useState(
     initialValues?.firstReminderDays != null ? String(initialValues.firstReminderDays) : ""
+  )
+  const [autoActivate, setAutoActivate] = useState(initialValues?.autoActivate ?? true)
+  const [startsAtAllDay, setStartsAtAllDay] = useState(
+    initialValues?.startsAt ? isMidnightLocal(initialValues.startsAt) : true
+  )
+  const [endsAtAllDay, setEndsAtAllDay] = useState(
+    initialValues?.endsAt ? isEndOfDayLocal(initialValues.endsAt) : true
   )
   const [showPreview, setShowPreview] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -142,6 +175,9 @@ export default function ElectionForm({ electionId, closedAt, closedByEmail, init
       emailLogoDeleteUrl: emailLogoDeleteUrl.trim(),
       emailFooter: emailFooter.trim(),
       firstReminderDays,
+      autoActivate,
+      startsAtAllDay,
+      endsAtAllDay,
     })
   }
 
@@ -156,14 +192,23 @@ export default function ElectionForm({ electionId, closedAt, closedByEmail, init
       title,
       description: description || undefined,
       status,
-      startsAt: startsAt ? new Date(startsAt).toISOString() : null,
-      endsAt: endsAt ? new Date(endsAt).toISOString() : null,
+      startsAt: startsAt
+        ? (startsAtAllDay
+            ? new Date(`${dateOnly(startsAt)}T00:00:00`).toISOString()
+            : new Date(startsAt).toISOString())
+        : null,
+      endsAt: endsAt
+        ? (endsAtAllDay
+            ? new Date(`${dateOnly(endsAt)}T23:59:59.999`).toISOString()
+            : new Date(endsAt).toISOString())
+        : null,
       emailSubject: emailSubject || null,
       emailMessage: emailMessage || null,
       emailLogoUrl: emailLogoUrl || null,
       emailLogoDeleteUrl: emailLogoDeleteUrl || null,
       emailFooter: emailFooter || null,
       firstReminderDays: firstReminderDays !== "" ? parseInt(firstReminderDays, 10) : null,
+      autoActivate,
     }
 
     const url = electionId ? `/api/elections/${electionId}` : "/api/elections"
@@ -217,6 +262,13 @@ export default function ElectionForm({ electionId, closedAt, closedByEmail, init
     if (!id) return
     router.push(`/elections/${id}/ballot`)
   }
+
+  const effectiveStartsAtMoment = startsAt
+    ? (startsAtAllDay
+        ? new Date(`${dateOnly(startsAt)}T00:00:00`)
+        : new Date(startsAt))
+    : null
+  const isStartsAtFuture = effectiveStartsAtMoment != null && effectiveStartsAtMoment > new Date()
 
   return (
     <div className="max-w-[800px]">
@@ -276,25 +328,46 @@ export default function ElectionForm({ electionId, closedAt, closedByEmail, init
                   </span>
                 </div>
               ) : (
-                <div className="flex gap-1.5 flex-wrap">
+                <div className="flex gap-1.5 flex-wrap items-center">
                   {STATUSES.map((s) => {
                     const active = status === s
+                    // Disable the ACTIVE pill if preconditions aren't met.
+                    const activating = s === "ACTIVE" && status === "DRAFT"
+                    const disabledReason = activating && questionCount === 0
+                      ? "Add at least one race on the Ballot tab before activating"
+                      : activating && voterCount === 0
+                      ? "Add at least one voter before activating"
+                      : undefined
+                    const isDisabled = activating && !!disabledReason
                     return (
                       <button
                         key={s}
                         type="button"
-                        onClick={() => setStatus(s)}
-                        className="px-3.5 py-2 rounded-full text-[12.5px] font-medium cursor-pointer transition-colors"
+                        onClick={isDisabled ? undefined : () => setStatus(s)}
+                        disabled={isDisabled}
+                        title={disabledReason}
+                        className="px-3.5 py-2 rounded-full text-[12.5px] font-medium transition-colors"
                         style={{
                           border: `1px solid ${active ? "var(--vh-accent)" : "var(--vh-line-strong)"}`,
                           background: active ? "var(--vh-accent)" : "var(--vh-surface)",
                           color: active ? "white" : "var(--vh-ink-soft)",
+                          cursor: isDisabled ? "not-allowed" : "pointer",
+                          opacity: isDisabled ? 0.4 : 1,
                         }}
                       >
                         {STATUS_LABEL[s]}
                       </button>
                     )
                   })}
+                  {status === "DRAFT" && questionCount > 0 && voterCount > 0 && (
+                    <p className="text-[12px] w-full mt-0.5" style={{ color: "var(--vh-muted)" }}>
+                      Saving as Active activates the election. Go to the{" "}
+                      <a href={electionId ? `/elections/${electionId}/voters` : "#"} style={{ color: "var(--vh-accent)" }}>
+                        Voters tab
+                      </a>{" "}
+                      to send invitations in the same step.
+                    </p>
+                  )}
                 </div>
               )}
             </div>
@@ -306,30 +379,115 @@ export default function ElectionForm({ electionId, closedAt, closedByEmail, init
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <VhLabel htmlFor="startsAt">Opens</VhLabel>
-              <input
-                id="startsAt"
-                type="datetime-local"
-                value={startsAt}
-                onChange={(e) => setStartsAt(e.target.value)}
-                className={inputCls}
-                style={inputStyle}
-                onFocus={onFocusIn}
-                onBlur={onFocusOut}
-              />
+              {startsAtAllDay ? (
+                <input
+                  id="startsAt"
+                  type="date"
+                  value={dateOnly(startsAt)}
+                  onChange={(e) => setStartsAt(e.target.value ? `${e.target.value}T00:00` : "")}
+                  className={inputCls}
+                  style={inputStyle}
+                  onFocus={onFocusIn}
+                  onBlur={onFocusOut}
+                />
+              ) : (
+                <input
+                  id="startsAt"
+                  type="datetime-local"
+                  value={startsAt}
+                  onChange={(e) => setStartsAt(e.target.value)}
+                  className={inputCls}
+                  style={inputStyle}
+                  onFocus={onFocusIn}
+                  onBlur={onFocusOut}
+                />
+              )}
+              <div className="mt-1.5 flex items-center gap-3 text-[12px]" style={{ color: "var(--vh-muted)" }}>
+                <label className="flex items-center gap-1.5 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={startsAtAllDay}
+                    onChange={(e) => setStartsAtAllDay(e.target.checked)}
+                    className="flex-shrink-0"
+                  />
+                  All day
+                </label>
+                {startsAt && (
+                  <button type="button" onClick={() => setStartsAt("")} className="underline">
+                    Clear
+                  </button>
+                )}
+              </div>
             </div>
             <div>
               <VhLabel htmlFor="endsAt">Closes</VhLabel>
-              <input
-                id="endsAt"
-                type="datetime-local"
-                value={endsAt}
-                onChange={(e) => setEndsAt(e.target.value)}
-                className={inputCls}
-                style={inputStyle}
-                onFocus={onFocusIn}
-                onBlur={onFocusOut}
-              />
+              {endsAtAllDay ? (
+                <input
+                  id="endsAt"
+                  type="date"
+                  value={dateOnly(endsAt)}
+                  onChange={(e) => setEndsAt(e.target.value ? `${e.target.value}T00:00` : "")}
+                  className={inputCls}
+                  style={inputStyle}
+                  onFocus={onFocusIn}
+                  onBlur={onFocusOut}
+                />
+              ) : (
+                <input
+                  id="endsAt"
+                  type="datetime-local"
+                  value={endsAt}
+                  onChange={(e) => setEndsAt(e.target.value)}
+                  className={inputCls}
+                  style={inputStyle}
+                  onFocus={onFocusIn}
+                  onBlur={onFocusOut}
+                />
+              )}
+              <div className="mt-1.5 flex items-center gap-3 text-[12px]" style={{ color: "var(--vh-muted)" }}>
+                <label className="flex items-center gap-1.5 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={endsAtAllDay}
+                    onChange={(e) => setEndsAtAllDay(e.target.checked)}
+                    className="flex-shrink-0"
+                  />
+                  All day
+                </label>
+                {endsAt && (
+                  <button type="button" onClick={() => setEndsAt("")} className="underline">
+                    Clear
+                  </button>
+                )}
+              </div>
             </div>
+          </div>
+          <div className="mt-3 pt-3" style={{ borderTop: "1px solid var(--vh-line)" }}>
+            <label
+              className="flex items-center gap-2.5"
+              style={{
+                opacity: isStartsAtFuture ? 1 : 0.5,
+                cursor: isStartsAtFuture ? "pointer" : "not-allowed",
+              }}
+            >
+              <input
+                type="checkbox"
+                checked={autoActivate}
+                disabled={!isStartsAtFuture}
+                onChange={(e) => setAutoActivate(e.target.checked)}
+                className="flex-shrink-0"
+              />
+              <span className="text-[13px]" style={{ color: "var(--vh-ink-soft)" }}>
+                Auto-start — activate and send invitations automatically when the Opens {startsAtAllDay ? "date" : "date and time"} arrives
+              </span>
+            </label>
+            {!isStartsAtFuture && (
+              <p className="mt-1.5 pl-6 text-[12px]" style={{ color: "var(--vh-muted)" }}>
+                {!startsAt
+                  ? "Pick an Opens date to enable auto-start."
+                  : "Auto-start requires a future Opens time. Use Activate now from the Voters tab to start immediately."}
+              </p>
+            )}
           </div>
         </VhCard>
 

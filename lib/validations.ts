@@ -42,6 +42,7 @@ export const ElectionBaseSchema = z.object({
   emailLogoDeleteUrl: imageOrPathField.optional().nullable(),
   emailFooter: z.string().optional().nullable(),
   firstReminderDays: z.number().int().positive().nullish(),
+  autoActivate: z.boolean().optional(),
 })
 
 export const ElectionSchema = ElectionBaseSchema.refine(

@@ -23,7 +23,12 @@ export default async function EditElectionPage({ params }: { params: Promise<{ i
   const election = await db.election.findUnique({
     where: { id },
     include: {
-      _count: { select: { voters: { where: { hasVoted: true } } } },
+      _count: {
+        select: {
+          voters: { where: { hasVoted: true } },
+          questions: true,
+        },
+      },
       voters: { select: { invitedAt: true } },
     },
   })
@@ -32,7 +37,9 @@ export default async function EditElectionPage({ params }: { params: Promise<{ i
   const isClosed = election.status === "COMPLETED"
   const canDiscard = !!election.firstVoteAt && election.status !== "COMPLETED"
   const votedCount = election._count.voters
+  const totalVoterCount = election.voters.length
   const invitedCount = election.voters.filter((v) => v.invitedAt !== null).length
+  const uninvitedCount = totalVoterCount - invitedCount
 
   const resetByEmail = election.ballotResetById
     ? (await db.adminUser.findUnique({ where: { id: election.ballotResetById }, select: { email: true } }))?.email ?? null
@@ -72,6 +79,9 @@ export default async function EditElectionPage({ params }: { params: Promise<{ i
         electionId={election.id}
         closedAt={election.closedAt?.toISOString() ?? null}
         closedByEmail={closedByEmail}
+        questionCount={election._count.questions}
+        voterCount={totalVoterCount}
+        uninvitedCount={uninvitedCount}
         initialValues={{
           title: election.title,
           description: election.description,
@@ -84,6 +94,7 @@ export default async function EditElectionPage({ params }: { params: Promise<{ i
           emailLogoDeleteUrl: election.emailLogoDeleteUrl,
           emailFooter: election.emailFooter,
           firstReminderDays: election.firstReminderDays,
+          autoActivate: election.autoActivate,
         }}
       />
       {isClosed && (

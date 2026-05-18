@@ -919,3 +919,51 @@ export async function sendFullTurnoutStaffNotice(
   const html = buildFullTurnoutStaffHtml(election, voted, invited)
   await sendStaffBlast("sendFullTurnoutStaffNotice", election.title, recipients, subject, html)
 }
+
+function buildAutoActivateFailedStaffHtml(
+  election: StaffElection,
+  reason: "no_ballot" | "no_voters" | "past_endsAt",
+): string {
+  const title = escapeHtml(election.title)
+  const editUrl = escapeHtml(absolutizeUrl(`/elections/${election.id}`))
+  const votersUrl = escapeHtml(absolutizeUrl(`/elections/${election.id}/voters`))
+  const ballotUrl = escapeHtml(absolutizeUrl(`/elections/${election.id}/ballot`))
+  const reasonMessages: Record<typeof reason, string> = {
+    no_ballot: `The ballot has no races. <a href="${ballotUrl}" style="color:${C.accent};">Add at least one race</a> to the ballot.`,
+    no_voters: `There are no voters. <a href="${votersUrl}" style="color:${C.accent};">Add at least one voter</a> before the system can open voting.`,
+    past_endsAt: `The scheduled close date has already passed. Update it on the <a href="${editUrl}" style="color:${C.accent};">settings page</a>.`,
+  }
+  const startStr = election.startsAt ? escapeHtml(formatCloseDate(election.startsAt.toISOString())) : "its scheduled start time"
+  return emailWrapper(`
+    ${brandRow()}
+    <tr><td style="padding:24px 32px 14px;">
+      <h1 style="margin:0 0 14px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:22px;font-weight:600;color:${C.ink};letter-spacing:-0.02em;">Election failed to auto-start</h1>
+      <p style="margin:0 0 14px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:14.5px;color:${C.inkSoft};line-height:1.6;">
+        <strong style="color:${C.ink};">${title}</strong> was scheduled to open at ${startStr}, but could not start automatically.
+      </p>
+      <p style="margin:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:14.5px;color:${C.inkSoft};line-height:1.6;">
+        ${reasonMessages[reason]}
+      </p>
+    </td></tr>
+    <tr><td style="padding:16px 32px 14px;">
+      <a href="${editUrl}" style="display:inline-block;background:${C.accent};color:#ffffff;text-decoration:none;padding:14px 28px;border-radius:10px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:15px;font-weight:500;">Open Election →</a>
+    </td></tr>
+    <tr><td style="padding:0 32px 28px;">
+      <table role="presentation" cellpadding="0" cellspacing="0" width="100%"><tr>
+        <td style="border-top:1px solid ${C.line};padding-top:18px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:12px;color:${C.muted};line-height:1.6;">
+          You received this because you administer or organize elections on ${BRAND_NAME}.
+        </td>
+      </tr></table>
+    </td></tr>
+  `)
+}
+
+export async function sendAutoActivateFailedStaffNotice(
+  election: StaffElection,
+  recipients: Array<{ email: string }>,
+  reason: "no_ballot" | "no_voters" | "past_endsAt",
+): Promise<void> {
+  const subject = `Action required: "${election.title}" failed to auto-start`
+  const html = buildAutoActivateFailedStaffHtml(election, reason)
+  await sendStaffBlast("sendAutoActivateFailedStaffNotice", election.title, recipients, subject, html)
+}
