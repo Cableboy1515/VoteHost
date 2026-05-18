@@ -112,7 +112,7 @@ Open `.env` and set:
 | `POSTGRES_PASSWORD` | Any strong password, or `openssl rand -hex 16` |
 | `DATABASE_URL` | Set to `postgresql://votehost:<POSTGRES_PASSWORD>@db:5432/votehost` |
 | `NEXTAUTH_SECRET` | `openssl rand -hex 32` |
-| `NEXTAUTH_URL` | Your public URL, e.g. `https://vote.example.com` |
+| `NEXTAUTH_URL` | Your public URL, e.g. `https://vote.example.com`. Comma-separated for multiple origins: `https://a.example.com,https://b.example.com` |
 | `CRON_SECRET` | `openssl rand -hex 32` |
 | `SETUP_TOKEN` | `openssl rand -hex 32` — required to create the first admin account; can be removed from `.env` after bootstrap |
 
@@ -236,6 +236,8 @@ After setup and email configuration, run through these before your first electio
      https://your-domain.com/api/reminders/run | jq
    ```
    Should return `{ "elections": 0, "sent": 0, "purged": 0, "errors": [] }`.
+
+> **Troubleshooting — admin actions return "Forbidden"**: The browser's hostname doesn't match `NEXTAUTH_URL` in your `.env`. Fix by updating `NEXTAUTH_URL` to match exactly what's in your browser's address bar (scheme, host, no trailing slash), then `docker compose restart app`. Alternatively, you can append the browser host as a second comma-separated value: `NEXTAUTH_URL=https://original.example.com,https://actual.example.com`.
 
 ---
 

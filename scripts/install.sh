@@ -157,7 +157,10 @@ else
       ask "Hostname for this machine in your tailnet" "votehost"
       TS_HOSTNAME="$REPLY"
       say "Your public URL will be: https://${TS_HOSTNAME}.<tailnet>.ts.net"
-      say "(Update NEXTAUTH_URL in .env once Tailscale shows your full *.ts.net address)"
+      warn "IMPORTANT: After the stack starts, check 'docker compose logs tailscale' for your"
+      warn "real *.ts.net hostname, then update NEXTAUTH_URL in .env and restart the app:"
+      warn "  docker compose restart app"
+      warn "Until you do this, admin actions (Settings, Users, etc.) will return Forbidden."
       NEXTAUTH_URL="https://${TS_HOSTNAME}.example.ts.net"
       PROFILE="tailscale"
       ;;
@@ -243,7 +246,11 @@ if [ "$_DO_START" = "1" ]; then
   say "Building and starting containers..."
   eval "$COMPOSE_UP --build"
   ok "VoteHost Elections is running!"
-  [ "$TUNNEL_CHOICE" = "2" ] && warn "Tailscale: check '${COMPOSE_CMD} logs tailscale' for your full *.ts.net URL, then update NEXTAUTH_URL in .env."
+  if [ "$TUNNEL_CHOICE" = "2" ]; then
+    warn "Tailscale: check '${COMPOSE_CMD} logs tailscale' for your full *.ts.net URL."
+    warn "Then update NEXTAUTH_URL in .env to that URL and run: ${COMPOSE_CMD} restart app"
+    warn "Until you do this, admin actions (Settings, Users, etc.) will return Forbidden."
+  fi
   printf "\n"
   if [ -n "$ADMIN_EMAIL" ]; then
     say "Waiting for app to become healthy (up to 120s)..."
