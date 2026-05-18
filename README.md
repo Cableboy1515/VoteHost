@@ -2,7 +2,7 @@
 
 VoteHost Elections is a self-hosted election platform for organizations that need secure, private voting without relying on third-party services. Admins manage elections and voters through a web panel; voters receive a magic link by email and cast their ballot anonymously without creating an account.
 
-Designed to run on a Raspberry Pi, mini PC, or any Linux server — single `docker compose up` and you're live.
+Designed to run on a Raspberry Pi, mini PC, VPS, or Proxmox LXC — single `docker compose up` and you're live.
 
 > Source code lives at [github.com/Cableboy1515/VoteHost](https://github.com/Cableboy1515/VoteHost) — the repository keeps the original short name.
 
@@ -26,7 +26,7 @@ Designed to run on a Raspberry Pi, mini PC, or any Linux server — single `dock
 
 ## Requirements
 
-- A Linux machine (Raspberry Pi 4/5, mini PC, VPS, Proxmox LXC, etc.) with at least 1 GB RAM
+- A Linux machine (Raspberry Pi 4/5, mini PC, VPS, Proxmox LXC, etc.) with at least 2 GB RAM recommended (1 GB minimum)
 - Docker Engine and Docker Compose v2 (`docker compose version`)
 - For public access over the internet, one of:
   - A **Cloudflare Tunnel** token — requires a domain on Cloudflare DNS (free tunnel, ~$10/yr domain)
@@ -46,6 +46,50 @@ cd VoteHost
 ```
 
 The wizard will ask which tunnel option you're using, prompt for your admin email and password, and then build and start the stack. Once the containers are healthy, the wizard creates your admin account automatically — no browser step required. If you skip the in-wizard admin creation, it prints your `SETUP_TOKEN` and the URL to finish setup from the browser.
+
+---
+
+## Proxmox one-command install
+
+If you're running Proxmox VE, a single command creates an unprivileged Debian 12 LXC, installs Docker, clones VoteHost, and runs the install wizard — no manual container setup required.
+
+Run this on your **Proxmox host** (as root):
+
+```bash
+bash -c "$(curl -fsSL https://raw.githubusercontent.com/Cableboy1515/VoteHost/main/scripts/proxmox.sh)"
+```
+
+The script walks you through a short set of prompts (container ID, hostname, storage, access mode, admin account) and then handles everything else automatically. Total time is roughly 4–8 minutes depending on your connection speed.
+
+**Recommended LXC sizing**
+
+| Resource | Recommended | Minimum |
+|---|---|---|
+| vCPU | 2 | 1 |
+| RAM | 2 GB | 1 GB |
+| Disk | 15 GB | 8 GB |
+
+Docker images for this stack total around 3 GB. Postgres and uploaded images grow over time, so 15 GB gives comfortable headroom.
+
+**Access modes**
+
+The script offers the same three access options as the standard install:
+
+- **Cloudflare Tunnel** *(default)* — paste your tunnel token; the script configures the profile automatically. No port forwarding needed.
+- **Tailscale Funnel** — paste a Tailscale auth key; the script adds the required `/dev/net/tun` device passthrough to the LXC config for you.
+- **LAN only** — the app binds on port 3000 of the LXC's IP address; point your own reverse proxy at it.
+
+**After install**
+
+- For Tailscale: check the container logs for your `*.ts.net` URL, then update `NEXTAUTH_URL` in `/opt/votehost/.env` and restart the app:
+  ```bash
+  pct exec <CTID> -- sh -c 'cd /opt/votehost && docker compose logs tailscale'
+  # update NEXTAUTH_URL in /opt/votehost/.env, then:
+  pct exec <CTID> -- sh -c 'cd /opt/votehost && docker compose restart app'
+  ```
+- To enter the container: `pct exec <CTID> -- bash`
+- To view live logs: `pct exec <CTID> -- sh -c 'cd /opt/votehost && docker compose logs -f'`
+- To upgrade: `pct exec <CTID> -- sh -c 'cd /opt/votehost && git pull && docker compose up -d --build'`
 
 ---
 
