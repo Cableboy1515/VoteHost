@@ -48,11 +48,26 @@ interface Question {
   options: Option[]
 }
 
+interface BallotIssue {
+  questionId: string
+  questionIndex: number
+  questionText: string
+  message: string
+}
+
 interface Props {
   token: string
   electionTitle: string
   electionDescription?: string | null
   questions: Question[]
+}
+
+function formatServerError(data: unknown): string {
+  if (typeof data !== "object" || data === null) return "Submission failed. Please try again."
+  const d = data as Record<string, unknown>
+  if (typeof d.error === "string") return d.error
+  if (d.error && typeof d.error === "object") return "Some answers are missing required fields. Please go back and fix them."
+  return "Submission failed. Please try again."
 }
 
 export default function BallotForm({ token, electionTitle, electionDescription, questions }: Props) {
@@ -67,6 +82,7 @@ export default function BallotForm({ token, electionTitle, electionDescription, 
   )
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState("")
+  const [issuesPanelOpen, setIssuesPanelOpen] = useState(false)
 
   const questionRefs = useRef<Record<string, HTMLElement | null>>({})
 
@@ -108,61 +124,78 @@ export default function BallotForm({ token, electionTitle, electionDescription, 
   function isAnswered(q: Question): boolean {
     if (q.type === "SINGLE_CHOICE") return !!(answers[q.id])
     if (q.type === "MULTIPLE_CHOICE") return ((answers[q.id] as string[]) ?? []).length > 0
-    if (q.type === "RANKED_CHOICE") return (rankedOrders[q.id] ?? []).length > 0
+    if (q.type === "RANKED_CHOICE") return (rankedOrders[q.id] ?? []).length === q.options.length
     if (q.type === "WRITE_IN") return !!((answers[q.id] as string) ?? "").trim()
     return true
   }
 
   function buildPayload():
     | { ok: true; payload: unknown[] }
-    | { ok: false; error: string; questionIndex: number } {
+    | { ok: false; issues: BallotIssue[] } {
     const payload: unknown[] = []
+    const issues: BallotIssue[] = []
     for (let i = 0; i < questions.length; i++) {
       const q = questions[i]
       if (q.type === "SINGLE_CHOICE") {
         const optionId = answers[q.id] as string | undefined
-        if (!optionId && q.required)
-          return { ok: false, error: `Please answer: "${q.text}"`, questionIndex: i }
-        if (optionId) payload.push({ questionId: q.id, type: "SINGLE_CHOICE", optionId })
+        if (!optionId && q.required) {
+          issues.push({ questionId: q.id, questionIndex: i, questionText: q.text, message: "Please choose an option." })
+        } else if (optionId) {
+          payload.push({ questionId: q.id, type: "SINGLE_CHOICE", optionId })
+        }
       } else if (q.type === "MULTIPLE_CHOICE") {
         const optionIds = (answers[q.id] as string[]) ?? []
-        if (optionIds.length === 0 && q.required)
-          return { ok: false, error: `Please answer: "${q.text}"`, questionIndex: i }
-        if (optionIds.length > 0) payload.push({ questionId: q.id, type: "MULTIPLE_CHOICE", optionIds })
+        if (optionIds.length === 0 && q.required) {
+          issues.push({ questionId: q.id, questionIndex: i, questionText: q.text, message: "Please choose at least one option." })
+        } else if (optionIds.length > 0) {
+          payload.push({ questionId: q.id, type: "MULTIPLE_CHOICE", optionIds })
+        }
       } else if (q.type === "RANKED_CHOICE") {
         const rankedIds = rankedOrders[q.id] ?? []
-        if (rankedIds.length === 0 && q.required)
-          return { ok: false, error: `Please rank at least one option for: "${q.text}"`, questionIndex: i }
-        if (rankedIds.length > 0)
+        const totalOptions = q.options.length
+        if (rankedIds.length === 0 && q.required) {
+          issues.push({ questionId: q.id, questionIndex: i, questionText: q.text, message: `Please rank all ${totalOptions} options.` })
+        } else if (rankedIds.length > 0 && rankedIds.length < totalOptions) {
+          issues.push({ questionId: q.id, questionIndex: i, questionText: q.text, message: `Please rank all ${totalOptions} options (you've ranked ${rankedIds.length}).` })
+        } else if (rankedIds.length === totalOptions) {
           payload.push({ questionId: q.id, type: "RANKED_CHOICE", rankedOptionIds: rankedIds })
+        }
       } else if (q.type === "WRITE_IN") {
         const text = (answers[q.id] as string) ?? ""
-        if (!text.trim() && q.required)
-          return { ok: false, error: `Please answer: "${q.text}"`, questionIndex: i }
-        if (text.trim()) payload.push({ questionId: q.id, type: "WRITE_IN", text: text.trim() })
+        if (!text.trim() && q.required) {
+          issues.push({ questionId: q.id, questionIndex: i, questionText: q.text, message: "Please write a response." })
+        } else if (text.trim()) {
+          payload.push({ questionId: q.id, type: "WRITE_IN", text: text.trim() })
+        }
       }
     }
+    if (issues.length > 0) return { ok: false, issues }
     return { ok: true, payload }
   }
 
   function goToReview() {
     const result = buildPayload()
     if (!result.ok) {
-      setError(result.error)
-      setStep(result.questionIndex)
-      questionRefs.current[questions[result.questionIndex].id]?.scrollIntoView({
-        behavior: "smooth",
-        block: "center",
-      })
+      setIssuesPanelOpen(true)
+      setError("")
+      const first = result.issues[0]
+      setStep(first.questionIndex)
+      questionRefs.current[first.questionId]?.scrollIntoView({ behavior: "smooth", block: "center" })
       return
     }
+    setIssuesPanelOpen(false)
     setError("")
     setStep(questions.length)
   }
 
   async function handleConfirmSubmit() {
     const result = buildPayload()
-    if (!result.ok) { setError(result.error); return }
+    if (!result.ok) {
+      setIssuesPanelOpen(true)
+      setError("")
+      setStep(result.issues[0].questionIndex)
+      return
+    }
     setSubmitting(true)
     const res = await fetch("/api/vote", {
       method: "POST",
@@ -174,8 +207,52 @@ export default function BallotForm({ token, electionTitle, electionDescription, 
       router.push(`/vote/${token}/confirmed`)
     } else {
       const data = await res.json().catch(() => ({}))
-      setError(data.error ?? "Submission failed. Please try again.")
+      setError(formatServerError(data))
     }
+  }
+
+  // Derived — recomputed every render; only non-empty when issuesPanelOpen and items remain
+  const activeIssues: BallotIssue[] = (() => {
+    if (!issuesPanelOpen) return []
+    const r = buildPayload()
+    return r.ok ? [] : r.issues
+  })()
+
+  // ── Issues panel ────────────────────────────────────────────────────────
+
+  function renderIssuesPanel(layout: "desktop" | "mobile") {
+    if (!issuesPanelOpen || activeIssues.length === 0) return null
+    return (
+      <div
+        className={cn("rounded-[12px] border p-4 space-y-2.5", layout === "desktop" ? "mb-8" : "mb-4 mt-4")}
+        style={{ background: "oklch(0.98 0.012 15)", borderColor: "var(--vh-danger)" }}
+      >
+        <p className="text-sm font-semibold" style={{ color: "var(--vh-danger)" }}>
+          Almost there — a few items need attention before you can submit:
+        </p>
+        <ul className="space-y-2">
+          {activeIssues.map((issue) => (
+            <li key={issue.questionId} className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <p className="text-sm font-medium text-vh-ink">Q{issue.questionIndex + 1}: {issue.questionText}</p>
+                <p className="text-xs text-vh-ink-soft">{issue.message}</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setStep(issue.questionIndex)
+                  questionRefs.current[issue.questionId]?.scrollIntoView({ behavior: "smooth", block: "center" })
+                }}
+                className="shrink-0 text-xs font-semibold px-2.5 py-1 rounded-[6px] border transition-colors"
+                style={{ borderColor: "var(--vh-danger)", color: "var(--vh-danger)" }}
+              >
+                Fix →
+              </button>
+            </li>
+          ))}
+        </ul>
+      </div>
+    )
   }
 
   // ── Summary lines (review) ──────────────────────────────────────────────
@@ -556,6 +633,8 @@ export default function BallotForm({ token, electionTitle, electionDescription, 
               <p className="text-[15px] leading-relaxed text-vh-muted mb-10 whitespace-pre-wrap">{electionDescription}</p>
             )}
 
+            {renderIssuesPanel("desktop")}
+
             <div className="space-y-10">
               {questions.map((q, i) => (
                 <section
@@ -640,6 +719,8 @@ export default function BallotForm({ token, electionTitle, electionDescription, 
             </p>
           )}
         </div>
+
+        {renderIssuesPanel("mobile")}
 
         {renderQuestionInput(questions[step])}
 

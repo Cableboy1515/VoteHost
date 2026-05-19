@@ -36,7 +36,7 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
       status: "ACTIVE",
       activatedAt: now,
       activatedById: session.sub,
-      startsAt: election.startsAt ?? now,
+      startsAt: now,
       startReminderSentAt: null,
     },
   })

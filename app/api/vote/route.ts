@@ -12,7 +12,7 @@ export async function POST(req: Request) {
   if (!body) return NextResponse.json({ error: "Invalid JSON" }, { status: 400 })
 
   const parsed = BallotSubmissionSchema.safeParse(body)
-  if (!parsed.success) return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 })
+  if (!parsed.success) return NextResponse.json({ error: "Your ballot couldn't be read. Please go back and try again." }, { status: 400 })
 
   const { token, answers } = parsed.data
 
@@ -45,13 +45,13 @@ export async function POST(req: Request) {
     const question = questionMap.get(answer.questionId)
     if (!question) {
       return NextResponse.json(
-        { error: `Question ${answer.questionId} does not belong to this election` },
+        { error: "An answer was submitted for a question that isn't on this ballot." },
         { status: 400 }
       )
     }
     if (answer.type !== question.type) {
       return NextResponse.json(
-        { error: `Answer type mismatch for question ${answer.questionId}` },
+        { error: `The answer for "${question.text}" doesn't match the question type.` },
         { status: 400 }
       )
     }
@@ -60,38 +60,49 @@ export async function POST(req: Request) {
 
     if (answer.type === "SINGLE_CHOICE") {
       if (!validOptionIds.has(answer.optionId)) {
-        return NextResponse.json({ error: "Invalid option" }, { status: 400 })
+        return NextResponse.json(
+          { error: `An option you selected for "${question.text}" isn't valid.` },
+          { status: 400 }
+        )
       }
     } else if (answer.type === "MULTIPLE_CHOICE") {
       const max = question.maxSelections ?? question.options.length
       const unique = [...new Set(answer.optionIds)]
       if (unique.length > max) {
         return NextResponse.json(
-          { error: `Too many selections for question ${answer.questionId}` },
+          { error: `You selected too many options for "${question.text}". Pick up to ${max}.` },
           { status: 400 }
         )
       }
       for (const oid of unique) {
         if (!validOptionIds.has(oid)) {
-          return NextResponse.json({ error: "Invalid option" }, { status: 400 })
+          return NextResponse.json(
+            { error: `An option you selected for "${question.text}" isn't valid.` },
+            { status: 400 }
+          )
         }
       }
     } else if (answer.type === "RANKED_CHOICE") {
       const allOptionIds = [...validOptionIds].sort()
       const ranked = [...answer.rankedOptionIds].sort()
-      if (
-        ranked.length !== allOptionIds.length ||
-        ranked.some((id, i) => id !== allOptionIds[i]) ||
-        new Set(answer.rankedOptionIds).size !== answer.rankedOptionIds.length
-      ) {
+      if (new Set(answer.rankedOptionIds).size !== answer.rankedOptionIds.length) {
         return NextResponse.json(
-          { error: `Ranked answer must include each option exactly once for question ${answer.questionId}` },
+          { error: `"${question.text}" has the same option ranked twice.` },
+          { status: 400 }
+        )
+      }
+      if (ranked.length !== allOptionIds.length || ranked.some((id, i) => id !== allOptionIds[i])) {
+        return NextResponse.json(
+          { error: `Please rank all ${question.options.length} options for "${question.text}".` },
           { status: 400 }
         )
       }
     } else if (answer.type === "WRITE_IN") {
       if (answer.text.length > 500) {
-        return NextResponse.json({ error: "Write-in response exceeds 500 characters" }, { status: 400 })
+        return NextResponse.json(
+          { error: `Your response for "${question.text}" is too long (max 500 characters).` },
+          { status: 400 }
+        )
       }
     }
   }
@@ -101,7 +112,11 @@ export async function POST(req: Request) {
   const answeredIds = new Set(answers.map((a) => a.questionId))
   const missing = [...requiredIds].filter((id) => !answeredIds.has(id))
   if (missing.length > 0) {
-    return NextResponse.json({ error: "Missing required questions", missing }, { status: 400 })
+    const missingTexts = missing.map((id) => questionMap.get(id)?.text ?? id)
+    return NextResponse.json(
+      { error: `Some required questions weren't answered: ${missingTexts.map((t) => `"${t}"`).join(", ")}.`, missing },
+      { status: 400 }
+    )
   }
 
   // Build vote records with no voter linkage — anonymity guarantee

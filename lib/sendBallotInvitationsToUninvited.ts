@@ -39,10 +39,15 @@ export async function sendBallotInvitationsToUninvited(
         emailFooter: election.emailFooter,
         endsAt: election.endsAt?.toISOString(),
       })
-      if (error) { failed++; continue }
+      if (error) {
+        console.error("[sendBallotInvitationsToUninvited] send failed for", voter.email, error)
+        failed++
+        continue
+      }
       await db.voter.update({ where: { id: voter.id }, data: { invitedAt: now } })
       sent++
-    } catch {
+    } catch (err) {
+      console.error("[sendBallotInvitationsToUninvited] send threw for", voter.email, err)
       failed++
     }
   }

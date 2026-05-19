@@ -32,10 +32,17 @@ export default function ActivateElectionButton({
     setError("")
     try {
       const res = await fetch(`/api/elections/${electionId}/activate`, { method: "POST" })
+      const body = await res.json().catch(() => ({}))
       if (!res.ok) {
-        const body = await res.json().catch(() => ({}))
         setError(body.error ?? "Failed to activate election.")
         setActivating(false)
+        return
+      }
+      const { sent, failed } = body as { sent: number; failed: number }
+      if (failed > 0) {
+        setError(`Activated, but ${failed} of ${sent + failed} invitation(s) failed to send. Check email settings or server logs.`)
+        setActivating(false)
+        onActivated?.()
         return
       }
       setOpen(false)
