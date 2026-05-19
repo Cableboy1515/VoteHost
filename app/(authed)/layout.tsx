@@ -5,6 +5,7 @@ import { usePathname, useRouter } from "next/navigation"
 import { BrandMark } from "@/components/ui/brand-mark"
 import { LayoutDashboard, Vote, Archive, Users, Settings, Plus, Menu, X } from "lucide-react"
 import { UnsavedChangesProvider, GuardLink } from "@/components/admin/UnsavedChangesGuard"
+import OnboardingProvider from "@/components/admin/OnboardingProvider"
 
 type NavItem = {
   label: string
@@ -157,7 +158,11 @@ export default function AuthedLayout({ children }: { children: React.ReactNode }
             </button>
             <BrandMark size={22} />
           </header>
-          <main className="flex-1 overflow-auto overscroll-contain">{children}</main>
+          <main className="flex-1 overflow-auto overscroll-contain">
+            <OnboardingProvider>
+              {children}
+            </OnboardingProvider>
+          </main>
         </div>
       </div>
     </UnsavedChangesProvider>

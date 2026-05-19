@@ -65,6 +65,16 @@ async function getAllEmailConfig(): Promise<EmailConfig> {
   }
 }
 
+export async function isEmailConfigured(): Promise<boolean> {
+  const rows = await db.setting.findMany({ where: { key: { in: [...ALL_KEYS] } } })
+  const map: Record<string, string> = {}
+  for (const row of rows) map[row.key] = row.value
+  if ((map.email_provider ?? "resend") === "smtp") {
+    return !!(map.smtp_host && map.smtp_user && map.smtp_pass)
+  }
+  return !!(map.resend_api_key || process.env.RESEND_API_KEY)
+}
+
 export type EmailMode = "invite" | "reminder-early" | "reminder-final" | "results"
 
 export type ResultsQuestion = {
