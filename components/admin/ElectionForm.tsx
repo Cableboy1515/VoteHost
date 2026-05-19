@@ -7,6 +7,7 @@ import ElectionTestEmailButton from "@/components/admin/ElectionTestEmailButton"
 import { useUnsavedChangesGuard } from "@/components/admin/UnsavedChangesGuard"
 import ImageUploadField from "@/components/admin/ImageUploadField"
 import ActivationConfirmDialog from "@/components/admin/ActivationConfirmDialog"
+import EmailPreviewDialog from "@/components/admin/EmailPreviewDialog"
 
 interface Props {
   electionId?: string
@@ -622,7 +623,7 @@ export default function ElectionForm({
             <div className="flex flex-wrap gap-2">
               <button
                 type="button"
-                onClick={() => setShowPreview((v) => !v)}
+                onClick={() => setShowPreview(true)}
                 className="px-3.5 py-2 rounded-[10px] text-[13px] transition-colors"
                 style={{
                   border: "1px solid var(--vh-line-strong)",
@@ -630,7 +631,7 @@ export default function ElectionForm({
                   color: "var(--vh-ink-soft)",
                 }}
               >
-                {showPreview ? "Hide preview" : "Preview email"}
+                Preview email
               </button>
               {electionId && <ElectionTestEmailButton electionId={electionId} />}
             </div>
@@ -669,21 +670,7 @@ export default function ElectionForm({
         </div>
       </form>
 
-      {showPreview && (
-        <div className="mt-5">
-          <div className="flex items-center justify-between mb-2">
-            <p className="text-[13px] font-medium" style={{ color: "var(--vh-ink-soft)" }}>Email preview</p>
-            <p className="text-[12px]" style={{ color: "var(--vh-muted)" }}>Approximate — clients may vary</p>
-          </div>
-          <iframe
-            srcDoc={previewHtml}
-            className="w-full rounded-[14px]"
-            style={{ height: 480, border: "1px solid var(--vh-line)" }}
-            sandbox=""
-            title="Email preview"
-          />
-        </div>
-      )}
+      <EmailPreviewDialog open={showPreview} onOpenChange={setShowPreview} html={previewHtml} />
 
       <ActivationConfirmDialog
         open={confirmActivateOpen}
