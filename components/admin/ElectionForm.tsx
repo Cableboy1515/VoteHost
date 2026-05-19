@@ -381,13 +381,12 @@ export default function ElectionForm({
                       ? "Add at least one voter before activating"
                       : undefined
                     const isDisabled = activating && !!disabledReason
-                    return (
+                    const pill = (
                       <button
                         key={s}
                         type="button"
                         onClick={isDisabled ? undefined : () => setStatus(s)}
                         disabled={isDisabled}
-                        title={disabledReason}
                         className="px-3.5 py-2 rounded-full text-[12.5px] font-medium transition-colors"
                         style={{
                           border: `1px solid ${active ? "var(--vh-accent)" : "var(--vh-line-strong)"}`,
@@ -399,6 +398,23 @@ export default function ElectionForm({
                       >
                         {STATUS_LABEL[s]}
                       </button>
+                    )
+                    if (!isDisabled || !disabledReason) return pill
+                    return (
+                      <span key={s} className="relative group inline-flex">
+                        {pill}
+                        <span
+                          role="tooltip"
+                          className="pointer-events-none opacity-0 group-hover:opacity-100 absolute bottom-full left-0 mb-2 w-max max-w-[280px] whitespace-normal rounded-[6px] px-2.5 py-1.5 text-[12px] leading-snug text-white"
+                          style={{ background: "var(--vh-ink)" }}
+                        >
+                          {disabledReason}
+                          <span
+                            className="absolute top-full left-4 border-4 border-transparent"
+                            style={{ borderTopColor: "var(--vh-ink)" }}
+                          />
+                        </span>
+                      </span>
                     )
                   })}
                   {status === "DRAFT" && questionCount > 0 && voterCount > 0 && (
