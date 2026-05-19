@@ -7,6 +7,7 @@ import { ElectionBaseSchema, ElectionSchema } from "@/lib/validations"
 import { sendElectionCompletedStaffNotice } from "@/lib/email"
 import { getStaffRecipients } from "@/lib/staffRecipients"
 import { canActivate, CANNOT_ACTIVATE_MESSAGES } from "@/lib/canActivate"
+import { sendBallotInvitationsToUninvited } from "@/lib/sendBallotInvitationsToUninvited"
 
 const UPLOADS_DIR = join(process.cwd(), "public", "uploads")
 
@@ -101,6 +102,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     const now = new Date()
     updates.activatedAt = now
     updates.activatedById = session.sub
+    updates.startReminderSentAt = null
     if (!before.startsAt && !parsed.data.startsAt) {
       updates.startsAt = now
     }
@@ -136,6 +138,12 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
 
   const election = await db.election.update({ where: { id }, data: updates })
 
+  let invitationsSent = 0
+  if (transitioningToActive) {
+    const { sent } = await sendBallotInvitationsToUninvited(id)
+    invitationsSent = sent
+  }
+
   if (transitioningToEnd) {
     const voters = await db.voter.findMany({
       where: { electionId: id },
@@ -155,7 +163,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
       .catch((err) => console.error("[PATCH election] completion email threw:", err))
   }
 
-  return NextResponse.json(election)
+  return NextResponse.json({ ...election, invitationsSent })
 }
 
 export async function DELETE(_req: Request, { params }: { params: Promise<{ id: string }> }) {

@@ -6,6 +6,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import ElectionTestEmailButton from "@/components/admin/ElectionTestEmailButton"
 import { useUnsavedChangesGuard } from "@/components/admin/UnsavedChangesGuard"
 import ImageUploadField from "@/components/admin/ImageUploadField"
+import ActivationConfirmDialog from "@/components/admin/ActivationConfirmDialog"
 
 interface Props {
   electionId?: string
@@ -159,6 +160,8 @@ export default function ElectionForm({
   const [showPreview, setShowPreview] = useState(false)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState("")
+  const [confirmActivateOpen, setConfirmActivateOpen] = useState(false)
+  const [confirmActivating, setConfirmActivating] = useState(false)
 
   const previewHtml = buildPreviewHtml({ electionTitle: title, emailLogoUrl, emailMessage, emailFooter })
 
@@ -183,6 +186,7 @@ export default function ElectionForm({
 
   const baseline = useRef(snapshot())
   const isDirty = () => snapshot() !== baseline.current
+  const skipResetOnNextClose = useRef(false)
 
   async function save(): Promise<string | false> {
     setSaving(true)
@@ -258,7 +262,32 @@ export default function ElectionForm({
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
+    if (initialValues?.status === "DRAFT" && status === "ACTIVE") {
+      setConfirmActivateOpen(true)
+      return
+    }
     const id = await save()
+    if (!id) return
+    router.push(`/elections/${id}/ballot`)
+  }
+
+  function handleConfirmActivateOpenChange(next: boolean) {
+    if (!next) {
+      if (skipResetOnNextClose.current) {
+        skipResetOnNextClose.current = false
+      } else {
+        setStatus(initialValues?.status ?? "DRAFT")
+      }
+    }
+    setConfirmActivateOpen(next)
+  }
+
+  async function handleConfirmActivate() {
+    skipResetOnNextClose.current = true
+    setConfirmActivating(true)
+    const id = await save()
+    setConfirmActivating(false)
+    setConfirmActivateOpen(false)
     if (!id) return
     router.push(`/elections/${id}/ballot`)
   }
@@ -269,6 +298,18 @@ export default function ElectionForm({
         : new Date(startsAt))
     : null
   const isStartsAtFuture = effectiveStartsAtMoment != null && effectiveStartsAtMoment > new Date()
+
+  const firstReminderDaysNum = parseInt(firstReminderDays, 10)
+  const endsAtDate = endsAt
+    ? new Date(endsAtAllDay ? `${dateOnly(endsAt)}T23:59:59` : endsAt)
+    : null
+  const reminderSendDate =
+    endsAtDate && !isNaN(firstReminderDaysNum) && firstReminderDaysNum > 0
+      ? new Date(endsAtDate.getTime() - firstReminderDaysNum * 86_400_000)
+      : null
+  const reminderDateStr = reminderSendDate
+    ? reminderSendDate.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
+    : null
 
   return (
     <div className="max-w-[800px]">
@@ -361,11 +402,7 @@ export default function ElectionForm({
                   })}
                   {status === "DRAFT" && questionCount > 0 && voterCount > 0 && (
                     <p className="text-[12px] w-full mt-0.5" style={{ color: "var(--vh-muted)" }}>
-                      Saving as Active activates the election. Go to the{" "}
-                      <a href={electionId ? `/elections/${electionId}/voters` : "#"} style={{ color: "var(--vh-accent)" }}>
-                        Voters tab
-                      </a>{" "}
-                      to send invitations in the same step.
+                      Saving as Active will prompt you to confirm before opening voting and sending invitations.
                     </p>
                   )}
                 </div>
@@ -495,20 +532,30 @@ export default function ElectionForm({
         <VhCard title="Voter reminders">
           <div>
             <VhLabel htmlFor="firstReminderDays">First reminder (days before close)</VhLabel>
-            <input
-              id="firstReminderDays"
-              type="number"
-              min={1}
-              placeholder="Leave blank for no early reminder"
-              value={firstReminderDays}
-              onChange={(e) => setFirstReminderDays(e.target.value)}
-              className={inputCls}
-              style={{ ...inputStyle, maxWidth: 200 }}
-              onFocus={onFocusIn}
-              onBlur={onFocusOut}
-            />
+            <div className="flex items-center gap-3">
+              <input
+                id="firstReminderDays"
+                type="number"
+                min={1}
+                placeholder="Leave blank for no early reminder"
+                value={firstReminderDays}
+                onChange={(e) => setFirstReminderDays(e.target.value)}
+                disabled={!endsAt}
+                className={inputCls}
+                style={{ ...inputStyle, maxWidth: 200, opacity: !endsAt ? 0.5 : 1 }}
+                onFocus={onFocusIn}
+                onBlur={onFocusOut}
+              />
+              {reminderDateStr && (
+                <span className="text-[13px]" style={{ color: "var(--vh-muted)" }}>
+                  Sends {reminderDateStr}
+                </span>
+              )}
+            </div>
             <p className="mt-2 text-[12.5px]" style={{ color: "var(--vh-muted)" }}>
-              Sends a reminder to non-voters this many days before close. A 24-hour final notice always fires automatically.
+              {!endsAt
+                ? "Add an end date in the Schedule section to enable reminders."
+                : "Sends a reminder to non-voters this many days before close. A 24-hour final notice always fires automatically."}
             </p>
           </div>
         </VhCard>
@@ -637,6 +684,15 @@ export default function ElectionForm({
           />
         </div>
       )}
+
+      <ActivationConfirmDialog
+        open={confirmActivateOpen}
+        onOpenChange={handleConfirmActivateOpenChange}
+        electionTitle={title}
+        uninvitedCount={uninvitedCount}
+        onConfirm={handleConfirmActivate}
+        confirming={confirmActivating}
+      />
     </div>
   )
 }

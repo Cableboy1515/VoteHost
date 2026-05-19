@@ -2,7 +2,7 @@ import { NextResponse } from "next/server"
 import { requireRole } from "@/lib/auth"
 import { db } from "@/lib/db"
 import { canActivate, CANNOT_ACTIVATE_MESSAGES } from "@/lib/canActivate"
-import { sendBallotInvitation } from "@/lib/email"
+import { sendBallotInvitationsToUninvited } from "@/lib/sendBallotInvitationsToUninvited"
 
 export async function POST(_req: Request, { params }: { params: Promise<{ id: string }> }) {
   const session = await requireRole("ORGANIZER")
@@ -37,38 +37,11 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
       activatedAt: now,
       activatedById: session.sub,
       startsAt: election.startsAt ?? now,
-      startReminderSentAt: null, // re-arm if rescheduled later
+      startReminderSentAt: null,
     },
   })
 
-  const uninvitedVoters = await db.voter.findMany({
-    where: { electionId, invitedAt: null },
-  })
-
-  const baseUrl = process.env.NEXTAUTH_URL ?? "http://localhost:3000"
-  let sent = 0
-  let failed = 0
-
-  for (const voter of uninvitedVoters) {
-    try {
-      const { error } = await sendBallotInvitation({
-        voterName: voter.name,
-        voterEmail: voter.email,
-        electionTitle: election.title,
-        magicLink: `${baseUrl}/vote/${voter.token}`,
-        emailSubject: election.emailSubject,
-        emailMessage: election.emailMessage,
-        emailLogoUrl: election.emailLogoUrl,
-        emailFooter: election.emailFooter,
-        endsAt: election.endsAt?.toISOString(),
-      })
-      if (error) { failed++; continue }
-      await db.voter.update({ where: { id: voter.id }, data: { invitedAt: now } })
-      sent++
-    } catch {
-      failed++
-    }
-  }
+  const { sent, failed } = await sendBallotInvitationsToUninvited(electionId)
 
   return NextResponse.json({ activated: true, sent, failed })
 }
