@@ -322,6 +322,7 @@ export default function EmailSetupWizard({
                     <Label htmlFor="wiz_smtp_host">SMTP Host</Label>
                     <Input
                       id="wiz_smtp_host"
+                      type="url"
                       placeholder="smtp.example.com"
                       value={form.smtp_host}
                       onChange={(e) => setField("smtp_host", e.target.value)}
@@ -335,6 +336,7 @@ export default function EmailSetupWizard({
                       <Label htmlFor="wiz_smtp_port">Port</Label>
                       <Input
                         id="wiz_smtp_port"
+                        type="number"
                         placeholder="587"
                         value={form.smtp_port}
                         onChange={(e) => setField("smtp_port", e.target.value)}
@@ -364,6 +366,9 @@ export default function EmailSetupWizard({
                     placeholder="you@example.com"
                     value={form.smtp_user}
                     onChange={(e) => setField("smtp_user", e.target.value)}
+                    autoCapitalize="none"
+                    autoCorrect="off"
+                    spellCheck={false}
                     className="bg-white"
                   />
                 </div>
@@ -398,6 +403,7 @@ export default function EmailSetupWizard({
                 placeholder={BRAND_NAME}
                 value={form.email_from_name}
                 onChange={(e) => setField("email_from_name", e.target.value)}
+                autoComplete="off"
                 className="bg-white"
               />
             </div>
@@ -409,6 +415,7 @@ export default function EmailSetupWizard({
                 placeholder="votes@yourdomain.com"
                 value={form.email_from_address}
                 onChange={(e) => setField("email_from_address", e.target.value)}
+                autoComplete="email"
                 className="bg-white"
               />
               <p className="text-[12px]" style={{ color: "var(--vh-muted)" }}>

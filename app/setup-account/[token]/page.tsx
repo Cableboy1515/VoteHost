@@ -124,6 +124,10 @@ export default function SetupAccountPage() {
                     required
                     minLength={8}
                     autoFocus
+                    autoComplete="new-password"
+                    autoCapitalize="none"
+                    autoCorrect="off"
+                    spellCheck={false}
                     className="w-full text-sm rounded-[10px] px-3 py-2.5 transition-colors"
                     style={inputStyle}
                     onFocus={onFocus}
@@ -155,6 +159,10 @@ export default function SetupAccountPage() {
                     value={confirmPassword}
                     onChange={(e) => setConfirmPassword(e.target.value)}
                     required
+                    autoComplete="new-password"
+                    autoCapitalize="none"
+                    autoCorrect="off"
+                    spellCheck={false}
                     className="w-full text-sm rounded-[10px] px-3 py-2.5 transition-colors"
                     style={inputStyle}
                     onFocus={onFocus}

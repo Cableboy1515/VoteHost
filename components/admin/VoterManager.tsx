@@ -491,6 +491,9 @@ export default function VoterManager({
             placeholder="Search by name or email…"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
+            autoCapitalize="none"
+            autoCorrect="off"
+            spellCheck={false}
             className="w-full text-sm rounded-[10px] px-3 py-2"
             style={inputStyle}
           />
@@ -683,6 +686,8 @@ export default function VoterManager({
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 required
+                autoCapitalize="words"
+                autoComplete="name"
                 className="w-full text-sm rounded-[10px] px-3 py-2.5"
                 style={{ border: "1px solid var(--vh-line-strong)", background: "var(--vh-surface)", color: "var(--vh-ink)", outline: "none" }}
                 autoFocus
@@ -695,6 +700,11 @@ export default function VoterManager({
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
+                autoComplete="email"
+                autoCapitalize="none"
+                autoCorrect="off"
+                spellCheck={false}
+                inputMode="email"
                 className="w-full text-sm rounded-[10px] px-3 py-2.5"
                 style={{ border: "1px solid var(--vh-line-strong)", background: "var(--vh-surface)", color: "var(--vh-ink)", outline: "none" }}
               />

@@ -187,6 +187,7 @@ function TestResultsEmailButton({ electionId, disabled }: { electionId: string; 
               placeholder="you@example.com"
               value={to}
               onChange={(e) => setTo(e.target.value)}
+              autoComplete="email"
             />
           </div>
           {result === "sent" && <p className="text-sm" style={{ color: "var(--vh-success)" }}>Preview sent — check your inbox.</p>}

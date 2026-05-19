@@ -354,6 +354,9 @@ function RestoreDialog({ open, onOpenChange }: RestoreDialogProps) {
               placeholder="RESTORE"
               className="bg-white font-mono"
               autoComplete="off"
+              autoCapitalize="characters"
+              autoCorrect="off"
+              spellCheck={false}
             />
           </div>
         </div>

@@ -73,6 +73,7 @@ export default function ElectionTestEmailButton({ electionId }: { electionId: st
               placeholder="you@example.com"
               value={to}
               onChange={(e) => setTo(e.target.value)}
+              autoComplete="email"
             />
           </div>
           {result === "sent" && (

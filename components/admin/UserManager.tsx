@@ -156,7 +156,7 @@ export default function UserManager({ users: initialUsers, currentUserId }: Prop
             <div className="space-y-3 py-2">
               <div className="space-y-1">
                 <Label>Email</Label>
-                <Input type="email" value={newEmail} onChange={(e) => setNewEmail(e.target.value)} placeholder="user@example.com" />
+                <Input type="email" value={newEmail} onChange={(e) => setNewEmail(e.target.value)} placeholder="user@example.com" autoComplete="email" />
               </div>
               <div className="space-y-1">
                 <Label>Role</Label>

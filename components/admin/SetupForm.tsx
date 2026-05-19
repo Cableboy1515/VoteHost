@@ -60,6 +60,7 @@ export default function SetupForm() {
               onChange={(e) => setToken(e.target.value)}
               required
               autoFocus
+              autoComplete="off"
               placeholder="Paste from .env — SETUP_TOKEN=..."
             />
           </div>
@@ -71,6 +72,7 @@ export default function SetupForm() {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
+              autoComplete="email"
             />
           </div>
           <div className="space-y-1">
@@ -82,6 +84,7 @@ export default function SetupForm() {
               onChange={(e) => setPassword(e.target.value)}
               required
               minLength={8}
+              autoComplete="new-password"
             />
           </div>
           <div className="space-y-1">
@@ -92,6 +95,7 @@ export default function SetupForm() {
               value={confirm}
               onChange={(e) => setConfirm(e.target.value)}
               required
+              autoComplete="new-password"
             />
           </div>
           {error && <p className="text-sm text-red-500">{error}</p>}

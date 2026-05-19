@@ -113,6 +113,11 @@ function LoginForm() {
                 onChange={(e) => setEmail(e.target.value)}
                 required
                 autoFocus
+                autoComplete="username"
+                autoCapitalize="none"
+                autoCorrect="off"
+                spellCheck={false}
+                inputMode="email"
                 className="w-full text-sm rounded-[10px] px-3 py-2.5 transition-colors"
                 style={inputStyle}
                 onFocus={onFocus}
@@ -130,6 +135,10 @@ function LoginForm() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
+                autoComplete="current-password"
+                autoCapitalize="none"
+                autoCorrect="off"
+                spellCheck={false}
                 className="w-full text-sm rounded-[10px] px-3 py-2.5 transition-colors"
                 style={inputStyle}
                 onFocus={onFocus}
@@ -166,6 +175,11 @@ function LoginForm() {
                       value={resetEmail}
                       onChange={(e) => setResetEmail(e.target.value)}
                       placeholder="you@example.com"
+                      autoComplete="email"
+                      autoCapitalize="none"
+                      autoCorrect="off"
+                      spellCheck={false}
+                      inputMode="email"
                       className="w-full text-sm rounded-[8px] px-3 py-2 transition-colors"
                       style={inputStyle}
                       onFocus={onFocus}

@@ -325,6 +325,7 @@ export default function ElectionForm({
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
                 required
+                autoComplete="off"
                 placeholder="Election title"
                 className={inputCls}
                 style={inputStyle}
@@ -554,6 +555,7 @@ export default function ElectionForm({
                 id="firstReminderDays"
                 type="number"
                 min={1}
+                inputMode="numeric"
                 placeholder="Leave blank for no early reminder"
                 value={firstReminderDays}
                 onChange={(e) => setFirstReminderDays(e.target.value)}
@@ -591,6 +593,7 @@ export default function ElectionForm({
                 placeholder={`You're invited to vote: ${title || "election title"}`}
                 value={emailSubject}
                 onChange={(e) => setEmailSubject(e.target.value)}
+                autoComplete="off"
                 className={inputCls}
                 style={inputStyle}
                 onFocus={onFocusIn}

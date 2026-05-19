@@ -476,6 +476,7 @@ export default function SettingsPage({ hasActiveElections }: { hasActiveElection
             placeholder={BRAND_NAME}
             value={settings.email_from_name}
             onChange={(e) => set("email_from_name", e.target.value)}
+            autoComplete="off"
             className="bg-white"
           />
         </div>
@@ -488,6 +489,7 @@ export default function SettingsPage({ hasActiveElections }: { hasActiveElection
             placeholder="votes@yourdomain.com"
             value={settings.email_from_address}
             onChange={(e) => set("email_from_address", e.target.value)}
+            autoComplete="email"
             className="bg-white"
           />
           {settings.email_preset === "resend" ? (
@@ -524,6 +526,7 @@ export default function SettingsPage({ hasActiveElections }: { hasActiveElection
               <Label htmlFor="smtp_host">SMTP Host</Label>
               <Input
                 id="smtp_host"
+                type="url"
                 placeholder="smtp.example.com"
                 value={settings.smtp_host}
                 onChange={(e) => set("smtp_host", e.target.value)}
@@ -536,6 +539,7 @@ export default function SettingsPage({ hasActiveElections }: { hasActiveElection
                 <Label htmlFor="smtp_port">Port</Label>
                 <Input
                   id="smtp_port"
+                  type="number"
                   placeholder="587"
                   value={settings.smtp_port}
                   onChange={(e) => set("smtp_port", e.target.value)}
@@ -563,6 +567,9 @@ export default function SettingsPage({ hasActiveElections }: { hasActiveElection
                 placeholder="you@example.com"
                 value={settings.smtp_user}
                 onChange={(e) => set("smtp_user", e.target.value)}
+                autoCapitalize="none"
+                autoCorrect="off"
+                spellCheck={false}
                 className="bg-white"
               />
             </div>

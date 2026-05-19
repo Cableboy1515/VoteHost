@@ -454,10 +454,16 @@ export default function BallotBuilder({ electionId, electionStatus, firstVoteAt,
                             <div>
                               <label className="block text-[11.5px] font-medium mb-1" style={{ color: "var(--vh-muted)" }}>Website</label>
                               <input
+                                type="url"
                                 placeholder="example.com"
                                 value={o.website ?? ""}
                                 onChange={(e) => updateOption(qIndex, oIndex, { website: e.target.value || undefined })}
                                 disabled={locked}
+                                autoCapitalize="none"
+                                autoCorrect="off"
+                                spellCheck={false}
+                                autoComplete="url"
+                                inputMode="url"
                                 className="w-full text-sm px-2.5 py-1.5 rounded-[8px]"
                                 style={{ border: "1px solid var(--vh-line-strong)", background: "var(--vh-surface)", color: "var(--vh-ink)", outline: "none" }}
                               />
@@ -485,6 +491,7 @@ export default function BallotBuilder({ electionId, electionStatus, firstVoteAt,
                         type="number"
                         min={1}
                         max={q.options.length}
+                        inputMode="numeric"
                         placeholder="No limit"
                         value={q.maxSelections ?? ""}
                         onChange={(e) =>
