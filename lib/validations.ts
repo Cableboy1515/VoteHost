@@ -1,4 +1,5 @@
 import { z } from "zod"
+import { HERO_COLOR_KEYS } from "./heroColors"
 
 const urlField = z.preprocess(
   (val) => {
@@ -43,6 +44,7 @@ export const ElectionBaseSchema = z.object({
   emailFooter: z.string().optional().nullable(),
   firstReminderDays: z.number().int().positive().nullish(),
   autoActivate: z.boolean().optional(),
+  heroColor: z.enum(HERO_COLOR_KEYS as [string, ...string[]]).nullable().optional(),
 })
 
 export const ElectionSchema = ElectionBaseSchema.refine(

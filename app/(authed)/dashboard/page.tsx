@@ -6,6 +6,8 @@ import { db } from "@/lib/db"
 import { requireRole } from "@/lib/auth"
 import { DashboardEmpty } from "@/components/admin/DashboardEmpty"
 import { autoCompleteElections } from "@/lib/autoCompleteElections"
+import { HeroColorPicker } from "@/components/admin/HeroColorPicker"
+import { getHeroColor } from "@/lib/heroColors"
 
 function formatTimeLeft(endsAt: Date): string {
   const ms = endsAt.getTime() - Date.now()
@@ -24,15 +26,17 @@ type ActiveElection = {
   votedCount: number
   totalVoters: number
   participation: number
+  heroColor: string | null
 }
 
 function ActiveCard({ e, variant }: { e: ActiveElection; variant: "hero" | "tile" }) {
   const isHero = variant === "hero"
+  const color = getHeroColor(e.heroColor)
   return (
     <div
       className="relative rounded-[18px] text-white overflow-hidden"
       style={{
-        background: "linear-gradient(135deg, var(--vh-accent) 0%, var(--vh-accent-strong) 100%)",
+        background: `linear-gradient(135deg, ${color.base} 0%, ${color.strong} 100%)`,
         boxShadow: "var(--vh-shadow-md)",
         padding: isHero ? 28 : 22,
       }}
@@ -88,6 +92,7 @@ function ActiveCard({ e, variant }: { e: ActiveElection; variant: "hero" | "tile
           )}
         </div>
         <div className={`flex justify-end gap-2 ${isHero ? "mt-5" : "mt-4"}`}>
+          <HeroColorPicker electionId={e.id} currentColor={e.heroColor} />
           <Link
             href={`/elections/${e.id}/voters`}
             className="inline-flex items-center justify-center px-3.5 py-1.5 rounded-[10px] text-[13px] transition-colors"
@@ -98,7 +103,7 @@ function ActiveCard({ e, variant }: { e: ActiveElection; variant: "hero" | "tile
           <Link
             href={`/elections/${e.id}/results`}
             className="inline-flex items-center justify-center px-3.5 py-1.5 rounded-[10px] text-[13px] font-semibold transition-colors"
-            style={{ background: "white", color: "var(--vh-accent-strong)" }}
+            style={{ background: "white", color: color.strong }}
           >
             View live results →
           </Link>
@@ -155,6 +160,7 @@ export default async function DashboardPage() {
       votedCount: e.votedCount,
       totalVoters: e._count.voters,
       participation: e._count.voters > 0 ? Math.round((e.votedCount / e._count.voters) * 100) : 0,
+      heroColor: e.heroColor,
     }))
     .sort((a, b) => {
       if (!a.endsAt) return 1
