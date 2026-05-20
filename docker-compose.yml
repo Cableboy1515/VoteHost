@@ -2,7 +2,10 @@ services:
 
   # ── Application ─────────────────────────────────────────────────────────────
   app:
-    build: .
+    build:
+      context: .
+      args:
+        GIT_SHA: ${GIT_SHA:-dev}
     restart: unless-stopped
     env_file: .env
     ports:

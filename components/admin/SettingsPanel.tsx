@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { BRAND_NAME } from "@/lib/branding"
+import { BRAND_NAME, RELEASES_URL } from "@/lib/branding"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -636,6 +636,22 @@ export default function SettingsPage({ hasActiveElections }: { hasActiveElection
 
       <hr className="my-8 border-zinc-200" />
       <BackupRestorePanel hasActiveElections={hasActiveElections} />
+
+      <p className="text-center text-xs text-zinc-400 mt-12">
+        {BRAND_NAME} v{process.env.NEXT_PUBLIC_APP_VERSION}
+        {process.env.NEXT_PUBLIC_GIT_SHA !== "dev" && (
+          <span className="ml-1">({process.env.NEXT_PUBLIC_GIT_SHA})</span>
+        )}
+        {" — "}
+        <a
+          href={RELEASES_URL}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="underline hover:text-zinc-600"
+        >
+          What&apos;s new ↗
+        </a>
+      </p>
     </div>
   )
 }

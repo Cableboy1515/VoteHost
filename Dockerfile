@@ -23,6 +23,10 @@ RUN node node_modules/.bin/prisma generate
 # proxy.ts checks NEXTAUTH_SECRET at module load time; supply a placeholder so
 # `next build` can collect page data. The real secret is injected at runtime.
 ENV NEXTAUTH_SECRET=build-placeholder
+# SHA is passed via --build-arg GIT_SHA=$(git rev-parse --short HEAD) and baked
+# into the bundle so the Settings page and /api/health can surface the build.
+ARG GIT_SHA=dev
+ENV NEXT_PUBLIC_GIT_SHA=$GIT_SHA
 RUN npm run build
 
 # ── Stage 4: runtime ──────────────────────────────────────────────────────────
