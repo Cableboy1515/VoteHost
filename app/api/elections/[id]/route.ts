@@ -104,9 +104,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     updates.activatedAt = now
     updates.activatedById = session.sub
     updates.startReminderSentAt = null
-    if (!before.startsAt && !parsed.data.startsAt) {
-      updates.startsAt = now
-    }
+    updates.startsAt = now
   }
 
   // Detect manual close transition so we fire the staff completion email inline

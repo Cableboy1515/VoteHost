@@ -299,6 +299,7 @@ export default function ElectionForm({
         : new Date(startsAt))
     : null
   const isStartsAtFuture = effectiveStartsAtMoment != null && effectiveStartsAtMoment > new Date()
+  const opensLockedByActivation = status === "ACTIVE" && initialValues?.status === "DRAFT"
 
   const firstReminderDaysNum = parseInt(firstReminderDays, 10)
   const endsAtDate = endsAt
@@ -386,7 +387,12 @@ export default function ElectionForm({
                       <button
                         key={s}
                         type="button"
-                        onClick={isDisabled ? undefined : () => setStatus(s)}
+                        onClick={isDisabled ? undefined : () => {
+                          setStatus(s)
+                          if (s === "ACTIVE" && status === "DRAFT") {
+                            setStartsAt(toLocalInput(new Date().toISOString()))
+                          }
+                        }}
                         disabled={isDisabled}
                         className="px-3.5 py-2 rounded-full text-[12.5px] font-medium transition-colors"
                         style={{
@@ -440,8 +446,9 @@ export default function ElectionForm({
                   type="date"
                   value={dateOnly(startsAt)}
                   onChange={(e) => setStartsAt(e.target.value ? `${e.target.value}T00:00` : "")}
+                  disabled={opensLockedByActivation}
                   className={inputCls}
-                  style={inputStyle}
+                  style={{ ...inputStyle, ...(opensLockedByActivation ? { opacity: 0.5, cursor: "not-allowed" } : {}) }}
                   onFocus={onFocusIn}
                   onBlur={onFocusOut}
                 />
@@ -451,28 +458,38 @@ export default function ElectionForm({
                   type="datetime-local"
                   value={startsAt}
                   onChange={(e) => setStartsAt(e.target.value)}
+                  disabled={opensLockedByActivation}
                   className={inputCls}
-                  style={inputStyle}
+                  style={{ ...inputStyle, ...(opensLockedByActivation ? { opacity: 0.5, cursor: "not-allowed" } : {}) }}
                   onFocus={onFocusIn}
                   onBlur={onFocusOut}
                 />
               )}
               <div className="mt-1.5 flex items-center gap-3 text-[12px]" style={{ color: "var(--vh-muted)" }}>
-                <label className="flex items-center gap-1.5 cursor-pointer">
+                <label
+                  className="flex items-center gap-1.5"
+                  style={{ cursor: opensLockedByActivation ? "not-allowed" : "pointer", opacity: opensLockedByActivation ? 0.5 : 1 }}
+                >
                   <input
                     type="checkbox"
                     checked={startsAtAllDay}
                     onChange={(e) => setStartsAtAllDay(e.target.checked)}
+                    disabled={opensLockedByActivation}
                     className="flex-shrink-0"
                   />
                   All day
                 </label>
-                {startsAt && (
+                {startsAt && !opensLockedByActivation && (
                   <button type="button" onClick={() => setStartsAt("")} className="underline">
                     Clear
                   </button>
                 )}
               </div>
+              {opensLockedByActivation && (
+                <p className="mt-1.5 text-[12px]" style={{ color: "var(--vh-muted)" }}>
+                  Activating this election will start it immediately on save.
+                </p>
+              )}
             </div>
             <div>
               <VhLabel htmlFor="endsAt">Closes</VhLabel>
@@ -540,6 +557,8 @@ export default function ElectionForm({
               <p className="mt-1.5 pl-6 text-[12px]" style={{ color: "var(--vh-muted)" }}>
                 {!startsAt
                   ? "Pick an Opens date to enable auto-start."
+                  : opensLockedByActivation
+                  ? "Auto-start isn't needed — saving as Active will start this election immediately."
                   : "Auto-start requires a future Opens time. Use Activate now from the Voters tab to start immediately."}
               </p>
             )}
