@@ -106,8 +106,8 @@ export default async function ElectionsListPage({
                 </div>
                 <Link
                   href={`/elections/${e.id}/results`}
-                  className="px-3 py-1.5 rounded-[10px] text-[13px] transition-colors hover:[background:var(--vh-surface-3)]"
-                  style={{ color: "var(--vh-ink-soft)", background: "var(--vh-surface-2)", border: "1px solid var(--vh-line-strong)" }}
+                  className="px-3 py-1.5 rounded-[10px] text-[13px] transition-colors bg-vh-surface-2 hover:bg-vh-surface-3"
+                  style={{ color: "var(--vh-ink-soft)", border: "1px solid var(--vh-line-strong)" }}
                 >
                   View results →
                 </Link>
@@ -170,8 +170,7 @@ export default async function ElectionsListPage({
         </div>
         <Link
           href="/elections/new"
-          className="inline-flex items-center justify-center px-5 py-3 rounded-[10px] text-[15px] font-medium text-white transition-colors hover:[background:var(--vh-accent-strong)]"
-          style={{ background: "var(--vh-accent)" }}
+          className="inline-flex items-center justify-center px-5 py-3 rounded-[10px] text-[15px] font-medium text-white transition-colors bg-vh-accent hover:bg-vh-accent-strong"
         >
           + New election
         </Link>
@@ -186,10 +185,9 @@ export default async function ElectionsListPage({
             <Link
               key={tab.key}
               href={tab.key === "all" ? "/elections" : `/elections?status=${tab.key}`}
-              className={`inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full text-[13px] font-medium transition-colors ${active ? "hover:opacity-90" : "hover:[background:var(--vh-surface-2)]"}`}
+              className={`inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full text-[13px] font-medium transition-colors ${active ? "bg-vh-accent text-white hover:opacity-90" : "bg-vh-surface hover:bg-vh-surface-2"}`}
               style={{
-                background: active ? "var(--vh-accent)" : "var(--vh-surface)",
-                color: active ? "white" : "var(--vh-ink-soft)",
+                color: active ? undefined : "var(--vh-ink-soft)",
                 border: `1px solid ${active ? "var(--vh-accent)" : "var(--vh-line-strong)"}`,
               }}
             >
@@ -244,22 +242,22 @@ export default async function ElectionsListPage({
               <div className="flex flex-wrap gap-1.5">
                 <Link
                   href={`/elections/${e.id}`}
-                  className="px-3 py-1.5 rounded-[10px] text-[13px] transition-colors hover:[background:var(--vh-surface-3)]"
-                  style={{ color: "var(--vh-ink-soft)", background: "var(--vh-surface-2)", border: "1px solid var(--vh-line-strong)" }}
+                  className="px-3 py-1.5 rounded-[10px] text-[13px] transition-colors bg-vh-surface-2 hover:bg-vh-surface-3"
+                  style={{ color: "var(--vh-ink-soft)", border: "1px solid var(--vh-line-strong)" }}
                 >
                   Edit
                 </Link>
                 <Link
                   href={`/elections/${e.id}/voters`}
-                  className="px-3 py-1.5 rounded-[10px] text-[13px] transition-colors hover:[background:var(--vh-surface-3)]"
-                  style={{ color: "var(--vh-ink-soft)", background: "var(--vh-surface-2)", border: "1px solid var(--vh-line-strong)" }}
+                  className="px-3 py-1.5 rounded-[10px] text-[13px] transition-colors bg-vh-surface-2 hover:bg-vh-surface-3"
+                  style={{ color: "var(--vh-ink-soft)", border: "1px solid var(--vh-line-strong)" }}
                 >
                   Voters
                 </Link>
                 <Link
                   href={`/elections/${e.id}/results`}
-                  className="px-3 py-1.5 rounded-[10px] text-[13px] transition-colors hover:[background:var(--vh-surface-3)]"
-                  style={{ color: "var(--vh-ink-soft)", background: "var(--vh-surface-2)", border: "1px solid var(--vh-line-strong)" }}
+                  className="px-3 py-1.5 rounded-[10px] text-[13px] transition-colors bg-vh-surface-2 hover:bg-vh-surface-3"
+                  style={{ color: "var(--vh-ink-soft)", border: "1px solid var(--vh-line-strong)" }}
                 >
                   Results
                 </Link>
