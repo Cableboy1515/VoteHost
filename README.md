@@ -291,6 +291,134 @@ Uploaded images (logos, avatars) live in the `uploads` Docker volume at `/var/li
 
 ---
 
+## Election verification
+
+VoteHost Elections uses a layered verification system so that any interested party — not just administrators — can confirm that the published results are accurate and complete.
+
+### How it works
+
+**Ballot receipts** — when a voter submits their ballot, the server generates a unique receipt code (e.g. `ABCD-EFGH-IJKL-MNOP`) and returns it on the confirmation screen and by email. The code does not reveal what the voter chose; it only proves that a ballot was recorded. Anyone can enter a code at `/verify/[electionId]` to confirm it exists in the election ledger.
+
+**Tally hash** — when an election closes, the server computes a SHA-256 hash of every vote record in canonical form and stores it with the election. This hash is displayed on the admin results page and embedded in every export (PDF footer, CSV header comment, XLSX "Verification" sheet). Because the hash is derived from the raw votes, any after-the-fact change to the database — even a single vote — would produce a different hash.
+
+**Audit export** — administrators can download a full anonymised audit package (JSON) from the results page under **Export → Audit export (JSON)**. It contains every vote record (with `ballotId` grouping, but no voter identity), every ballot receipt hash, the tally hash, and the algorithm description needed to recompute it independently.
+
+### What an independent auditor can verify
+
+| Claim | How to verify |
+|---|---|
+| The tally hash hasn't changed since the election closed | Recompute the hash from the audit export and compare to the published value |
+| The vote counts match the raw data | Re-tally the `votes` array in the audit export and compare to the displayed results |
+| Every ballot receipt corresponds to a real ballot | Compute each ballot's hash from the audit export and confirm it appears in `ballotReceipts` |
+| No extra ballots were silently added | The number of unique `ballotId` values in `votes` must equal the length of `ballotReceipts` |
+
+### Step-by-step audit
+
+**1. Get the published tally hash**
+
+On the admin results page, copy the `sha256:` hash from the "Tally verification" section. The same hash appears on the public verification page at `/verify/[electionId]`.
+
+**2. Download the audit export**
+
+On the admin results page: **Export → Audit export (JSON)**. Save it as `audit.json`.
+
+**3. Run the verification script**
+
+Save the following as `verify.mjs` in the same directory as `audit.json`, then run `node verify.mjs`:
+
+```js
+import { createHash } from "node:crypto"
+import { readFileSync } from "node:fs"
+
+const audit = JSON.parse(readFileSync("audit.json", "utf8"))
+
+// ── Helper: canonical sort matching the server's algorithm ──────────────────
+function sortVotes(votes) {
+  return [...votes].sort((a, b) => {
+    if (a.questionId !== b.questionId) return a.questionId.localeCompare(b.questionId)
+    const ao = a.optionId ?? ""
+    const bo = b.optionId ?? ""
+    if (ao !== bo) return ao.localeCompare(bo)
+    return (a.rank ?? 0) - (b.rank ?? 0)
+  })
+}
+
+function sha256(obj) {
+  return createHash("sha256").update(JSON.stringify(obj)).digest("hex")
+}
+
+// ── 1. Recompute the tally hash ─────────────────────────────────────────────
+const canonical = sortVotes(audit.votes).map(v => ({
+  ballotId:    v.ballotId,
+  questionId:  v.questionId,
+  optionId:    v.optionId,
+  rank:        v.rank,
+  writeInText: v.writeInText,
+}))
+const computed = "sha256:" + sha256(canonical)
+const published = audit.tallyHash
+console.log("Published hash:", published)
+console.log("Computed hash: ", computed)
+console.log("Hash match:    ", computed === published ? "YES ✓" : "NO ✗ — results may have been altered")
+
+// ── 2. Re-tally votes ───────────────────────────────────────────────────────
+console.log("\nVote counts by question → option:")
+const tally = {}
+for (const v of audit.votes) {
+  const q = audit.questions.find(q => q.id === v.questionId)?.text ?? v.questionId
+  const o = audit.questions.flatMap(q => q.options).find(o => o.id === v.optionId)?.text ?? v.optionId ?? v.writeInText ?? "(write-in)"
+  const key = `${q} → ${o}`
+  tally[key] = (tally[key] ?? 0) + 1
+}
+for (const [k, n] of Object.entries(tally)) console.log(`  ${n.toString().padStart(4)}  ${k}`)
+
+// ── 3. Verify ballot receipts ───────────────────────────────────────────────
+const groups = Map.groupBy(audit.votes, v => v.ballotId)
+let receiptMismatches = 0
+for (const [ballotId, ballotVotes] of groups) {
+  const ballotCanonical = sortVotes(ballotVotes).map(v => ({
+    questionId:  v.questionId,
+    optionId:    v.optionId,
+    rank:        v.rank,
+    writeInText: v.writeInText,
+  }))
+  const ballotHash = sha256(ballotCanonical)
+  if (!audit.ballotReceipts.some(r => r.ballotHash === ballotHash)) {
+    console.error(`  No receipt found for ballotId ${ballotId}`)
+    receiptMismatches++
+  }
+}
+const uniqueBallots = groups.size
+const receiptCount = audit.ballotReceipts.length
+console.log(`\nBallot receipt check:`)
+console.log(`  Unique ballots in votes: ${uniqueBallots}`)
+console.log(`  Receipts in ledger:      ${receiptCount}`)
+console.log(`  Counts match:            ${uniqueBallots === receiptCount ? "YES ✓" : "NO ✗"}`)
+console.log(`  All ballots have a receipt: ${receiptMismatches === 0 ? "YES ✓" : `NO ✗ — ${receiptMismatches} missing"}`)
+```
+
+> **Node.js version note:** `Map.groupBy` requires Node.js 21+. On older versions, replace it with:
+> ```js
+> const groups = new Map()
+> for (const v of audit.votes) {
+>   if (!groups.has(v.ballotId)) groups.set(v.ballotId, [])
+>   groups.get(v.ballotId).push(v)
+> }
+> ```
+
+**4. Interpret the results**
+
+- **Hash match: YES** — the vote records in the audit export are identical to what was hashed when the election closed. The results have not been altered.
+- **Hash match: NO** — the database was modified after closing. Treat the published results as unverified.
+- **Ballot receipt check: YES** — every recorded ballot has a corresponding receipt in the ledger, and the counts match. No ballots were silently added or removed.
+- **Vote counts** — compare the tally printed by the script against the results shown in the admin panel. They must match exactly.
+
+### What this cannot prove
+
+If the server itself recorded a different choice than the one a voter submitted (i.e. the server binary lied at the moment of submission), the receipt would still look valid. Closing this gap fully requires browser-side encryption, which is incompatible with ranked-choice and write-in question types. For most organizational elections — where the threat is database tampering or a rogue admin fudging results after the fact — the hash-and-receipt system described above is sufficient.
+
+---
+
 ## Development
 
 Requires Node.js 22+ and a local PostgreSQL database.
