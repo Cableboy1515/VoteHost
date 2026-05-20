@@ -3,7 +3,8 @@ import { db } from "@/lib/db"
 import { BallotSubmissionSchema } from "@/lib/validations"
 import { rateLimit, rateLimitResponse } from "@/lib/rateLimit"
 import { generateBallotId, generateReceiptCode, computeBallotHash } from "@/lib/verification"
-import { sendBallotReceipt } from "@/lib/email"
+import { sendBallotReceipt, sendFullTurnoutStaffNotice } from "@/lib/email"
+import { getStaffRecipients } from "@/lib/staffRecipients"
 
 export async function POST(req: Request) {
   const ip = req.headers.get("x-forwarded-for")?.split(",")[0].trim() ?? "unknown"
@@ -180,6 +181,40 @@ export async function POST(req: Request) {
     }
     throw err
   }
+
+  // Real-time 100%-turnout notice. Stamp-first with conditional updateMany prevents
+  // concurrent final votes from sending duplicates; revert on failure so the hourly
+  // cron sweep can retry. Never blocks the voter's response.
+  ;(async () => {
+    const voters = await db.voter.findMany({
+      where: { electionId: voter.electionId },
+      select: { invitedAt: true, hasVoted: true },
+    })
+    const invited = voters.filter((v) => v.invitedAt != null)
+    if (invited.length === 0) return
+    if (invited.some((v) => !v.hasVoted)) return
+
+    const stamped = await db.election.updateMany({
+      where: { id: voter.electionId, fullTurnoutNoticeSentAt: null },
+      data: { fullTurnoutNoticeSentAt: new Date() },
+    })
+    if (stamped.count !== 1) return
+
+    try {
+      const recipients = await getStaffRecipients()
+      await sendFullTurnoutStaffNotice(
+        { id: voter.election.id, title: voter.election.title, endsAt: voter.election.endsAt },
+        recipients,
+        invited.length,
+        invited.length,
+      )
+    } catch {
+      await db.election.updateMany({
+        where: { id: voter.electionId },
+        data: { fullTurnoutNoticeSentAt: null },
+      }).catch(() => {})
+    }
+  })().catch(() => {})
 
   sendBallotReceipt({
     voterEmail: voter.email,
