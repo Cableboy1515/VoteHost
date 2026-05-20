@@ -2,6 +2,8 @@ import { NextResponse } from "next/server"
 import { db } from "@/lib/db"
 import { BallotSubmissionSchema } from "@/lib/validations"
 import { rateLimit, rateLimitResponse } from "@/lib/rateLimit"
+import { generateBallotId, generateReceiptCode, computeBallotHash } from "@/lib/verification"
+import { sendBallotReceipt } from "@/lib/email"
 
 export async function POST(req: Request) {
   const ip = req.headers.get("x-forwarded-for")?.split(",")[0].trim() ?? "unknown"
@@ -119,6 +121,8 @@ export async function POST(req: Request) {
     )
   }
 
+  const ballotId = generateBallotId()
+
   // Build vote records with no voter linkage — anonymity guarantee
   const voteRecords: {
     electionId: string
@@ -126,24 +130,33 @@ export async function POST(req: Request) {
     optionId?: string
     rank?: number
     writeInText?: string
+    ballotId: string
   }[] = []
 
   for (const answer of answers) {
     if (answer.type === "SINGLE_CHOICE") {
-      voteRecords.push({ electionId: voter.electionId, questionId: answer.questionId, optionId: answer.optionId })
+      voteRecords.push({ electionId: voter.electionId, questionId: answer.questionId, optionId: answer.optionId, ballotId })
     } else if (answer.type === "MULTIPLE_CHOICE") {
       const unique = [...new Set(answer.optionIds)]
       for (const optionId of unique) {
-        voteRecords.push({ electionId: voter.electionId, questionId: answer.questionId, optionId })
+        voteRecords.push({ electionId: voter.electionId, questionId: answer.questionId, optionId, ballotId })
       }
     } else if (answer.type === "RANKED_CHOICE") {
       answer.rankedOptionIds.forEach((optionId, index) => {
-        voteRecords.push({ electionId: voter.electionId, questionId: answer.questionId, optionId, rank: index + 1 })
+        voteRecords.push({ electionId: voter.electionId, questionId: answer.questionId, optionId, rank: index + 1, ballotId })
       })
     } else if (answer.type === "WRITE_IN") {
-      voteRecords.push({ electionId: voter.electionId, questionId: answer.questionId, writeInText: answer.text })
+      voteRecords.push({ electionId: voter.electionId, questionId: answer.questionId, writeInText: answer.text, ballotId })
     }
   }
+
+  const receiptCode = generateReceiptCode()
+  const ballotHash = computeBallotHash(voteRecords.map((v) => ({
+    questionId: v.questionId,
+    optionId: v.optionId ?? null,
+    rank: v.rank ?? null,
+    writeInText: v.writeInText ?? null,
+  })))
 
   try {
     await db.$transaction(async (tx: Parameters<Parameters<typeof db.$transaction>[0]>[0]) => {
@@ -153,6 +166,9 @@ export async function POST(req: Request) {
       })
       if (updated.count === 0) throw new Error("ALREADY_VOTED")
       await tx.vote.createMany({ data: voteRecords })
+      await tx.ballotReceipt.create({
+        data: { electionId: voter.electionId, receiptCode, ballotHash },
+      })
       await tx.election.updateMany({
         where: { id: voter.electionId, firstVoteAt: null },
         data: { firstVoteAt: new Date() },
@@ -165,5 +181,13 @@ export async function POST(req: Request) {
     throw err
   }
 
-  return NextResponse.json({ success: true })
+  sendBallotReceipt({
+    voterEmail: voter.email,
+    voterName: voter.name,
+    electionTitle: voter.election.title,
+    receiptCode,
+    electionId: voter.electionId,
+  }).catch(() => {})
+
+  return NextResponse.json({ success: true, receiptCode })
 }

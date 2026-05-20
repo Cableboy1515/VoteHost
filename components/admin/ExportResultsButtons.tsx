@@ -58,6 +58,9 @@ export default function ExportResultsButtons({ electionId }: { electionId: strin
             <Menu.LinkItem href={`${base}/csv`} download closeOnClick className={itemClass}>
               CSV
             </Menu.LinkItem>
+            <Menu.LinkItem href={`${base}/audit`} download closeOnClick className={itemClass}>
+              Audit export (JSON)
+            </Menu.LinkItem>
           </Menu.Popup>
         </Menu.Positioner>
       </Menu.Portal>

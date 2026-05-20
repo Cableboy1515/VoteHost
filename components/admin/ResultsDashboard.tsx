@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
+import CopyButton from "@/components/ui/copy-button"
 import type { ElectionResults } from "@/lib/results"
 
 interface Props {
@@ -114,6 +115,40 @@ export default function ResultsDashboard({ electionId, initialData, endsAt, elec
           </div>
         </div>
       </div>
+
+      {/* Verification section — only shown for completed elections */}
+      {electionStatus === "COMPLETED" && data.tallyHash && (
+        <div
+          className="rounded-[16px] p-5"
+          style={{ background: "var(--vh-surface)", border: "1px solid var(--vh-line)" }}
+        >
+          <div className="flex items-baseline justify-between gap-3 mb-3">
+            <h3 className="text-[14px] font-semibold" style={{ color: "var(--vh-ink)" }}>Tally verification</h3>
+            <a
+              href={`/verify/${data.electionId}`}
+              className="text-[12px]"
+              style={{ color: "var(--vh-accent)" }}
+            >
+              Public verification page →
+            </a>
+          </div>
+          <div
+            className="flex items-center gap-3 rounded-[10px] px-4 py-3 mb-3"
+            style={{ background: "var(--vh-surface-2)", border: "1px solid var(--vh-line)" }}
+          >
+            <code
+              className="flex-1 text-[12px] font-mono break-all"
+              style={{ color: "var(--vh-ink-soft)" }}
+            >
+              sha256:{data.tallyHash}
+            </code>
+            <CopyButton value={`sha256:${data.tallyHash}`} />
+          </div>
+          <p className="text-[12px] leading-relaxed" style={{ color: "var(--vh-muted)" }}>
+            Anyone can download the audit export and recompute this hash to confirm the results haven&rsquo;t changed.
+          </p>
+        </div>
+      )}
 
       {/* Per-question result cards */}
       {data.questions.map((q) => {

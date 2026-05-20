@@ -1,4 +1,5 @@
 import { db } from "@/lib/db"
+import { computeTallyHash } from "@/lib/verification"
 
 export async function autoCompleteElections(): Promise<string[]> {
   const candidates = await db.election.findMany({
@@ -12,5 +13,15 @@ export async function autoCompleteElections(): Promise<string[]> {
     where: { id: { in: ids } },
     data: { status: "COMPLETED" },
   })
+
+  for (const id of ids) {
+    const votes = await db.vote.findMany({ where: { electionId: id } })
+    const hash = computeTallyHash(votes)
+    await db.election.update({
+      where: { id },
+      data: { tallyHash: hash, tallyHashSetAt: new Date() },
+    })
+  }
+
   return ids
 }

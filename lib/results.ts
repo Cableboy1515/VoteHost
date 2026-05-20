@@ -1,4 +1,5 @@
 import { db } from "./db"
+import { computeTallyHash } from "./verification"
 import type { Question, Option, Vote } from "./generated/prisma/client"
 
 type QuestionWithOptions = Question & { options: Option[] }
@@ -73,11 +74,25 @@ export async function getResultsForElection(electionId: string) {
     }
   })
 
+  let tallyHash = election?.tallyHash ?? null
+  const tallyHashSetAt = election?.tallyHashSetAt ?? null
+
+  // Lazily compute and persist if election is completed but hash is missing
+  if (election?.status === "COMPLETED" && !tallyHash && votes.length > 0) {
+    tallyHash = computeTallyHash(votes)
+    db.election.update({
+      where: { id: electionId },
+      data: { tallyHash, tallyHashSetAt: new Date() },
+    }).catch(() => {})
+  }
+
   return {
     electionId,
     electionTitle: election?.title ?? "",
     totalVoters: voterStats._count.id,
     votedCount,
+    tallyHash,
+    tallyHashSetAt,
     questions: questionResults,
   }
 }

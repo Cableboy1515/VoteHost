@@ -35,6 +35,7 @@ export type ExportData = {
   totalVoters: number
   votedCount: number
   turnoutPct: number
+  tallyHash: string | null
   questions: EnrichedQuestion[]
   voters: VoterRow[]
 }
@@ -114,6 +115,7 @@ export async function loadExportData(electionId: string): Promise<ExportData | n
     totalVoters: raw.totalVoters,
     votedCount: raw.votedCount,
     turnoutPct,
+    tallyHash: raw.tallyHash,
     questions,
     voters,
   }

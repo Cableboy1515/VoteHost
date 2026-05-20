@@ -1,9 +1,18 @@
 import { db } from "@/lib/db"
 import { notFound } from "next/navigation"
 import { BrandMark } from "@/components/ui/brand-mark"
+import CopyButton from "@/components/ui/copy-button"
 
-export default async function ConfirmedPage({ params }: { params: Promise<{ token: string }> }) {
+export default async function ConfirmedPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ token: string }>
+  searchParams: Promise<{ receipt?: string }>
+}) {
   const { token } = await params
+  const { receipt } = await searchParams
+
   const voter = await db.voter.findUnique({
     where: { token },
     include: { election: true },
@@ -28,6 +37,36 @@ export default async function ConfirmedPage({ params }: { params: Promise<{ toke
           <strong className="text-vh-ink-soft">{voter.election.title}</strong>.
           Your ballot is anonymous and cannot be changed.
         </p>
+
+        {receipt && (
+          <div
+            className="mt-8 w-full max-w-sm rounded-[14px] p-5 text-left"
+            style={{ background: "var(--vh-surface)", border: "1px solid var(--vh-line-strong)" }}
+          >
+            <p className="text-[12px] font-semibold uppercase tracking-wider mb-2" style={{ color: "var(--vh-muted)" }}>
+              Your ballot receipt
+            </p>
+            <div className="flex items-center gap-3">
+              <code
+                className="flex-1 text-[17px] font-mono font-semibold tracking-widest"
+                style={{ color: "var(--vh-ink)" }}
+              >
+                {receipt}
+              </code>
+              <CopyButton value={receipt} />
+            </div>
+            <p className="mt-3 text-[12px] leading-relaxed" style={{ color: "var(--vh-muted)" }}>
+              Save this code — you can use it to verify your vote was counted.{" "}
+              <a
+                href={`/verify/${voter.electionId}`}
+                className="underline"
+                style={{ color: "var(--vh-accent)" }}
+              >
+                Verify now →
+              </a>
+            </p>
+          </div>
+        )}
 
         <p className="mt-8 text-[12px] text-vh-muted">
           🔒 Recorded anonymously · You may close this window

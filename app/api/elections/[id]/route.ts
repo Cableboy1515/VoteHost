@@ -8,6 +8,7 @@ import { sendElectionCompletedStaffNotice } from "@/lib/email"
 import { getStaffRecipients } from "@/lib/staffRecipients"
 import { canActivate, CANNOT_ACTIVATE_MESSAGES } from "@/lib/canActivate"
 import { sendBallotInvitationsToUninvited } from "@/lib/sendBallotInvitationsToUninvited"
+import { computeTallyHash } from "@/lib/verification"
 
 const UPLOADS_DIR = join(process.cwd(), "public", "uploads")
 
@@ -145,6 +146,13 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
   }
 
   if (transitioningToEnd) {
+    const votes = await db.vote.findMany({ where: { electionId: id } })
+    const hash = computeTallyHash(votes)
+    await db.election.update({
+      where: { id },
+      data: { tallyHash: hash, tallyHashSetAt: new Date() },
+    })
+
     const voters = await db.voter.findMany({
       where: { electionId: id },
       select: { hasVoted: true },

@@ -25,7 +25,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
   const data = await loadExportData(id)
   if (!data) return new Response("Not found or election not completed", { status: 404 })
 
-  const { election, totalVoters, votedCount, turnoutPct, questions, voters } = data
+  const { election, totalVoters, votedCount, turnoutPct, tallyHash, questions, voters } = data
 
   const workbook = new ExcelJS.Workbook()
   workbook.creator = BRAND_NAME
@@ -144,7 +144,26 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
     }
   }
 
-  // ─── Sheet 3: Voter participation ─────────────────────────────────────
+  // ─── Sheet 3: Verification ────────────────────────────────────────────
+  if (tallyHash) {
+    const wsVer = workbook.addWorksheet("Verification")
+    wsVer.columns = [{ width: 24 }, { width: 80 }]
+
+    const h1 = wsVer.addRow(["Tally Hash Algorithm", "SHA-256 of canonical JSON (votes sorted by questionId ASC, optionId ASC, rank ASC)"])
+    h1.getCell(1).font = headerFont(true)
+
+    const h2 = wsVer.addRow(["Tally Hash", `sha256:${tallyHash}`])
+    h2.getCell(1).font = headerFont(true)
+    h2.getCell(2).font = { name: "Courier New", size: 10, color: { argb: INK } }
+
+    wsVer.addRow([])
+    const note = wsVer.addRow(["How to verify", "Download the audit export (JSON) and recompute the SHA-256 of the votes array using the same sort order. If the hash matches, the published results are intact."])
+    note.getCell(1).font = headerFont(true)
+    note.getCell(2).alignment = { wrapText: true }
+    wsVer.getRow(4).height = 40
+  }
+
+  // ─── Sheet 4: Voter participation ─────────────────────────────────────
   const wsV = workbook.addWorksheet("Voter participation")
   wsV.views = [{ state: "frozen", ySplit: 1 }]
 

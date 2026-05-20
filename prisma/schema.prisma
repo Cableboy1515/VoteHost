@@ -59,9 +59,15 @@ model Election {
   autoActivate                   Boolean   @default(true)
   autoActivateFailedNoticeSentAt DateTime?
 
+  heroColor String?
+
+  tallyHash      String?
+  tallyHashSetAt DateTime?
+
   questions Question[]
   voters    Voter[]
   votes     Vote[]
+  receipts  BallotReceipt[]
 }
 
 model Question {
@@ -126,6 +132,7 @@ model Vote {
   optionId    String?
   rank        Int?
   writeInText String?
+  ballotId    String?
   createdAt   DateTime @default(now())
 
   election Election  @relation(fields: [electionId], references: [id], onDelete: Cascade)
@@ -133,6 +140,19 @@ model Vote {
   option   Option?   @relation(fields: [optionId], references: [id], onDelete: SetNull)
 
   @@index([electionId, questionId])
+  @@index([ballotId])
+}
+
+model BallotReceipt {
+  id          String   @id @default(cuid())
+  electionId  String
+  receiptCode String   @unique
+  ballotHash  String
+  createdAt   DateTime @default(now())
+
+  election Election @relation(fields: [electionId], references: [id], onDelete: Cascade)
+
+  @@index([electionId])
 }
 
 enum AdminRole {

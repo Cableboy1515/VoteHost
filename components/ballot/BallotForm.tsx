@@ -204,7 +204,9 @@ export default function BallotForm({ token, electionTitle, electionDescription, 
     })
     setSubmitting(false)
     if (res.ok) {
-      router.push(`/vote/${token}/confirmed`)
+      const data = await res.json().catch(() => ({}))
+      const receipt = (data as { receiptCode?: string }).receiptCode
+      router.push(`/vote/${token}/confirmed${receipt ? `?receipt=${encodeURIComponent(receipt)}` : ""}`)
     } else {
       const data = await res.json().catch(() => ({}))
       setError(formatServerError(data))

@@ -12,7 +12,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
   const data = await loadExportData(id)
   if (!data) return new Response("Not found or election not completed", { status: 404 })
 
-  const { election, questions } = data
+  const { election, questions, tallyHash } = data
 
   type Row = {
     question: string
@@ -61,10 +61,13 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
     }
   }
 
-  const csv = Papa.unparse(rows, {
+  const csvBody = Papa.unparse(rows, {
     columns: ["question", "option", "votes", "percent", "winner"],
     header: true,
   })
+
+  const hashComment = tallyHash ? `# Tally Hash: sha256:${tallyHash}\n` : ""
+  const csv = hashComment + csvBody
 
   const filename = exportFilename(election, "csv")
 
