@@ -134,7 +134,7 @@ export default async function ArchivePage() {
                       <div className="flex flex-wrap gap-1.5">
                         <Link
                           href={`/elections/${e.id}/results`}
-                          className="px-3 py-1.5 rounded-[8px] text-[13px] transition-colors"
+                          className="px-3 py-1.5 rounded-[8px] text-[13px] transition-colors hover:[background:var(--vh-surface-3)]"
                           style={{ color: "var(--vh-ink-soft)", background: "var(--vh-surface-2)", border: "1px solid var(--vh-line-strong)" }}
                         >
                           Results →

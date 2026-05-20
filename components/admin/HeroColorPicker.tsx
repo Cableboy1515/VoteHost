@@ -68,6 +68,8 @@ export function HeroColorPicker({
           color: "white",
           border: "1px solid rgba(255,255,255,0.25)",
         }}
+        onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.20)" }}
+        onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.12)" }}
       >
         Change color
       </button>
