@@ -80,6 +80,35 @@ if [ -f .env ]; then
   fi
 fi
 
+# Detect stale db_data volume — Postgres only sets the password on first init,
+# so if the volume exists and we're about to write a new random password the
+# credentials will mismatch and prisma db push will fail with P1000.
+VOLUME_NAME="${COMPOSE_PROJECT_NAME:-votehost}_db_data"
+if docker volume inspect "$VOLUME_NAME" >/dev/null 2>&1; then
+  warn "Existing database volume detected ($VOLUME_NAME)."
+  warn "Re-running the installer generates a new random password, but Postgres"
+  warn "keeps the original password baked into the volume — causing auth failures."
+  if [ -n "$UNATTENDED" ]; then
+    warn "Removing stale volume so Postgres re-initializes with the new password..."
+    docker compose down -v >/dev/null 2>&1 || true
+    ok "Volume removed."
+  else
+    printf "\n"
+    ask "Remove the old volume and start fresh? (Y/n)" "Y"
+    case "$REPLY" in
+      [nN]*)
+        warn "Keeping existing volume. Make sure your .env password matches the"
+        warn "original one used to create the volume, or auth will fail."
+        ;;
+      *)
+        say "Removing stale volume..."
+        docker compose down -v >/dev/null 2>&1 || true
+        ok "Volume removed. Postgres will re-initialize with the new password."
+        ;;
+    esac
+  fi
+fi
+
 command -v openssl >/dev/null 2>&1 || die "openssl not found — needed to generate secrets."
 
 # ── Generate secrets ──────────────────────────────────────────────────────────
