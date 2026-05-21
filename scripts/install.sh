@@ -51,9 +51,20 @@ _validate_ts_authkey() {
 _wait_for_ts_fqdn() {
   # Polls tailscale container until it authenticates; prints FQDN (no trailing dot).
   # All status messages go to stderr so stdout is clean for command substitution capture.
+  # Returns 1 on timeout or fatal auth-key rejection.
   say "Waiting for Tailscale to authenticate (up to 180s)..." >&2
   _i=0
   while [ "$_i" -lt 60 ]; do
+    # Fast-fail on known fatal auth errors so the user sees the real cause
+    # instead of a generic timeout.
+    _logs=$(${COMPOSE_CMD} logs --tail=50 tailscale 2>/dev/null || true)
+    case "$_logs" in
+      *"invalid key"*|*"key not valid"*|*"not a valid key"*)
+        printf '%s\n' "$_logs" | grep -E 'invalid key|key not valid|not a valid key' | tail -1 >&2
+        return 1
+        ;;
+    esac
+
     if command -v jq >/dev/null 2>&1; then
       _fqdn=$(${COMPOSE_CMD} exec -T tailscale tailscale status --json 2>/dev/null \
                | jq -r '.Self.DNSName // empty' 2>/dev/null \
@@ -70,6 +81,7 @@ _wait_for_ts_fqdn() {
     sleep 3
     _i=$((_i + 1))
   done
+  return 1
 }
 
 UNATTENDED="${VOTEHOST_UNATTENDED:-}"
@@ -313,22 +325,29 @@ if [ "$_DO_START" = "1" ]; then
   say "Building and starting containers..."
   eval "$COMPOSE_UP --build"
   ok "VoteHost Elections is running!"
+  TS_OK=0
   if [ "$TUNNEL_CHOICE" = "2" ]; then
-    TS_FQDN=$(_wait_for_ts_fqdn)
-    if [ -n "$TS_FQDN" ]; then
+    if TS_FQDN=$(_wait_for_ts_fqdn); then
       NEXTAUTH_URL="https://${TS_FQDN}"
       sed -i.bak "s|NEXTAUTH_URL=.*|NEXTAUTH_URL=${NEXTAUTH_URL}|" .env && rm -f .env.bak
       ${COMPOSE_CMD} up -d --force-recreate --no-deps app cron >/dev/null
       ok "Tailscale ready! Your VoteHost URL: ${NEXTAUTH_URL}"
+      TS_OK=1
     else
-      warn "Timed out waiting for Tailscale to authenticate."
-      warn "Check '${COMPOSE_CMD} logs tailscale' for your full *.ts.net URL."
-      warn "Update NEXTAUTH_URL in .env to that URL and run: ${COMPOSE_CMD} up -d --force-recreate app"
-      warn "Until you do this, admin actions (Settings, Users, etc.) will return Forbidden."
+      warn "Tailscale did not come up. See the error line above for the specific cause."
+      warn "Most common cause: auth key was single-use and already consumed by a"
+      warn "prior install attempt, or it is an API access token rather than an auth key."
+      warn "Recovery:"
+      warn "  1. Generate a new key at https://login.tailscale.com/admin/settings/keys"
+      warn "     Check 'Reusable' so re-running install does not burn it."
+      warn "  2. Edit .env: replace TS_AUTHKEY=... with the new key."
+      warn "  3. ${COMPOSE_CMD} --profile tailscale up -d --force-recreate tailscale"
+      warn "  4. bash scripts/refresh-tailscale-url.sh   (patches NEXTAUTH_URL + recreates app)"
+      warn "  5. Visit <real ts.net url>/admin/setup and paste SETUP_TOKEN from .env."
     fi
   fi
   printf "\n"
-  if [ -n "$ADMIN_EMAIL" ]; then
+  if [ -n "$ADMIN_EMAIL" ] && { [ "$TUNNEL_CHOICE" != "2" ] || [ "$TS_OK" = "1" ]; }; then
     say "Waiting for app to become healthy (up to 120s)..."
     i=0
     while [ $i -lt 60 ]; do
@@ -358,6 +377,10 @@ if [ "$_DO_START" = "1" ]; then
       fi
       rm -f /tmp/votehost-bootstrap.json
     fi
+  elif [ -n "$ADMIN_EMAIL" ]; then
+    warn "Skipping admin bootstrap because Tailscale did not come up."
+    warn "After completing the recovery steps above:"
+    warn "  Visit <real ts.net url>/admin/setup and paste SETUP_TOKEN from .env"
   else
     say "Next step: visit ${NEXTAUTH_URL}/admin/setup"
     say "Paste the SETUP_TOKEN from your .env file to create your admin account."
