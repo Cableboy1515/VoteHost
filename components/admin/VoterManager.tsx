@@ -133,6 +133,10 @@ export default function VoterManager({
   const [resending, setResending] = useState<Set<string>>(new Set())
   const [showAddModal, setShowAddModal] = useState(false)
   const [showCsvModal, setShowCsvModal] = useState(false)
+  const [selectionMode, setSelectionMode] = useState(false)
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
+  const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false)
+  const [bulkBusy, setBulkBusy] = useState<null | "delete" | "resend">(null)
   const fileRef = useRef<HTMLInputElement>(null)
 
   function toggleSort(key: SortKey) {
@@ -162,9 +166,21 @@ export default function VoterManager({
     return sortDir === "asc" ? cmp : -cmp
   })
 
+  const allVisibleSelected = sorted.length > 0 && sorted.every((v) => selectedIds.has(v.id))
+  const someVisibleSelected = sorted.some((v) => selectedIds.has(v.id)) && !allVisibleSelected
+
   async function refreshVoters() {
     const res = await fetch(`/api/elections/${electionId}/voters`)
-    if (res.ok) setVoters(await res.json())
+    if (res.ok) {
+      const updated = await res.json()
+      setVoters(updated)
+      setSelectedIds((prev) => {
+        if (prev.size === 0) return prev
+        const idSet = new Set((updated as Voter[]).map((v) => v.id))
+        const next = new Set([...prev].filter((id) => idSet.has(id)))
+        return next.size === prev.size ? prev : next
+      })
+    }
   }
 
   async function handleAddVoter(e: React.FormEvent) {
@@ -284,6 +300,85 @@ export default function VoterManager({
       const { error } = await res.json().catch(() => ({}))
       toast.error(error ?? "Failed to remove voter")
     }
+  }
+
+  function exitSelectionMode() {
+    setSelectionMode(false)
+    setSelectedIds(new Set())
+  }
+
+  function toggleVoter(id: string) {
+    setSelectedIds((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
+
+  function toggleSelectAll() {
+    const visibleIds = sorted.map((v) => v.id)
+    const allVisible = visibleIds.length > 0 && visibleIds.every((id) => selectedIds.has(id))
+    if (allVisible) {
+      setSelectedIds((prev) => {
+        const next = new Set(prev)
+        visibleIds.forEach((id) => next.delete(id))
+        return next
+      })
+    } else {
+      setSelectedIds((prev) => {
+        const next = new Set(prev)
+        visibleIds.forEach((id) => next.add(id))
+        return next
+      })
+    }
+  }
+
+  async function handleBulkDelete() {
+    setBulkBusy("delete")
+    const res = await fetch(`/api/elections/${electionId}/voters/bulk-delete`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ voterIds: [...selectedIds] }),
+    })
+    setBulkBusy(null)
+    setBulkDeleteOpen(false)
+    if (!res.ok) {
+      toast.error(res.status === 429 ? "Too many bulk operations — please wait and try again" : "Failed to remove voters")
+      return
+    }
+    const { deleted, skippedVoted } = await res.json()
+    exitSelectionMode()
+    refreshVoters()
+    const parts = [`Removed ${deleted} voter${deleted !== 1 ? "s" : ""}`]
+    if (skippedVoted > 0) parts.push(`${skippedVoted} skipped (already voted)`)
+    if (deleted > 0) toast.success(parts.join(" · "))
+    else toast.error("No voters removed" + (skippedVoted > 0 ? ` · ${skippedVoted} skipped (already voted)` : ""))
+  }
+
+  async function handleBulkResend() {
+    setBulkBusy("resend")
+    const res = await fetch(`/api/elections/${electionId}/voters/bulk-invite`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ voterIds: [...selectedIds] }),
+    })
+    setBulkBusy(null)
+    if (!res.ok) {
+      toast.error(res.status === 429 ? "Too many invitations — please wait and try again" : "Failed to resend invitations")
+      return
+    }
+    const { sent, skippedRateLimited, skippedAlreadyVoted, skippedNotInvited, failed } = await res.json()
+    exitSelectionMode()
+    refreshVoters()
+    const extras: string[] = []
+    if (skippedRateLimited > 0) extras.push(`${skippedRateLimited} skipped (sent recently)`)
+    if (skippedAlreadyVoted > 0) extras.push(`${skippedAlreadyVoted} already voted`)
+    if (skippedNotInvited > 0) extras.push(`${skippedNotInvited} not yet invited`)
+    if (failed > 0) extras.push(`${failed} failed`)
+    const suffix = extras.length > 0 ? ` · ${extras.join(" · ")}` : ""
+    if (sent > 0) toast.success(`Resent ${sent} invitation${sent !== 1 ? "s" : ""}${suffix}`)
+    else toast.error(`No invitations sent${suffix}`)
   }
 
   const canDelete = electionStatus !== "COMPLETED"
@@ -520,6 +615,19 @@ export default function VoterManager({
               })}
             </div>
             <div className="flex gap-1.5 ml-auto flex-shrink-0">
+              {voters.length > 0 && (
+                <button
+                  onClick={selectionMode ? exitSelectionMode : () => setSelectionMode(true)}
+                  className="px-3.5 py-1.5 rounded-[8px] text-[13px] transition-colors"
+                  style={{
+                    border: "1px solid var(--vh-line-strong)",
+                    background: selectionMode ? "var(--vh-surface-2)" : "var(--vh-surface)",
+                    color: "var(--vh-ink-soft)",
+                  }}
+                >
+                  {selectionMode ? "Cancel selection" : "Select voters"}
+                </button>
+              )}
               <button
                 onClick={() => setShowAddModal(true)}
                 className="px-3.5 py-1.5 rounded-[8px] text-[13px] font-medium text-white transition-colors"
@@ -548,6 +656,58 @@ export default function VoterManager({
           </div>
         </div>
 
+        {/* Selection action bar */}
+        {selectionMode && voters.length > 0 && (
+          <div
+            className="flex items-center gap-2 px-3.5 py-2.5 flex-wrap"
+            style={{ borderBottom: "1px solid var(--vh-line)", background: "var(--vh-surface-2)" }}
+          >
+            <label className="flex items-center gap-2 cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={allVisibleSelected}
+                ref={(el) => { if (el) el.indeterminate = someVisibleSelected }}
+                onChange={toggleSelectAll}
+                className="w-4 h-4 cursor-pointer"
+                style={{ accentColor: "var(--vh-accent)" }}
+              />
+              <span className="text-[13px]" style={{ color: "var(--vh-ink-soft)" }}>
+                {allVisibleSelected ? "Deselect all" : "Select all"}
+                <span className="ml-1 text-[12px]" style={{ color: "var(--vh-muted)" }}>
+                  ({sorted.length})
+                </span>
+              </span>
+            </label>
+            {selectedIds.size > 0 && (
+              <span className="text-[12.5px]" style={{ color: "var(--vh-muted)" }}>
+                {selectedIds.size} selected
+              </span>
+            )}
+            <div className="ml-auto flex gap-1.5">
+              {canInvite && (
+                <button
+                  onClick={handleBulkResend}
+                  disabled={selectedIds.size === 0 || bulkBusy !== null}
+                  className="px-3 py-1.5 rounded-[8px] text-[12.5px] transition-colors disabled:opacity-40"
+                  style={{ border: "1px solid var(--vh-line-strong)", background: "var(--vh-surface)", color: "var(--vh-ink-soft)" }}
+                >
+                  {bulkBusy === "resend" ? "Resending…" : `Resend (${selectedIds.size})`}
+                </button>
+              )}
+              {canDelete && (
+                <button
+                  onClick={() => setBulkDeleteOpen(true)}
+                  disabled={selectedIds.size === 0 || bulkBusy !== null}
+                  className="px-3 py-1.5 rounded-[8px] text-[12.5px] transition-colors disabled:opacity-40"
+                  style={{ border: "1px solid var(--vh-line-strong)", background: "var(--vh-surface)", color: "var(--vh-danger)" }}
+                >
+                  {`Remove (${selectedIds.size})`}
+                </button>
+              )}
+            </div>
+          </div>
+        )}
+
         {voters.length === 0 ? (
           <div className="py-14 text-center text-[14px]" style={{ color: "var(--vh-muted)" }}>
             No voters yet. Add one above or import a CSV.
@@ -561,8 +721,21 @@ export default function VoterManager({
             {/* Mobile card layout */}
             <div className="sm:hidden divide-y divide-vh-line">
               {sorted.map((v) => (
-                <div key={v.id} className="px-4 py-3.5 flex items-start justify-between gap-3">
-                  <div className="flex items-center gap-2.5 min-w-0">
+                <div
+                  key={v.id}
+                  className="px-4 py-3.5 flex items-start justify-between gap-3"
+                  style={selectionMode && selectedIds.has(v.id) ? { background: "var(--vh-accent-soft)" } : undefined}
+                >
+                  {selectionMode && (
+                    <input
+                      type="checkbox"
+                      checked={selectedIds.has(v.id)}
+                      onChange={() => toggleVoter(v.id)}
+                      className="mt-1 w-4 h-4 flex-shrink-0 cursor-pointer"
+                      style={{ accentColor: "var(--vh-accent)" }}
+                    />
+                  )}
+                  <div className="flex items-center gap-2.5 min-w-0 flex-1">
                     <Avatar name={v.name} size={30} />
                     <div className="min-w-0">
                       <p className="text-[14px] font-medium truncate">{v.name}</p>
@@ -576,19 +749,94 @@ export default function VoterManager({
                   </div>
                   <div className="flex-shrink-0 flex flex-col items-end gap-1.5">
                     <StatusChip v={v} />
-                    <div className="flex gap-1">
-                      {v.invitedAt && !v.hasVoted && canDelete && canInvite && (
+                    {!selectionMode && (
+                      <div className="flex gap-1">
+                        {v.invitedAt && !v.hasVoted && canDelete && canInvite && (
+                          <button
+                            disabled={resending.has(v.id)}
+                            onClick={() => handleResend(v)}
+                            className="px-2.5 py-1 rounded-[8px] text-[12.5px] transition-colors disabled:opacity-50"
+                            style={{ color: "var(--vh-ink-soft)", background: "transparent" }}
+                            onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = "var(--vh-surface-2)" }}
+                            onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "transparent" }}
+                          >
+                            {resending.has(v.id) ? "Sending…" : "Resend"}
+                          </button>
+                        )}
                         <button
-                          disabled={resending.has(v.id)}
-                          onClick={() => handleResend(v)}
-                          className="px-2.5 py-1 rounded-[8px] text-[12.5px] transition-colors disabled:opacity-50"
-                          style={{ color: "var(--vh-ink-soft)", background: "transparent" }}
-                          onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = "var(--vh-surface-2)" }}
+                          disabled={v.hasVoted || !canDelete}
+                          title={
+                            v.hasVoted
+                              ? "Cannot remove a voter who has already voted"
+                              : !canDelete
+                              ? "Voter list cannot be modified after the election closes"
+                              : undefined
+                          }
+                          onClick={() => setDeleteTarget(v)}
+                          className="px-2.5 py-1 rounded-[8px] text-[12.5px] transition-colors disabled:opacity-30"
+                          style={{ color: "var(--vh-danger)", background: "transparent" }}
+                          onMouseEnter={(e) => { if (!v.hasVoted && canDelete) (e.currentTarget as HTMLElement).style.background = "var(--vh-danger-soft)" }}
                           onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "transparent" }}
                         >
-                          {resending.has(v.id) ? "Sending…" : "Resend"}
+                          Remove
                         </button>
-                      )}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Desktop grid layout */}
+            <div
+              className="hidden sm:grid"
+              style={{ gridTemplateColumns: selectionMode ? "auto 1.5fr 2fr auto auto" : "1.5fr 2fr auto auto" }}
+            >
+              {sorted.map((v, i) => (
+                <div
+                  key={v.id}
+                  className="grid items-center gap-4 px-[18px] py-3.5 text-[14px]"
+                  style={{
+                    gridTemplateColumns: "subgrid",
+                    gridColumn: "1 / -1",
+                    borderTop: i === 0 ? "none" : "1px solid var(--vh-line)",
+                    background: selectionMode && selectedIds.has(v.id) ? "var(--vh-accent-soft)" : undefined,
+                  }}
+                >
+                  {selectionMode && (
+                    <input
+                      type="checkbox"
+                      checked={selectedIds.has(v.id)}
+                      onChange={() => toggleVoter(v.id)}
+                      className="w-4 h-4 cursor-pointer"
+                      style={{ accentColor: "var(--vh-accent)" }}
+                    />
+                  )}
+                  <div className="flex items-center gap-3 min-w-0">
+                    <Avatar name={v.name} size={32} />
+                    <span className="font-medium truncate">{v.name}</span>
+                  </div>
+                  <div
+                    className="truncate text-[13px]"
+                    style={{ color: "var(--vh-muted)", fontFamily: "var(--vh-font-mono, monospace)" }}
+                  >
+                    {v.email}
+                  </div>
+                  <StatusChip v={v} />
+                  <div className="flex gap-1 justify-end">
+                    {!selectionMode && v.invitedAt && !v.hasVoted && canDelete && canInvite && (
+                      <button
+                        disabled={resending.has(v.id)}
+                        onClick={() => handleResend(v)}
+                        className="px-2.5 py-1 rounded-[8px] text-[12.5px] transition-colors disabled:opacity-50"
+                        style={{ color: "var(--vh-ink-soft)", background: "transparent" }}
+                        onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = "var(--vh-surface-2)" }}
+                        onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "transparent" }}
+                      >
+                        {resending.has(v.id) ? "Sending…" : "Resend"}
+                      </button>
+                    )}
+                    {!selectionMode && (
                       <button
                         disabled={v.hasVoted || !canDelete}
                         title={
@@ -606,65 +854,7 @@ export default function VoterManager({
                       >
                         Remove
                       </button>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            {/* Desktop grid layout */}
-            <div className="hidden sm:grid" style={{ gridTemplateColumns: "1.5fr 2fr auto auto" }}>
-              {sorted.map((v, i) => (
-                <div
-                  key={v.id}
-                  className="grid items-center gap-4 px-[18px] py-3.5 text-[14px]"
-                  style={{
-                    gridTemplateColumns: "subgrid",
-                    gridColumn: "1 / -1",
-                    borderTop: i === 0 ? "none" : "1px solid var(--vh-line)",
-                  }}
-                >
-                  <div className="flex items-center gap-3 min-w-0">
-                    <Avatar name={v.name} size={32} />
-                    <span className="font-medium truncate">{v.name}</span>
-                  </div>
-                  <div
-                    className="truncate text-[13px]"
-                    style={{ color: "var(--vh-muted)", fontFamily: "var(--vh-font-mono, monospace)" }}
-                  >
-                    {v.email}
-                  </div>
-                  <StatusChip v={v} />
-                  <div className="flex gap-1 justify-end">
-                    {v.invitedAt && !v.hasVoted && canDelete && canInvite && (
-                      <button
-                        disabled={resending.has(v.id)}
-                        onClick={() => handleResend(v)}
-                        className="px-2.5 py-1 rounded-[8px] text-[12.5px] transition-colors disabled:opacity-50"
-                        style={{ color: "var(--vh-ink-soft)", background: "transparent" }}
-                        onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = "var(--vh-surface-2)" }}
-                        onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "transparent" }}
-                      >
-                        {resending.has(v.id) ? "Sending…" : "Resend"}
-                      </button>
                     )}
-                    <button
-                      disabled={v.hasVoted || !canDelete}
-                      title={
-                        v.hasVoted
-                          ? "Cannot remove a voter who has already voted"
-                          : !canDelete
-                          ? "Voter list cannot be modified after the election closes"
-                          : undefined
-                      }
-                      onClick={() => setDeleteTarget(v)}
-                      className="px-2.5 py-1 rounded-[8px] text-[12.5px] transition-colors disabled:opacity-30"
-                      style={{ color: "var(--vh-danger)", background: "transparent" }}
-                      onMouseEnter={(e) => { if (!v.hasVoted && canDelete) (e.currentTarget as HTMLElement).style.background = "var(--vh-danger-soft)" }}
-                      onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "transparent" }}
-                    >
-                      Remove
-                    </button>
                   </div>
                 </div>
               ))}
@@ -800,6 +990,36 @@ export default function VoterManager({
               style={{ background: "var(--vh-danger)" }}
             >
               {deleting ? "Removing…" : "Remove voter"}
+            </button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Bulk delete confirm modal */}
+      <Dialog open={bulkDeleteOpen} onOpenChange={(open) => { if (!open) setBulkDeleteOpen(false) }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Remove {selectedIds.size} voter{selectedIds.size !== 1 ? "s" : ""}?</DialogTitle>
+          </DialogHeader>
+          <p className="text-[13px]" style={{ color: "var(--vh-ink-soft)" }}>
+            This will permanently remove the selected voters from the election. Voters who have already cast their ballot will be skipped automatically. This cannot be undone.
+          </p>
+          <DialogFooter>
+            <button
+              disabled={bulkBusy !== null}
+              onClick={() => setBulkDeleteOpen(false)}
+              className="px-4 py-2 rounded-[10px] text-sm transition-colors"
+              style={{ border: "1px solid var(--vh-line-strong)", background: "var(--vh-surface)", color: "var(--vh-ink-soft)" }}
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleBulkDelete}
+              disabled={bulkBusy !== null}
+              className="px-4 py-2 rounded-[10px] text-sm font-medium text-white transition-colors disabled:opacity-50"
+              style={{ background: "var(--vh-danger)" }}
+            >
+              {bulkBusy === "delete" ? "Removing…" : `Remove ${selectedIds.size} voter${selectedIds.size !== 1 ? "s" : ""}`}
             </button>
           </DialogFooter>
         </DialogContent>

@@ -1,9 +1,8 @@
 import { NextResponse } from "next/server"
 import { requireRole } from "@/lib/auth"
 import { db } from "@/lib/db"
-import { sendBallotInvitation } from "@/lib/email"
 import { rateLimit, rateLimitResponse } from "@/lib/rateLimit"
-import { generateVoterToken } from "@/lib/voterToken"
+import { sendOneInvite } from "@/lib/voterInvite"
 
 export async function POST(
   _req: Request,
@@ -28,44 +27,31 @@ export async function POST(
   if (!voter || voter.electionId !== electionId) {
     return NextResponse.json({ error: "Voter not found" }, { status: 404 })
   }
-  if (voter.invitedAt === null) {
-    return NextResponse.json(
-      { error: "Voter has not been invited yet — use Send Invitations" },
-      { status: 409 }
-    )
-  }
-  if (voter.hasVoted) {
-    return NextResponse.json({ error: "Voter has already voted" }, { status: 409 })
-  }
-  if (voter.election.status !== "ACTIVE") {
-    return NextResponse.json(
-      { error: voter.election.status === "COMPLETED" ? "Election is closed." : "Activate the election before sending invitations." },
-      { status: 409 }
-    )
-  }
 
   const baseUrl = process.env.NEXTAUTH_URL ?? "http://localhost:3000"
-  const { election } = voter
+  const status = await sendOneInvite(voter, voter.election, baseUrl)
 
-  // Generate a fresh token; the previous link is invalidated.
-  const { token, tokenHash } = generateVoterToken()
-  await db.voter.update({ where: { id: voterId }, data: { tokenHash } })
-
-  const { error } = await sendBallotInvitation({
-    voterName: voter.name,
-    voterEmail: voter.email,
-    electionTitle: election.title,
-    magicLink: `${baseUrl}/vote/${token}`,
-    emailSubject: election.emailSubject,
-    emailMessage: election.emailMessage,
-    emailLogoUrl: election.emailLogoUrl,
-    emailFooter: election.emailFooter,
-    endsAt: election.endsAt?.toISOString(),
-  })
-
-  if (error) return NextResponse.json({ error }, { status: 502 })
-
-  await db.voter.update({ where: { id: voterId }, data: { invitedAt: new Date() } })
-
-  return NextResponse.json({ ok: true })
+  switch (status) {
+    case "sent":
+      return NextResponse.json({ ok: true })
+    case "voted":
+      return NextResponse.json({ error: "Voter has already voted" }, { status: 409 })
+    case "not_invited":
+      return NextResponse.json(
+        { error: "Voter has not been invited yet — use Send Invitations" },
+        { status: 409 }
+      )
+    case "election_not_active":
+      return NextResponse.json(
+        {
+          error:
+            voter.election.status === "COMPLETED"
+              ? "Election is closed."
+              : "Activate the election before sending invitations.",
+        },
+        { status: 409 }
+      )
+    case "failed":
+      return NextResponse.json({ error: "Failed to send invitation" }, { status: 502 })
+  }
 }
