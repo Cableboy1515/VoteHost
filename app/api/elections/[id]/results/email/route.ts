@@ -79,13 +79,17 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   let sent = 0
   let failed = 0
 
+  // Results email doesn't include a voter-specific magic link (election is closed).
+  // magicLink is required by the Payload type but unused by the results email template.
+  const resultsUrl = `${baseUrl}/elections/${electionId}/results`
+
   for (const voter of voters) {
     const { error } = await sendBallotInvitation(
       {
         voterName: voter.name,
         voterEmail: voter.email,
         electionTitle: election.title,
-        magicLink: `${baseUrl}/vote/${voter.token}`,
+        magicLink: resultsUrl,
         emailSubject: election.emailSubject,
         emailLogoUrl: election.emailLogoUrl,
         emailFooter: election.emailFooter,

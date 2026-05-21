@@ -1,3 +1,6 @@
+// Single-instance in-process rate limiter. State is not shared across multiple
+// Node.js processes or replicas — not suitable for horizontally-scaled deployments.
+// For multi-instance setups, replace `store` with a Redis-backed solution.
 type Window = { count: number; resetAt: number }
 
 const store = new Map<string, Window>()

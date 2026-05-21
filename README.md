@@ -12,9 +12,9 @@ Designed to run on a Raspberry Pi, mini PC, VPS, or Proxmox LXC — single `dock
 
 - **Secret ballot** — votes are recorded anonymously; no one can link a submitted ballot to a voter
 - **Magic link voting** — voters click a link in their email, no account or password required
-- **Multiple question types** — single choice, multiple choice (with optional seat limit), ranked choice, and free-text write-in
+- **Multiple question types** — single choice, multiple choice (with optional seat limit), preference ranking (per-rank breakdown, no IRV), and free-text write-in
 - **Candidate profiles** — photo avatars, bio text, and website links; voters expand details inline
-- **Per-voter option randomization** — eliminates primacy bias with a deterministic shuffle seeded by each voter's token
+- **Per-voter option randomization** — eliminates primacy bias with a deterministic shuffle seeded by a per-voter value
 - **Email invitations and reminders** — configurable early reminder and a 24-hour final reminder; each voter receives at most one of each regardless of how often the cron runs
 - **Results announcement** — one-click results email with charts sent to all voters after the election closes
 - **Customizable email branding** — per-election subject, message body, header logo, and footer
@@ -416,6 +416,21 @@ console.log(`  All ballots have a receipt: ${receiptMismatches === 0 ? "YES ✓"
 ### What this cannot prove
 
 If the server itself recorded a different choice than the one a voter submitted (i.e. the server binary lied at the moment of submission), the receipt would still look valid. Closing this gap fully requires browser-side encryption, which is incompatible with ranked-choice and write-in question types. For most organizational elections — where the threat is database tampering or a rogue admin fudging results after the fact — the hash-and-receipt system described above is sufficient.
+
+---
+
+## Security and threat model
+
+VoteHost is designed for small-organisation elections (HOAs, clubs, small nonprofits). Its security model is:
+
+- **Ballot anonymity** — votes are not linked to voter identity in the database
+- **Voter authenticity** — magic-link tokens are SHA-256 hashed; plain tokens are never stored
+- **Tally integrity** — a SHA-256 hash of the final tally is published at election close; anyone can recompute it from the audit export (see [Election verification](#election-verification))
+- **Admin 2FA** — TOTP two-factor authentication is mandatory for ADMIN and ORGANIZER roles
+
+VoteHost uses a **server-trust model** — the organisation running the server is trusted. It is not end-to-end verifiable like [Helios](https://heliosvoting.org/) or [Belenios](https://www.belenios.org/). If you need a cryptographically verifiable ballot, those platforms are better suited.
+
+For vulnerability reports, see [SECURITY.md](./SECURITY.md).
 
 ---
 

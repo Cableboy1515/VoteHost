@@ -344,7 +344,7 @@ export default function BallotForm({ token, electionTitle, electionDescription, 
         <div className="space-y-3">
           {rankedOptions.length > 0 && (
             <div>
-              <p className="text-[11px] font-semibold text-vh-muted uppercase tracking-wider mb-2">Ranked</p>
+              <p className="text-[11px] font-semibold text-vh-muted uppercase tracking-wider mb-2">Your Ranking</p>
               <div className="space-y-2">
                 {rankedOptions.map((o, i) => (
                   <div

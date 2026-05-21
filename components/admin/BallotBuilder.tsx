@@ -43,7 +43,7 @@ interface Props {
 const TYPES: { value: QuestionType; label: string }[] = [
   { value: "SINGLE_CHOICE", label: "Single choice" },
   { value: "MULTIPLE_CHOICE", label: "Multiple" },
-  { value: "RANKED_CHOICE", label: "Ranked" },
+  { value: "RANKED_CHOICE", label: "Preference Ranking" },
   { value: "WRITE_IN", label: "Write-in" },
 ]
 

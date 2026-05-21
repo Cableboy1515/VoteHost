@@ -3,6 +3,7 @@ import { requireRole } from "@/lib/auth"
 import { db } from "@/lib/db"
 import { sendBallotInvitation } from "@/lib/email"
 import { rateLimit, rateLimitResponse } from "@/lib/rateLimit"
+import { generateVoterToken } from "@/lib/voterToken"
 
 export async function POST(
   _req: Request,
@@ -21,7 +22,7 @@ export async function POST(
 
   const voter = await db.voter.findUnique({
     where: { id: voterId },
-    include: { election: true },
+    select: { id: true, electionId: true, name: true, email: true, invitedAt: true, hasVoted: true, election: true },
   })
 
   if (!voter || voter.electionId !== electionId) {
@@ -46,11 +47,15 @@ export async function POST(
   const baseUrl = process.env.NEXTAUTH_URL ?? "http://localhost:3000"
   const { election } = voter
 
+  // Generate a fresh token; the previous link is invalidated.
+  const { token, tokenHash } = generateVoterToken()
+  await db.voter.update({ where: { id: voterId }, data: { tokenHash } })
+
   const { error } = await sendBallotInvitation({
     voterName: voter.name,
     voterEmail: voter.email,
     electionTitle: election.title,
-    magicLink: `${baseUrl}/vote/${voter.token}`,
+    magicLink: `${baseUrl}/vote/${token}`,
     emailSubject: election.emailSubject,
     emailMessage: election.emailMessage,
     emailLogoUrl: election.emailLogoUrl,

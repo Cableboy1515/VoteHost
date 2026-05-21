@@ -6,7 +6,6 @@ import { db } from "@/lib/db"
 import { requireRole } from "@/lib/auth"
 import ArchiveElectionButton from "@/components/admin/ArchiveElectionButton"
 import DeleteElectionButton from "@/components/admin/DeleteElectionButton"
-import ReopenElectionButton from "@/components/admin/ReopenElectionButton"
 import { autoCompleteElections } from "@/lib/autoCompleteElections"
 import type { ElectionStatus } from "@/lib/generated/prisma/client"
 
@@ -139,7 +138,6 @@ export default async function ArchivePage() {
                         >
                           Results →
                         </Link>
-                        {e.status === "COMPLETED" && <ReopenElectionButton id={e.id} />}
                         <ArchiveElectionButton id={e.id} archived={true} />
                         <DeleteElectionButton id={e.id} title={e.title} />
                       </div>

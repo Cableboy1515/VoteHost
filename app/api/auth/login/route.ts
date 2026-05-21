@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server"
-import { verifyAdminCredentials, createSession, COOKIE, SESSION_COOKIE_OPTIONS } from "@/lib/auth"
+import { verifyAdminCredentials, createSession, createChallengeToken, COOKIE, SESSION_COOKIE_OPTIONS } from "@/lib/auth"
 import { rateLimit, rateLimitResponse } from "@/lib/rateLimit"
 
 export async function POST(req: Request) {
@@ -21,6 +21,19 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Invalid email or password" }, { status: 401 })
   }
 
+  // If TOTP is enrolled, issue a challenge token — session is withheld until code verified
+  if (user.totpEnabledAt) {
+    const challengeToken = await createChallengeToken(user.id, "totp")
+    return NextResponse.json({ ok: true, totpRequired: true, challengeToken })
+  }
+
+  // ADMIN and ORGANIZER must enroll in TOTP before getting a session
+  if (user.role === "ADMIN" || user.role === "ORGANIZER") {
+    const challengeToken = await createChallengeToken(user.id, "enroll")
+    return NextResponse.json({ ok: true, enrollmentRequired: true, challengeToken })
+  }
+
+  // VIEWER: no 2FA requirement — issue session directly
   const token = await createSession(user)
   const res = NextResponse.json({ ok: true })
   res.cookies.set(COOKIE, token, SESSION_COOKIE_OPTIONS)

@@ -2,6 +2,7 @@ import { db } from "@/lib/db"
 import { canActivate } from "@/lib/canActivate"
 import { sendBallotInvitation, sendAutoActivateFailedStaffNotice } from "@/lib/email"
 import { getStaffRecipients } from "@/lib/staffRecipients"
+import { generateVoterToken } from "@/lib/voterToken"
 
 export async function autoActivateElections(): Promise<string[]> {
   const now = new Date()
@@ -60,15 +61,19 @@ export async function autoActivateElections(): Promise<string[]> {
 
       const uninvitedVoters = await db.voter.findMany({
         where: { electionId: election.id, invitedAt: null },
+        select: { id: true, name: true, email: true },
       })
 
       for (const voter of uninvitedVoters) {
         try {
+          const { token, tokenHash } = generateVoterToken()
+          await db.voter.update({ where: { id: voter.id }, data: { tokenHash } })
+
           const { error } = await sendBallotInvitation({
             voterName: voter.name,
             voterEmail: voter.email,
             electionTitle: election.title,
-            magicLink: `${baseUrl}/vote/${voter.token}`,
+            magicLink: `${baseUrl}/vote/${token}`,
             emailSubject: election.emailSubject,
             emailMessage: election.emailMessage,
             emailLogoUrl: election.emailLogoUrl,

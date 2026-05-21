@@ -213,9 +213,14 @@ export default function ResultsDashboard({ electionId, initialData, endsAt, elec
                 className="flex-shrink-0 text-[11.5px] uppercase tracking-wide px-2.5 py-1 rounded-full"
                 style={{ background: "var(--vh-surface-2)", color: "var(--vh-muted)" }}
               >
-                {q.type.replace("_", " ")}
+                {q.type === "RANKED_CHOICE" ? "Preference Ranking" : q.type === "SINGLE_CHOICE" ? "Single Choice" : q.type === "MULTIPLE_CHOICE" ? "Multiple Choice" : "Write-in"}
               </span>
             </div>
+            {q.type === "RANKED_CHOICE" && (
+              <p className="text-[12px] mb-4" style={{ color: "var(--vh-muted)" }}>
+                Shows 1st preference counts. No automatic winner is declared — results reflect voter ordering only.
+              </p>
+            )}
 
             <div className="flex flex-col gap-3.5">
               {sortedOptions.map((o, i) => {
@@ -227,7 +232,7 @@ export default function ResultsDashboard({ electionId, initialData, endsAt, elec
                   <div key={o.optionId}>
                     <div className="flex items-center justify-between mb-1.5 text-[14px]">
                       <span className="flex items-center gap-2 min-w-0 flex-1 mr-2">
-                        {isLeader && (
+                        {isLeader && q.type !== "RANKED_CHOICE" && (
                           <span
                             className="flex-shrink-0 text-[11px] font-medium text-white px-1.5 py-0.5 rounded-[4px]"
                             style={{ background: "var(--vh-accent)" }}

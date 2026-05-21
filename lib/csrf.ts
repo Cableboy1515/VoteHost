@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server"
 
-function originsFromEnv(): Set<string> {
+function allowedOrigins(): Set<string> {
   const raw = process.env.NEXTAUTH_URL ?? "http://localhost:3000"
   const out = new Set<string>()
   for (const part of raw.split(",")) {
@@ -11,25 +11,26 @@ function originsFromEnv(): Set<string> {
   return out
 }
 
-function forwardedOrigin(req: Request): string | null {
-  const host = req.headers.get("x-forwarded-host")
-  if (!host) return null
-  const proto = req.headers.get("x-forwarded-proto") ?? "https"
-  try { return new URL(`${proto}://${host}`).origin } catch { return null }
-}
-
 export function csrfCheck(req: Request): NextResponse | null {
   const origin = req.headers.get("origin")
-  if (!origin) return null
+
+  // Reject requests that omit the Origin header on state-changing methods.
+  // Browsers always send Origin for cross-site requests; legitimate same-site
+  // form POSTs include Origin on modern browsers. Missing Origin == programmatic
+  // client that bypassed the browser — treat as untrusted.
+  if (!origin) {
+    const method = req.method.toUpperCase()
+    if (method !== "GET" && method !== "HEAD" && method !== "OPTIONS") {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+    }
+    return null
+  }
+
   let parsed: string
   try { parsed = new URL(origin).origin }
   catch { return NextResponse.json({ error: "Forbidden" }, { status: 403 }) }
 
-  const allowed = originsFromEnv()
-  const fwd = forwardedOrigin(req)
-  if (fwd) allowed.add(fwd)
-
-  if (!allowed.has(parsed)) {
+  if (!allowedOrigins().has(parsed)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 })
   }
   return null

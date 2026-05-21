@@ -173,7 +173,7 @@ function renderContent(doc: PDFKit.PDFDocument, data: ExportData, s: Spacing): v
     doc.rect(tableLeft, subY, 495, subH).fill(ACCENT).restore()
     doc.fontSize(9).fillColor(WHITE).font("Helvetica-Bold")
     const headers = q.type === "RANKED_CHOICE"
-      ? ["Option", "1st choice", "%", ""]
+      ? ["Option", "1st pref.", "%", ""]
       : ["Option", "Votes", "%", ""]
     headers.forEach((h, i) => {
       doc.text(h, colX[i] + 4, subY + 5, { width: colWidths[i] - 8, align: i === 0 ? "left" : "right" })

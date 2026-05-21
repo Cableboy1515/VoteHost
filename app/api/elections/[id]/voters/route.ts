@@ -4,6 +4,7 @@ import { db } from "@/lib/db"
 import { VotersSchema } from "@/lib/validations"
 import { csrfCheck } from "@/lib/csrf"
 import { rateLimit, rateLimitResponse } from "@/lib/rateLimit"
+import { generateVoterToken } from "@/lib/voterToken"
 
 export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
   const session = await getSession()
@@ -39,7 +40,10 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   if (!parsed.success) return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 })
 
   const result = await db.voter.createMany({
-    data: parsed.data.map((voter) => ({ ...voter, electionId })),
+    data: parsed.data.map((voter) => {
+      const { tokenHash } = generateVoterToken()
+      return { ...voter, electionId, tokenHash }
+    }),
     skipDuplicates: true,
   })
 

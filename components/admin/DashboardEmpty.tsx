@@ -4,7 +4,7 @@ const STEPS = [
   {
     n: 1,
     title: "Build your ballot",
-    desc: "Single, multiple, ranked-choice, or write-in questions — mix as you like.",
+    desc: "Single choice, multiple choice, preference ranking, or write-in questions — mix as you like.",
   },
   {
     n: 2,

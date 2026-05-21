@@ -1,5 +1,6 @@
 import { db } from "@/lib/db"
 import { sendBallotInvitation } from "@/lib/email"
+import { generateVoterToken } from "@/lib/voterToken"
 
 export async function sendBallotInvitationsToUninvited(
   electionId: string,
@@ -19,6 +20,7 @@ export async function sendBallotInvitationsToUninvited(
 
   const uninvitedVoters = await db.voter.findMany({
     where: { electionId, invitedAt: null },
+    select: { id: true, name: true, email: true },
   })
 
   const baseUrl = process.env.NEXTAUTH_URL ?? "http://localhost:3000"
@@ -28,11 +30,15 @@ export async function sendBallotInvitationsToUninvited(
 
   for (const voter of uninvitedVoters) {
     try {
+      // Generate a fresh token per send; only the hash is stored in the DB.
+      const { token, tokenHash } = generateVoterToken()
+      await db.voter.update({ where: { id: voter.id }, data: { tokenHash } })
+
       const { error } = await sendBallotInvitation({
         voterName: voter.name,
         voterEmail: voter.email,
         electionTitle: election.title,
-        magicLink: `${baseUrl}/vote/${voter.token}`,
+        magicLink: `${baseUrl}/vote/${token}`,
         emailSubject: election.emailSubject,
         emailMessage: election.emailMessage,
         emailLogoUrl: election.emailLogoUrl,

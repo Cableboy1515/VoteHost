@@ -7,6 +7,7 @@ import { createHash } from "node:crypto"
 import * as unzipper from "unzipper"
 import { requireRole } from "@/lib/auth"
 import { csrfCheck } from "@/lib/csrf"
+import { detectImageType, ALLOWED_UPLOAD_EXTENSIONS, MAX_UPLOAD_BYTES } from "@/lib/uploads"
 import { rateLimit, rateLimitResponse } from "@/lib/rateLimit"
 import { unpackHeader } from "@/lib/backup/format"
 import { decryptZip } from "@/lib/backup/crypto"
@@ -109,19 +110,41 @@ export async function POST(req: Request) {
   const uploadEntries = directory.files.filter(
     (f) => f.type === "File" && f.path.startsWith("uploads/"),
   )
+  const skippedFiles: string[] = []
   if (uploadEntries.length > 0) {
     await fs.mkdir(uploadsDir, { recursive: true })
     for (const entry of uploadEntries) {
       const filename = path.basename(entry.path)
       if (!filename) continue
+
+      // Allow-list by extension first (fast path)
+      const ext = filename.split(".").pop()?.toLowerCase() ?? ""
+      if (!ALLOWED_UPLOAD_EXTENSIONS.has(ext)) {
+        skippedFiles.push(filename)
+        continue
+      }
+
       const buf = await entry.buffer()
+
+      // Enforce per-file size cap
+      if (buf.length > MAX_UPLOAD_BYTES) {
+        skippedFiles.push(filename)
+        continue
+      }
+
+      // Validate magic bytes to prevent polyglot / content-type confusion attacks
+      if (!detectImageType(buf)) {
+        skippedFiles.push(filename)
+        continue
+      }
+
       await fs.writeFile(path.join(uploadsDir, filename), buf)
     }
   }
 
   try {
     const counts = await restoreDatabase(header.type, data, header.schemaVersion)
-    return NextResponse.json({ ok: true, type: header.type, counts })
+    return NextResponse.json({ ok: true, type: header.type, counts, skippedFiles })
   } catch (err) {
     const e = err as Error & { code?: string }
     if (e.code === "ACTIVE_ELECTIONS") {

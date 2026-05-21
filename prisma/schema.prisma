@@ -111,7 +111,8 @@ model Voter {
   name                 String
   email                String
   hasVoted             Boolean   @default(false)
-  token                String    @unique @default(uuid())
+  // Token is never stored; only a SHA-256 hash to prevent insider vote impersonation
+  tokenHash            String    @unique
   invitedAt            DateTime?
   votedAt              DateTime?
   firstReminderSentAt  DateTime?
@@ -120,7 +121,7 @@ model Voter {
   election Election @relation(fields: [electionId], references: [id], onDelete: Cascade)
 
   @@unique([electionId, email])
-  @@index([token])
+  @@index([tokenHash])
 }
 
 // Vote has no voterId — anonymity by design.
@@ -177,6 +178,11 @@ model AdminUser {
   passwordResetRequestedAt DateTime?
   passwordResetTokenHash   String?   @unique
   passwordResetExpiresAt   DateTime?
+
+  // TOTP 2FA — mandatory for ADMIN and ORGANIZER, optional for VIEWER
+  totpSecretEnc            String?   // AES-256-GCM encrypted TOTP secret
+  totpEnabledAt            DateTime?
+  recoveryCodeHashes       String[]  @default([]) // bcrypt hashes of one-time recovery codes
 }
 
 model Setting {

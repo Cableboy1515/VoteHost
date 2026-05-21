@@ -3,6 +3,7 @@ import { requireRole } from "@/lib/auth"
 import { db } from "@/lib/db"
 import { sendBallotInvitation } from "@/lib/email"
 import { rateLimit, rateLimitResponse } from "@/lib/rateLimit"
+import { generateVoterToken } from "@/lib/voterToken"
 
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const session = await requireRole("ORGANIZER")
@@ -30,7 +31,10 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     ? { electionId, id: { in: voterIds } }
     : { electionId, invitedAt: null }
 
-  const voters = await db.voter.findMany({ where })
+  const voters = await db.voter.findMany({
+    where,
+    select: { id: true, name: true, email: true },
+  })
 
   const baseUrl = process.env.NEXTAUTH_URL ?? "http://localhost:3000"
   let sent = 0
@@ -38,11 +42,14 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
 
   for (const voter of voters) {
     try {
+      const { token, tokenHash } = generateVoterToken()
+      await db.voter.update({ where: { id: voter.id }, data: { tokenHash } })
+
       const { error } = await sendBallotInvitation({
         voterName: voter.name,
         voterEmail: voter.email,
         electionTitle: election.title,
-        magicLink: `${baseUrl}/vote/${voter.token}`,
+        magicLink: `${baseUrl}/vote/${token}`,
         emailSubject: election.emailSubject,
         emailMessage: election.emailMessage,
         emailLogoUrl: election.emailLogoUrl,

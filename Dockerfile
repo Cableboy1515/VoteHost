@@ -20,9 +20,6 @@ COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 # Generate Prisma client into lib/generated/prisma
 RUN node node_modules/.bin/prisma generate
-# proxy.ts checks NEXTAUTH_SECRET at module load time; supply a placeholder so
-# `next build` can collect page data. The real secret is injected at runtime.
-ENV NEXTAUTH_SECRET=build-placeholder
 # SHA is passed via --build-arg GIT_SHA=$(git rev-parse --short HEAD) and baked
 # into the bundle so the Settings page and /api/health can surface the build.
 ARG GIT_SHA=dev

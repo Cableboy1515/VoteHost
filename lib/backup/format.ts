@@ -2,7 +2,7 @@ import { BRAND_NAME } from "@/lib/branding"
 
 export const MAGIC = Buffer.from("VHBK", "ascii")
 export const FORMAT_VERSION = 2  // v2 adds GCM AAD over the outer header
-export const CURRENT_SCHEMA_VERSION = "1"
+export const CURRENT_SCHEMA_VERSION = "2"
 export const GCM_TAG_LENGTH = 16
 
 export type BackupType = "full" | "elections"

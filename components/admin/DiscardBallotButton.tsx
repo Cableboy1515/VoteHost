@@ -11,26 +11,39 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Textarea } from "@/components/ui/textarea"
 import { toast } from "sonner"
 
 interface Props {
   electionId: string
+  electionTitle: string
   votedCount: number
 }
 
-export default function DiscardBallotButton({ electionId, votedCount }: Props) {
+export default function DiscardBallotButton({ electionId, electionTitle, votedCount }: Props) {
   const router = useRouter()
   const [stage, setStage] = useState<"closed" | "warn" | "confirm">("closed")
-  const [checked, setChecked] = useState(false)
+  const [titleConfirm, setTitleConfirm] = useState("")
+  const [reason, setReason] = useState("")
   const [discarding, setDiscarding] = useState(false)
 
   function openWarn() { setStage("warn") }
-  function goConfirm() { setChecked(false); setStage("confirm") }
-  function closeAll() { setStage("closed"); setChecked(false) }
+  function goConfirm() { setTitleConfirm(""); setReason(""); setStage("confirm") }
+  function closeAll() { setStage("closed"); setTitleConfirm(""); setReason("") }
+
+  const titleMatch = titleConfirm === electionTitle
+  const reasonOk = reason.trim().length >= 10
+  const canSubmit = titleMatch && reasonOk && !discarding
 
   async function handleDiscard() {
     setDiscarding(true)
-    const res = await fetch(`/api/elections/${electionId}/reset-ballot`, { method: "POST" })
+    const res = await fetch(`/api/elections/${electionId}/reset-ballot`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ confirmation: titleConfirm, reason: reason.trim() }),
+    })
     setDiscarding(false)
     closeAll()
     if (res.ok) {
@@ -75,7 +88,7 @@ export default function DiscardBallotButton({ electionId, votedCount }: Props) {
         </DialogContent>
       </Dialog>
 
-      {/* Stage 2 — forceful confirmation with checkbox */}
+      {/* Stage 2 — typed title + reason confirmation */}
       <Dialog open={stage === "confirm"} onOpenChange={(o) => { if (!o) closeAll() }}>
         <DialogContent showCloseButton={false}>
           <DialogHeader>
@@ -83,7 +96,7 @@ export default function DiscardBallotButton({ electionId, votedCount }: Props) {
               Are you absolutely sure?
             </DialogTitle>
           </DialogHeader>
-          <div className="py-2 space-y-3">
+          <div className="py-2 space-y-4">
             <p className="text-sm font-semibold" style={{ color: "var(--vh-danger)" }}>
               THIS CANNOT BE UNDONE.
             </p>
@@ -92,24 +105,37 @@ export default function DiscardBallotButton({ electionId, votedCount }: Props) {
               <li><strong>{n} voter{n !== 1 ? "s" : ""}</strong> will receive an email asking them to recast.</li>
               <li>The ballot will become editable again.</li>
             </ul>
-            <label className="flex items-start gap-2.5 cursor-pointer mt-2">
-              <input
-                type="checkbox"
-                checked={checked}
-                onChange={(e) => setChecked(e.target.checked)}
-                className="mt-0.5 flex-shrink-0"
+            <div className="space-y-1">
+              <Label htmlFor="titleConfirm">
+                Type the election title to confirm: <span className="font-mono text-xs bg-zinc-100 px-1 rounded">{electionTitle}</span>
+              </Label>
+              <Input
+                id="titleConfirm"
+                value={titleConfirm}
+                onChange={(e) => setTitleConfirm(e.target.value)}
+                placeholder="Exact election title"
               />
-              <span className="text-sm text-zinc-600">
-                I understand and want to discard {n} vote{n !== 1 ? "s" : ""}
-              </span>
-            </label>
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="resetReason">Reason (required for audit record)</Label>
+              <Textarea
+                id="resetReason"
+                value={reason}
+                onChange={(e) => setReason(e.target.value)}
+                placeholder="Explain why the ballot is being reset (min 10 characters)"
+                rows={3}
+              />
+              {reason.trim().length > 0 && reason.trim().length < 10 && (
+                <p className="text-xs text-red-500">{10 - reason.trim().length} more character{10 - reason.trim().length !== 1 ? "s" : ""} required</p>
+              )}
+            </div>
           </div>
           <DialogFooter>
             <DialogClose render={<Button variant="outline" />}>Cancel</DialogClose>
             <Button
               variant="destructive"
               onClick={handleDiscard}
-              disabled={!checked || discarding}
+              disabled={!canSubmit}
             >
               {discarding ? "Discarding…" : `Yes, discard ${n} vote${n !== 1 ? "s" : ""} and reopen`}
             </Button>

@@ -2,6 +2,7 @@ import { db } from "@/lib/db"
 import ErrorScreen from "@/components/ballot/ErrorScreen"
 import BallotForm from "@/components/ballot/BallotForm"
 import { canActivate } from "@/lib/canActivate"
+import { hashVoterToken } from "@/lib/voterToken"
 
 export default async function VotePage({ params }: { params: Promise<{ token: string }> }) {
   const { token } = await params
@@ -9,7 +10,7 @@ export default async function VotePage({ params }: { params: Promise<{ token: st
   // Phase 1: lightweight check — skips the questions/options join for invalid or
   // closed-election tokens (the common case for stale magic links in old emails).
   const quick = await db.voter.findUnique({
-    where: { token },
+    where: { tokenHash: hashVoterToken(token) },
     select: {
       id: true,
       hasVoted: true,

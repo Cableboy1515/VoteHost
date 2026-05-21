@@ -642,13 +642,13 @@ export async function sendPasswordResetActivityToAdmins(payload: {
   if (failed > 0) console.error(`[sendPasswordResetActivityToAdmins] ${failed}/${admins.length} failed`)
 }
 
-type BallotResetVoter = { name: string; email: string; token: string }
+type BallotResetVoter = { name: string; email: string; magicLink: string }
 type BallotResetElection = { title: string; emailLogoUrl: string | null; emailFooter: string | null }
 
 function buildBallotResetHtml(voter: BallotResetVoter, election: BallotResetElection): string {
   const name = escapeHtml(voter.name)
   const title = escapeHtml(election.title)
-  const link = escapeHtml(absolutizeUrl(`/vote/${voter.token}`))
+  const link = escapeHtml(voter.magicLink)
   return emailWrapper(`
     ${brandRow()}
     ${logoRow(election.emailLogoUrl)}
@@ -667,9 +667,10 @@ function buildBallotResetHtml(voter: BallotResetVoter, election: BallotResetElec
   `)
 }
 
-function buildBallotResetAdminHtml(electionTitle: string, organizerEmail: string, voterCount: number): string {
+function buildBallotResetAdminHtml(electionTitle: string, organizerEmail: string, voterCount: number, reason: string): string {
   const title = escapeHtml(electionTitle)
   const organizer = escapeHtml(organizerEmail)
+  const reasonHtml = escapeHtml(reason)
   const resultsUrl = escapeHtml(absolutizeUrl("/elections"))
   return emailWrapper(`
     ${brandRow()}
@@ -679,6 +680,9 @@ function buildBallotResetAdminHtml(electionTitle: string, organizerEmail: string
         <strong style="color:${C.ink};">${organizer}</strong> discarded all votes and reopened the ballot for
         <strong style="color:${C.ink};">${title}</strong>.
         ${voterCount} voter${voterCount !== 1 ? "s" : ""} who had already voted ${voterCount !== 1 ? "were" : "was"} notified by email to recast.
+      </p>
+      <p style="margin:0 0 14px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:14.5px;color:${C.inkSoft};line-height:1.6;">
+        <strong style="color:${C.ink};">Reason:</strong> ${reasonHtml}
       </p>
     </td></tr>
     <tr><td style="padding:0 32px 14px;">
@@ -718,12 +722,12 @@ export async function sendBallotResetNotices(voters: BallotResetVoter[], electio
   console.log(`[sendBallotResetNotices] election=${election.title} sent=${sent} failed=${failed}`)
 }
 
-export async function sendBallotResetAdminNotice(electionTitle: string, organizerEmail: string, voterCount: number): Promise<void> {
+export async function sendBallotResetAdminNotice(electionTitle: string, organizerEmail: string, voterCount: number, reason: string): Promise<void> {
   const config = await getAllEmailConfig()
   const admins = await db.adminUser.findMany({ where: { role: "ADMIN" }, select: { email: true } })
   if (admins.length === 0) return
   const subject = `Ballot reset — ${electionTitle}`
-  const html = buildBallotResetAdminHtml(electionTitle, organizerEmail, voterCount)
+  const html = buildBallotResetAdminHtml(electionTitle, organizerEmail, voterCount, reason)
   const results = await Promise.allSettled(admins.map((a) => sendRawEmail(config, a.email, subject, html)))
   let sent = 0
   let failed = 0

@@ -122,17 +122,13 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     updates.reopenedById = null
   }
 
-  const transitioningFromEnd =
-    parsed.data.status != null &&
-    parsed.data.status !== "COMPLETED" &&
-    before.status === "COMPLETED"
-
-  if (transitioningFromEnd) {
-    updates.reopenedAt = new Date()
-    updates.reopenedById = session.sub
-    updates.closedAt = null
-    updates.closedById = null
-    updates.completionEmailSentAt = null
+  // Closed elections are immutable — reopening would silently invalidate the
+  // published tallyHash without voters knowing. Start a new election instead.
+  if (before.status === "COMPLETED" && parsed.data.status != null && parsed.data.status !== "COMPLETED") {
+    return NextResponse.json(
+      { error: "A completed election cannot be reopened. Its tally is sealed. Create a new election instead." },
+      { status: 409 }
+    )
   }
 
   const election = await db.election.update({ where: { id }, data: updates })

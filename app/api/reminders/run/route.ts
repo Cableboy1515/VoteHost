@@ -11,6 +11,7 @@ import { getStaffRecipients } from "@/lib/staffRecipients"
 import { purgeElectionImages } from "@/lib/imageRetention"
 import { autoCompleteElections } from "@/lib/autoCompleteElections"
 import { autoActivateElections } from "@/lib/autoActivateElections"
+import { generateVoterToken } from "@/lib/voterToken"
 
 // Guards for sweeps that should run at most once per hour despite 1-minute cron frequency.
 let lastHeavySweepAt = 0
@@ -94,12 +95,16 @@ export async function POST(req: Request) {
     )
 
     for (const voter of eligible) {
+      // Rotate token on each reminder send; the old link becomes invalid.
+      const { token, tokenHash } = generateVoterToken()
+      await db.voter.update({ where: { id: voter.id }, data: { tokenHash } })
+
       const { error } = await sendBallotInvitation(
         {
           voterName: voter.name,
           voterEmail: voter.email,
           electionTitle: election.title,
-          magicLink: `${baseUrl}/vote/${voter.token}`,
+          magicLink: `${baseUrl}/vote/${token}`,
           emailSubject: election.emailSubject,
           emailMessage: election.emailMessage,
           emailLogoUrl: election.emailLogoUrl,
