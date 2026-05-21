@@ -31,7 +31,6 @@ type EnrollStep = "loading" | "scan" | "verify" | "recovery"
 function EnrollForm() {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const challengeToken = searchParams.get("ct") ?? ""
   const nextPath = safeNext(searchParams.get("next"))
 
   const [step, setStep] = useState<EnrollStep>("loading")
@@ -44,14 +43,10 @@ function EnrollForm() {
   const [showManualKey, setShowManualKey] = useState(false)
 
   useEffect(() => {
-    if (!challengeToken) {
-      router.replace("/login")
-      return
-    }
     fetch("/api/admin/2fa/enroll", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ challengeToken }),
+      body: JSON.stringify({}),
     })
       .then((r) => r.json())
       .then((data) => {
@@ -61,7 +56,16 @@ function EnrollForm() {
         setStep("scan")
       })
       .catch(() => router.replace("/login"))
-  }, [challengeToken, router])
+  }, [router])
+
+  async function handleSkip() {
+    setLoading(true)
+    await fetch("/api/admin/2fa/dismiss-prompt", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+    }).catch(() => {})
+    router.push(nextPath)
+  }
 
   async function handleConfirm(e: React.FormEvent) {
     e.preventDefault()
@@ -71,7 +75,7 @@ function EnrollForm() {
     const res = await fetch("/api/admin/2fa/confirm", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ challengeToken, secret, code }),
+      body: JSON.stringify({ secret, code }),
     })
     const data = await res.json().catch(() => ({}))
 
@@ -106,9 +110,9 @@ function EnrollForm() {
 
           {step === "scan" && (
             <>
-              <h2 className="text-[22px] font-semibold mb-1.5">Set up two-factor authentication</h2>
+              <h2 className="text-[22px] font-semibold mb-1.5">Recommended: Set up 2FA</h2>
               <p className="text-[13.5px] mb-5" style={{ color: "var(--vh-muted)" }}>
-                Two-factor authentication is required for your account. Scan this QR code with your authenticator app (Google Authenticator, Authy, 1Password, etc.).
+                Two-factor authentication adds an extra layer of security to your account. Scan this QR code with your authenticator app (Google Authenticator, Authy, 1Password, etc.).
               </p>
 
               {qrDataUrl && (
@@ -193,6 +197,18 @@ function EnrollForm() {
                   onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "var(--vh-accent)" }}
                 >
                   {loading ? "Verifying…" : "Activate 2FA"}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleSkip}
+                  disabled={loading}
+                  className="w-full py-2 text-[13.5px] transition-colors disabled:opacity-60"
+                  style={{ color: "var(--vh-muted)" }}
+                  onMouseEnter={(e) => (e.currentTarget.style.color = "var(--vh-ink-soft)")}
+                  onMouseLeave={(e) => (e.currentTarget.style.color = "var(--vh-muted)")}
+                >
+                  Skip for now
                 </button>
               </form>
             </>

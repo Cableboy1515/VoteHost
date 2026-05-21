@@ -69,9 +69,8 @@ function LoginForm() {
       return
     }
 
-    if (data.enrollmentRequired) {
-      // ADMIN/ORGANIZER must set up 2FA before getting a session
-      router.push(`/login/enroll?ct=${encodeURIComponent(data.challengeToken)}&next=${encodeURIComponent(nextPath)}`)
+    if (data.recommend2fa) {
+      router.push(`/login/enroll?next=${encodeURIComponent(nextPath)}`)
       return
     }
 

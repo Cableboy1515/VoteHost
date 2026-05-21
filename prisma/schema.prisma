@@ -179,10 +179,11 @@ model AdminUser {
   passwordResetTokenHash   String?   @unique
   passwordResetExpiresAt   DateTime?
 
-  // TOTP 2FA — mandatory for ADMIN and ORGANIZER, optional for VIEWER
-  totpSecretEnc            String?   // AES-256-GCM encrypted TOTP secret
-  totpEnabledAt            DateTime?
-  recoveryCodeHashes       String[]  @default([]) // bcrypt hashes of one-time recovery codes
+  // TOTP 2FA — optional for all roles, recommended for ADMIN and ORGANIZER
+  totpSecretEnc              String?   // AES-256-GCM encrypted TOTP secret
+  totpEnabledAt              DateTime?
+  recoveryCodeHashes         String[]  @default([]) // bcrypt hashes of one-time recovery codes
+  twoFactorPromptDismissedAt DateTime? // set when user skips the post-login 2FA recommendation
 }
 
 model Setting {

@@ -94,7 +94,7 @@ export async function requireRole(min: AdminRole): Promise<SessionPayload | null
 
 // Short-lived challenge token used for the two-step 2FA login flow.
 // Purpose "totp" = user has 2FA enabled and must verify it.
-// Purpose "enroll" = ADMIN/ORGANIZER without 2FA must set it up before getting a session.
+// Purpose "enroll" = legacy; no longer issued at login (enrollment is now optional).
 export async function createChallengeToken(userId: string, purpose: "totp" | "enroll"): Promise<string> {
   return new SignJWT({ sub: userId, purpose })
     .setProtectedHeader({ alg: "HS256" })

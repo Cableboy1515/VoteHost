@@ -47,7 +47,7 @@ export default function SecurityPanel({ totpEnabled: initialEnabled, totpEnabled
   const [disableError, setDisableError] = useState("")
   const [disableLoading, setDisableLoading] = useState(false)
 
-  const mustEnroll = (role === "ADMIN" || role === "ORGANIZER") && !totpEnabled
+  const shouldRecommend = (role === "ADMIN" || role === "ORGANIZER") && !totpEnabled
 
   async function startEnroll() {
     setEnrollLoading(true)
@@ -109,7 +109,7 @@ export default function SecurityPanel({ totpEnabled: initialEnabled, totpEnabled
         <h2 className="text-lg font-semibold mb-1">Two-factor authentication</h2>
         <p className="text-sm mb-6" style={{ color: "var(--vh-muted)" }}>
           {role === "ADMIN" || role === "ORGANIZER"
-            ? "Required for your account. Adds a time-based code from your authenticator app to the login flow."
+            ? "Recommended for your account. Adds a time-based code from your authenticator app to the login flow."
             : "Optional for your account. Adds a time-based code from your authenticator app to the login flow."}
         </p>
 
@@ -128,18 +128,18 @@ export default function SecurityPanel({ totpEnabled: initialEnabled, totpEnabled
           />
           {totpEnabled
             ? `Enabled${totpEnabledAt ? ` · since ${new Date(totpEnabledAt).toLocaleDateString()}` : ""}`
-            : mustEnroll ? "Required — not yet set up" : "Disabled"}
+            : shouldRecommend ? "Recommended — not yet set up" : "Disabled"}
         </div>
 
         {/* === Enrollment flow === */}
         {!totpEnabled && enrollStep === "idle" && (
           <div>
-            {mustEnroll && (
+            {shouldRecommend && (
               <div
                 className="px-4 py-3 rounded-[10px] mb-4 text-[13px]"
-                style={{ background: "var(--vh-warning-soft)", color: "var(--vh-warning)", border: "1px solid var(--vh-warning-soft)" }}
+                style={{ background: "var(--vh-surface-2)", color: "var(--vh-ink-soft)", border: "1px solid var(--vh-line)" }}
               >
-                Your role requires two-factor authentication. You were prompted to set it up when you first logged in. Re-enroll here if you need to switch authenticator apps.
+                We strongly recommend enabling two-factor authentication for your account.
               </div>
             )}
             <button
@@ -302,17 +302,15 @@ export default function SecurityPanel({ totpEnabled: initialEnabled, totpEnabled
                 {codesRemaining}
               </strong>
             </div>
-            {(role !== "ADMIN" && role !== "ORGANIZER") && (
-              <button
-                onClick={() => { setShowDisable(true); setDisableCode(""); setDisableError("") }}
-                className="text-[13px] transition-colors self-start"
-                style={{ color: "var(--vh-danger)" }}
-                onMouseEnter={(e) => (e.currentTarget.style.opacity = "0.75")}
-                onMouseLeave={(e) => (e.currentTarget.style.opacity = "1")}
-              >
-                Disable two-factor authentication
-              </button>
-            )}
+            <button
+              onClick={() => { setShowDisable(true); setDisableCode(""); setDisableError("") }}
+              className="text-[13px] transition-colors self-start"
+              style={{ color: "var(--vh-danger)" }}
+              onMouseEnter={(e) => (e.currentTarget.style.opacity = "0.75")}
+              onMouseLeave={(e) => (e.currentTarget.style.opacity = "1")}
+            >
+              Disable two-factor authentication
+            </button>
           </div>
         )}
 

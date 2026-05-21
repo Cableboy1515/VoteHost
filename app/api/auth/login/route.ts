@@ -27,15 +27,14 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: true, totpRequired: true, challengeToken })
   }
 
-  // ADMIN and ORGANIZER must enroll in TOTP before getting a session
-  if (user.role === "ADMIN" || user.role === "ORGANIZER") {
-    const challengeToken = await createChallengeToken(user.id, "enroll")
-    return NextResponse.json({ ok: true, enrollmentRequired: true, challengeToken })
-  }
-
-  // VIEWER: no 2FA requirement — issue session directly
+  // Issue session; recommend 2FA setup once for ADMIN/ORGANIZER who haven't enrolled or dismissed
   const token = await createSession(user)
-  const res = NextResponse.json({ ok: true })
+  const res = NextResponse.json({
+    ok: true,
+    recommend2fa:
+      (user.role === "ADMIN" || user.role === "ORGANIZER") &&
+      !user.twoFactorPromptDismissedAt,
+  })
   res.cookies.set(COOKIE, token, SESSION_COOKIE_OPTIONS)
   return res
 }
