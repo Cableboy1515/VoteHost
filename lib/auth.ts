@@ -5,12 +5,18 @@ import bcrypt from "bcryptjs"
 import { db } from "@/lib/db"
 import type { AdminRole, AdminUser } from "@/lib/generated/prisma/client"
 
-if (!process.env.NEXTAUTH_SECRET) {
-  throw new Error("NEXTAUTH_SECRET environment variable is required — set it in .env")
+function sessionSecret(): Uint8Array {
+  const s = process.env.NEXTAUTH_SECRET
+  if (!s) throw new Error("NEXTAUTH_SECRET environment variable is required — set it in .env")
+  return new TextEncoder().encode(s)
 }
-const SECRET = new TextEncoder().encode(process.env.NEXTAUTH_SECRET)
+
 // Domain-separated secret for 2FA challenge tokens — never used for session signing
-const CHALLENGE_SECRET = new TextEncoder().encode(`2fa-challenge:${process.env.NEXTAUTH_SECRET}`)
+function challengeSecret(): Uint8Array {
+  const s = process.env.NEXTAUTH_SECRET
+  if (!s) throw new Error("NEXTAUTH_SECRET environment variable is required — set it in .env")
+  return new TextEncoder().encode(`2fa-challenge:${s}`)
+}
 const COOKIE = "vh_session"
 
 export const SESSION_COOKIE_OPTIONS = {
@@ -56,7 +62,7 @@ export async function createSession(user: Pick<AdminUser, "id" | "email" | "role
     .setProtectedHeader({ alg: "HS256" })
     .setIssuedAt()
     .setExpirationTime("8h")
-    .sign(SECRET)
+    .sign(sessionSecret())
 }
 
 // Cached per-request so repeated getSession() calls within a single render
@@ -68,7 +74,7 @@ export const getSession = cache(async (): Promise<SessionPayload | null> => {
 
   let payload: SessionPayload
   try {
-    const result = await jwtVerify(token, SECRET)
+    const result = await jwtVerify(token, sessionSecret())
     payload = result.payload as unknown as SessionPayload
   } catch {
     return null
@@ -100,12 +106,12 @@ export async function createChallengeToken(userId: string, purpose: "totp" | "en
     .setProtectedHeader({ alg: "HS256" })
     .setIssuedAt()
     .setExpirationTime("5m")
-    .sign(CHALLENGE_SECRET)
+    .sign(challengeSecret())
 }
 
 export async function verifyChallengeToken(token: string, purpose: "totp" | "enroll"): Promise<string | null> {
   try {
-    const { payload } = await jwtVerify(token, CHALLENGE_SECRET)
+    const { payload } = await jwtVerify(token, challengeSecret())
     if (payload.purpose !== purpose) return null
     return (payload.sub as string) ?? null
   } catch {

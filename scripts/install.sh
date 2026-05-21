@@ -33,6 +33,45 @@ ask() {
   if [ -z "$REPLY" ] && [ -n "$2" ]; then REPLY="$2"; fi
 }
 
+_validate_ts_authkey() {
+  # Accepts optional arg; falls back to $TS_AUTHKEY. Trims whitespace, checks prefix.
+  _key="${1:-$TS_AUTHKEY}"
+  _key=$(printf '%s' "$_key" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+  [ -z "$_key" ] && die "Tailscale auth key is required."
+  case "$_key" in
+    tskey-auth-*) ;;
+    *) die "Tailscale auth keys start with 'tskey-auth-...'. Copy the full key from https://login.tailscale.com/admin/settings/keys" ;;
+  esac
+  case "$_key" in
+    *[[:space:]]*) die "Tailscale auth key must not contain spaces." ;;
+  esac
+  TS_AUTHKEY="$_key"
+}
+
+_wait_for_ts_fqdn() {
+  # Polls tailscale container until it authenticates; prints FQDN (no trailing dot).
+  # All status messages go to stderr so stdout is clean for command substitution capture.
+  say "Waiting for Tailscale to authenticate (up to 180s)..." >&2
+  _i=0
+  while [ "$_i" -lt 60 ]; do
+    if command -v jq >/dev/null 2>&1; then
+      _fqdn=$(${COMPOSE_CMD} exec -T tailscale tailscale status --json 2>/dev/null \
+               | jq -r '.Self.DNSName // empty' 2>/dev/null \
+               | sed 's/\.$//')
+    else
+      _fqdn=$(${COMPOSE_CMD} exec -T tailscale tailscale status --json 2>/dev/null \
+               | grep '"DNSName"' | head -1 \
+               | sed 's/.*"DNSName" *: *"\([^"]*\)".*/\1/' | sed 's/\.$//')
+    fi
+    if [ -n "$_fqdn" ] && [ "$_fqdn" != "null" ]; then
+      printf '%s' "$_fqdn"
+      return 0
+    fi
+    sleep 3
+    _i=$((_i + 1))
+  done
+}
+
 UNATTENDED="${VOTEHOST_UNATTENDED:-}"
 
 # ── Validate unattended env vars (fail fast before doing anything) ─────────────
@@ -49,6 +88,8 @@ if [ -n "$UNATTENDED" ]; then
     die "VOTEHOST_CLOUDFLARE_TUNNEL_TOKEN is required for cloudflare mode."
   [ "$_TUNNEL" = "tailscale" ] && [ -z "${VOTEHOST_TS_AUTHKEY:-}" ] && \
     die "VOTEHOST_TS_AUTHKEY is required for tailscale mode."
+  [ "$_TUNNEL" = "tailscale" ] && [ -n "${VOTEHOST_TS_AUTHKEY:-}" ] && \
+    _validate_ts_authkey "${VOTEHOST_TS_AUTHKEY}"
   if [ -n "${VOTEHOST_ADMIN_EMAIL:-}" ]; then
     [ -z "${VOTEHOST_ADMIN_PASSWORD:-}" ] && die "VOTEHOST_ADMIN_PASSWORD is required when VOTEHOST_ADMIN_EMAIL is set."
     [ "${#VOTEHOST_ADMIN_PASSWORD}" -lt 8 ] && die "VOTEHOST_ADMIN_PASSWORD must be at least 8 characters."
@@ -182,14 +223,11 @@ else
       say "Generate an auth key at: https://login.tailscale.com/admin/settings/keys"
       ask "Paste your Tailscale auth key" ""
       TS_AUTHKEY="$REPLY"
-      [ -z "$TS_AUTHKEY" ] && die "Auth key is required."
+      _validate_ts_authkey
       ask "Hostname for this machine in your tailnet" "votehost"
       TS_HOSTNAME="$REPLY"
       say "Your public URL will be: https://${TS_HOSTNAME}.<tailnet>.ts.net"
-      warn "IMPORTANT: After the stack starts, check 'docker compose logs tailscale' for your"
-      warn "real *.ts.net hostname, then update NEXTAUTH_URL in .env and restart the app:"
-      warn "  docker compose restart app"
-      warn "Until you do this, admin actions (Settings, Users, etc.) will return Forbidden."
+      say "The installer will auto-detect your full *.ts.net hostname after startup."
       NEXTAUTH_URL="https://${TS_HOSTNAME}.example.ts.net"
       PROFILE="tailscale"
       ;;
@@ -276,9 +314,18 @@ if [ "$_DO_START" = "1" ]; then
   eval "$COMPOSE_UP --build"
   ok "VoteHost Elections is running!"
   if [ "$TUNNEL_CHOICE" = "2" ]; then
-    warn "Tailscale: check '${COMPOSE_CMD} logs tailscale' for your full *.ts.net URL."
-    warn "Then update NEXTAUTH_URL in .env to that URL and run: ${COMPOSE_CMD} restart app"
-    warn "Until you do this, admin actions (Settings, Users, etc.) will return Forbidden."
+    TS_FQDN=$(_wait_for_ts_fqdn)
+    if [ -n "$TS_FQDN" ]; then
+      NEXTAUTH_URL="https://${TS_FQDN}"
+      sed -i.bak "s|NEXTAUTH_URL=.*|NEXTAUTH_URL=${NEXTAUTH_URL}|" .env && rm -f .env.bak
+      ${COMPOSE_CMD} restart app cron >/dev/null
+      ok "Tailscale ready! Your VoteHost URL: ${NEXTAUTH_URL}"
+    else
+      warn "Timed out waiting for Tailscale to authenticate."
+      warn "Check '${COMPOSE_CMD} logs tailscale' for your full *.ts.net URL."
+      warn "Update NEXTAUTH_URL in .env to that URL and run: ${COMPOSE_CMD} restart app"
+      warn "Until you do this, admin actions (Settings, Users, etc.) will return Forbidden."
+    fi
   fi
   printf "\n"
   if [ -n "$ADMIN_EMAIL" ]; then
