@@ -232,6 +232,17 @@ else
       ;;
     2)
       say "\nTailscale Funnel selected."
+      say ""
+      say "Funnel publishes your *.ts.net URL to the public internet. Two settings"
+      say "must be enabled on your tailnet before it works (one-time, free, ~30 s):"
+      say "  1. HTTPS certificates: https://login.tailscale.com/admin/dns"
+      say "        -> Enable HTTPS"
+      say "  2. Funnel node attribute: https://login.tailscale.com/admin/acls/file"
+      say "        -> Add to nodeAttrs:"
+      say "           { \"target\": [\"autogroup:member\"], \"attr\": [\"funnel\"] }"
+      say ""
+      say "Without both, your *.ts.net URL won't resolve from non-tailnet browsers."
+      say ""
       say "Generate an auth key at: https://login.tailscale.com/admin/settings/keys"
       ask "Paste your Tailscale auth key" ""
       TS_AUTHKEY="$REPLY"
@@ -333,6 +344,19 @@ if [ "$_DO_START" = "1" ]; then
       ${COMPOSE_CMD} up -d --force-recreate --no-deps app cron >/dev/null
       ok "Tailscale ready! Your VoteHost URL: ${NEXTAUTH_URL}"
       TS_OK=1
+      # Warn if Funnel isn't live — the URL only works from inside the tailnet without it
+      _funnel_status=$(${COMPOSE_CMD} exec -T tailscale tailscale funnel status 2>&1 || true)
+      case "$_funnel_status" in
+        *"not available"*|*"not enabled"*|*"requires"*|*"cannot"*|*"Error"*)
+          warn "Funnel may not be enabled on your tailnet."
+          warn "Your URL currently only resolves from devices on your tailnet."
+          warn "To make it publicly reachable, enable both:"
+          warn "  • HTTPS certificates: https://login.tailscale.com/admin/dns"
+          warn "  • Funnel node attribute: https://login.tailscale.com/admin/acls/file"
+          warn "    Add to nodeAttrs: { \"target\": [\"autogroup:member\"], \"attr\": [\"funnel\"] }"
+          warn "Then: ${COMPOSE_CMD} --profile tailscale up -d --force-recreate tailscale"
+          ;;
+      esac
     else
       warn "Tailscale did not come up. See the error line above for the specific cause."
       warn "Most common cause: auth key was single-use and already consumed by a"
