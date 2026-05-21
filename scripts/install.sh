@@ -345,6 +345,7 @@ if [ "$_DO_START" = "1" ]; then
       say "Creating admin account..."
       HTTP_CODE=$(curl -s -o /tmp/votehost-bootstrap.json -w "%{http_code}" \
         -X POST -H 'Content-Type: application/json' \
+        -H "Origin: ${NEXTAUTH_URL}" \
         --data "{\"email\":\"${ADMIN_EMAIL}\",\"password\":\"${ADMIN_PASSWORD}\",\"role\":\"ADMIN\",\"setupToken\":\"${SETUP_TOKEN}\"}" \
         http://127.0.0.1:3000/api/users)
       if [ "$HTTP_CODE" = "201" ]; then
