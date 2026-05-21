@@ -143,10 +143,9 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
 
   const election = await db.election.update({ where: { id }, data: updates })
 
-  let invitationsSent = 0
+  let inviteSummary: Awaited<ReturnType<typeof sendBallotInvitationsToUninvited>> | undefined
   if (transitioningToActive) {
-    const { sent } = await sendBallotInvitationsToUninvited(id)
-    invitationsSent = sent
+    inviteSummary = await sendBallotInvitationsToUninvited(id)
   }
 
   if (transitioningToEnd) {
@@ -175,7 +174,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
       .catch((err) => console.error("[PATCH election] completion email threw:", err))
   }
 
-  return NextResponse.json({ ...election, invitationsSent })
+  return NextResponse.json({ ...election, ...(inviteSummary ?? {}) })
 }
 
 export async function DELETE(_req: Request, { params }: { params: Promise<{ id: string }> }) {

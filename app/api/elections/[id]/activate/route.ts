@@ -41,7 +41,7 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
     },
   })
 
-  const { sent, failed } = await sendBallotInvitationsToUninvited(electionId)
+  const inviteSummary = await sendBallotInvitationsToUninvited(electionId)
 
-  return NextResponse.json({ activated: true, sent, failed })
+  return NextResponse.json({ activated: true, ...inviteSummary })
 }

@@ -414,7 +414,32 @@ function buildHtml(payload: Payload, mode: EmailMode): string {
   return buildInviteHtml(payload)
 }
 
-async function sendViaResend(config: ResendConfig, payload: Payload, mode: EmailMode): Promise<{ error: string | null }> {
+export type SendClassification = "ok" | "quota" | "transient" | "permanent"
+
+export function classifySendError(provider: "resend" | "smtp", err: unknown): SendClassification {
+  if (provider === "resend") {
+    const e = err as { name?: string; statusCode?: number; message?: string }
+    if (e?.name === "rate_limit_exceeded" || e?.statusCode === 429) return "quota"
+    if (e?.statusCode === 403 && /quota|limit/i.test(e?.message ?? "")) return "quota"
+    if (e?.statusCode != null && e.statusCode >= 500) return "transient"
+    if (e?.statusCode === 422 || e?.name === "validation_error") return "permanent"
+    return "transient"
+  }
+  // SMTP via nodemailer: err has responseCode (number) and response (string).
+  // Note: some relays silently accept then drop messages — those cannot be
+  // detected here and will appear as "ok" to the caller.
+  const e = err as { responseCode?: number; response?: string; message?: string }
+  const text = `${e?.response ?? ""} ${e?.message ?? ""}`
+  if (e?.responseCode === 421 || /quota|rate limit|too many|exceeded|throttle/i.test(text)) return "quota"
+  if (e?.responseCode != null) {
+    const code = e.responseCode
+    if (code >= 500 && code < 600) return /^55[0-4]/.test(String(code)) ? "permanent" : "transient"
+    if (code >= 400 && code < 500) return "transient"
+  }
+  return "transient"
+}
+
+async function sendViaResend(config: ResendConfig, payload: Payload, mode: EmailMode): Promise<{ error: string | null; classification: SendClassification }> {
   try {
     const resend = new Resend(config.apiKey)
     const { error } = await resend.emails.send({
@@ -423,13 +448,14 @@ async function sendViaResend(config: ResendConfig, payload: Payload, mode: Email
       subject: buildSubject(mode, payload.emailSubject, payload.electionTitle),
       html: buildHtml(payload, mode),
     })
-    return { error: error ? String(error) : null }
+    if (error) return { error: String(error), classification: classifySendError("resend", error) }
+    return { error: null, classification: "ok" }
   } catch (err) {
-    return { error: String(err) }
+    return { error: String(err), classification: classifySendError("resend", err) }
   }
 }
 
-async function sendViaSmtp(config: SmtpConfig, payload: Payload, mode: EmailMode): Promise<{ error: string | null }> {
+async function sendViaSmtp(config: SmtpConfig, payload: Payload, mode: EmailMode): Promise<{ error: string | null; classification: SendClassification }> {
   try {
     const transporter = nodemailer.createTransport({
       host: config.host,
@@ -443,13 +469,13 @@ async function sendViaSmtp(config: SmtpConfig, payload: Payload, mode: EmailMode
       subject: buildSubject(mode, payload.emailSubject, payload.electionTitle),
       html: buildHtml(payload, mode),
     })
-    return { error: null }
+    return { error: null, classification: "ok" }
   } catch (err) {
-    return { error: String(err) }
+    return { error: String(err), classification: classifySendError("smtp", err) }
   }
 }
 
-export async function sendBallotInvitation(payload: Payload, mode: EmailMode = "invite"): Promise<{ error: string | null }> {
+export async function sendBallotInvitation(payload: Payload, mode: EmailMode = "invite"): Promise<{ error: string | null; classification: SendClassification }> {
   const config = await getAllEmailConfig()
   if (config.provider === "smtp") return sendViaSmtp(config, payload, mode)
   return sendViaResend(config, payload, mode)
@@ -1049,8 +1075,7 @@ function buildActivationCancelledVoterHtml(voter: ActivationCancelledVoter, elec
       <h1 style="margin:0 0 14px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:22px;font-weight:600;color:${C.ink};letter-spacing:-0.02em;">Voting postponed</h1>
       <p style="margin:0 0 14px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:14.5px;color:${C.inkSoft};line-height:1.6;">Hi ${name},</p>
       <p style="margin:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:14.5px;color:${C.inkSoft};line-height:1.6;">
-        The election <strong style="color:${C.ink};">${title}</strong> has been postponed. The invitation link you received is no longer active.
-        You will receive a new invitation when voting opens.
+        Voting on <strong style="color:${C.ink};">${title}</strong> has been postponed. You will receive a new invitation when voting reopens — please disregard your prior invitation until then.
       </p>
     </td></tr>
     <tr><td style="padding:0 32px 28px;">

@@ -38,7 +38,17 @@ export default function ActivateElectionButton({
         setActivating(false)
         return
       }
-      const { sent, failed } = body as { sent: number; failed: number }
+      const { sent = 0, failed = 0, stopped = false, stopReason, failedAt } =
+        body as { sent?: number; failed?: number; stopped?: boolean; stopReason?: string; failedAt?: string }
+      if (stopped) {
+        const detail = stopReason === "quota"
+          ? `Email provider quota reached at ${failedAt ?? "unknown"}. Sent ${sent} of ${sent + failed}. Try again later or check your provider settings.`
+          : `Sending stopped after repeated failures at ${failedAt ?? "unknown"}. Sent ${sent} of ${sent + failed}. Check email settings or server logs.`
+        setError(`Activated, but ${detail}`)
+        setActivating(false)
+        onActivated?.()
+        return
+      }
       if (failed > 0) {
         setError(`Activated, but ${failed} of ${sent + failed} invitation(s) failed to send. Check email settings or server logs.`)
         setActivating(false)

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import { requireRole } from "@/lib/auth"
 import { db } from "@/lib/db"
 import { csrfCheck } from "@/lib/csrf"
+import { rateLimit, rateLimitResponse } from "@/lib/rateLimit"
 import { sendActivationCancelledVoterNotices, sendActivationCancelledAdminNotice } from "@/lib/email"
 
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -12,6 +13,9 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   if (!session) return NextResponse.json({ error: "Forbidden" }, { status: 403 })
 
   const { id } = await params
+
+  const rl = rateLimit(`cancel-activation:${id}`, { limit: 1, windowMs: 5 * 60 * 1000 })
+  if (!rl.ok) return rateLimitResponse(rl.resetAt)
 
   const election = await db.election.findUnique({
     where: { id },
@@ -46,19 +50,33 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   })
 
   // Guarded update — closes the race window between our read and write:
-  // only proceeds if the election is still ACTIVE with no votes.
-  const updated = await db.election.updateMany({
-    where: { id, status: "ACTIVE", firstVoteAt: null },
-    data: {
-      status: "DRAFT",
-      activatedAt: null,
-      activatedById: null,
-      startsAt: null,
-      autoActivate: false,
-      startReminderSentAt: null,
-      autoActivateFailedNoticeSentAt: null,
-    },
-  })
+  // only proceeds if the election is still ACTIVE with no votes. Bundled
+  // with a voter reset so that re-activation re-fires invitations via the
+  // existing `sendBallotInvitationsToUninvited` path (which keys on
+  // `invitedAt: null`). Tokens are intentionally NOT rotated — voters keep
+  // the same magic link, matching ElectionBuddy/OpaVote behavior.
+  const [updated] = await db.$transaction([
+    db.election.updateMany({
+      where: { id, status: "ACTIVE", firstVoteAt: null },
+      data: {
+        status: "DRAFT",
+        activatedAt: null,
+        activatedById: null,
+        startsAt: null,
+        autoActivate: false,
+        startReminderSentAt: null,
+        autoActivateFailedNoticeSentAt: null,
+      },
+    }),
+    db.voter.updateMany({
+      where: { electionId: id },
+      data: {
+        invitedAt: null,
+        firstReminderSentAt: null,
+        secondReminderSentAt: null,
+      },
+    }),
+  ])
 
   if (updated.count === 0) {
     return NextResponse.json(

@@ -2,9 +2,18 @@ import { db } from "@/lib/db"
 import { sendBallotInvitation } from "@/lib/email"
 import { generateVoterToken } from "@/lib/voterToken"
 
+export type InviteSendSummary = {
+  sent: number
+  failed: number
+  stopped: boolean
+  stopReason?: "quota" | "consecutive_failures"
+  lastError?: string
+  failedAt?: string
+}
+
 export async function sendBallotInvitationsToUninvited(
   electionId: string,
-): Promise<{ sent: number; failed: number }> {
+): Promise<InviteSendSummary> {
   const election = await db.election.findUnique({
     where: { id: electionId },
     select: {
@@ -16,7 +25,7 @@ export async function sendBallotInvitationsToUninvited(
       endsAt: true,
     },
   })
-  if (!election) return { sent: 0, failed: 0 }
+  if (!election) return { sent: 0, failed: 0, stopped: false }
 
   const uninvitedVoters = await db.voter.findMany({
     where: { electionId, invitedAt: null },
@@ -27,14 +36,14 @@ export async function sendBallotInvitationsToUninvited(
   const now = new Date()
   let sent = 0
   let failed = 0
+  let consecutiveFails = 0
 
   for (const voter of uninvitedVoters) {
     try {
-      // Generate a fresh token per send; only the hash is stored in the DB.
       const { token, tokenHash } = generateVoterToken()
       await db.voter.update({ where: { id: voter.id }, data: { tokenHash } })
 
-      const { error } = await sendBallotInvitation({
+      const { error, classification } = await sendBallotInvitation({
         voterName: voter.name,
         voterEmail: voter.email,
         electionTitle: election.title,
@@ -45,18 +54,39 @@ export async function sendBallotInvitationsToUninvited(
         emailFooter: election.emailFooter,
         endsAt: election.endsAt?.toISOString(),
       })
+
+      if (classification === "quota") {
+        console.error("[sendBallotInvitationsToUninvited] quota reached at", voter.email, error)
+        return { sent, failed: failed + 1, stopped: true, stopReason: "quota", lastError: error ?? undefined, failedAt: voter.email }
+      }
+
       if (error) {
         console.error("[sendBallotInvitationsToUninvited] send failed for", voter.email, error)
         failed++
+        if (classification === "transient") {
+          consecutiveFails++
+          if (consecutiveFails >= 5) {
+            return { sent, failed, stopped: true, stopReason: "consecutive_failures", lastError: error, failedAt: voter.email }
+          }
+        } else {
+          // permanent failure (bad address etc.) — reset consecutive count and continue
+          consecutiveFails = 0
+        }
         continue
       }
+
       await db.voter.update({ where: { id: voter.id }, data: { invitedAt: now } })
       sent++
+      consecutiveFails = 0
     } catch (err) {
       console.error("[sendBallotInvitationsToUninvited] send threw for", voter.email, err)
       failed++
+      consecutiveFails++
+      if (consecutiveFails >= 5) {
+        return { sent, failed, stopped: true, stopReason: "consecutive_failures", lastError: String(err), failedAt: voter.email }
+      }
     }
   }
 
-  return { sent, failed }
+  return { sent, failed, stopped: false }
 }
