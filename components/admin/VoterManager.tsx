@@ -137,6 +137,7 @@ export default function VoterManager({
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false)
   const [bulkBusy, setBulkBusy] = useState<null | "delete" | "resend">(null)
+  const [csvFileName, setCsvFileName] = useState<string | null>(null)
   const fileRef = useRef<HTMLInputElement>(null)
 
   function toggleSort(key: SortKey) {
@@ -216,6 +217,7 @@ export default function VoterManager({
   function handleCSVFile(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
     if (!file) return
+    setCsvFileName(file.name)
     Papa.parse<CSVRow>(file, {
       header: true,
       complete: (results) => {
@@ -921,7 +923,7 @@ export default function VoterManager({
       </Dialog>
 
       {/* CSV import modal */}
-      <Dialog open={showCsvModal} onOpenChange={(open) => { if (!open) { setCsvPreview([]); if (fileRef.current) fileRef.current.value = "" } setShowCsvModal(open) }}>
+      <Dialog open={showCsvModal} onOpenChange={(open) => { if (!open) { setCsvPreview([]); setCsvFileName(null); if (fileRef.current) fileRef.current.value = "" } setShowCsvModal(open) }}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Import voters from CSV</DialogTitle>
@@ -930,7 +932,26 @@ export default function VoterManager({
             <p className="text-[13px]" style={{ color: "var(--vh-muted)" }}>
               CSV must have <code className="bg-vh-surface-2 px-1 rounded">name</code> and <code className="bg-vh-surface-2 px-1 rounded">email</code> columns.
             </p>
-            <input ref={fileRef} type="file" accept=".csv" onChange={handleCSVFile} className="text-sm" />
+            <div className="flex items-center gap-3">
+              <label
+                htmlFor="csv-file-input"
+                className="px-4 py-2 rounded-[10px] text-sm transition-colors cursor-pointer inline-block"
+                style={{ border: "1px solid var(--vh-line-strong)", background: "var(--vh-surface)", color: "var(--vh-ink-soft)" }}
+              >
+                Choose CSV file
+              </label>
+              <input
+                id="csv-file-input"
+                ref={fileRef}
+                type="file"
+                accept=".csv"
+                onChange={handleCSVFile}
+                className="sr-only"
+              />
+              <span className="text-[13px]" style={{ color: "var(--vh-muted)" }}>
+                {csvFileName ?? "No file chosen"}
+              </span>
+            </div>
             {csvPreview.length > 0 && (
               <div>
                 <p className="text-[13px] mb-2" style={{ color: "var(--vh-ink-soft)" }}>{csvPreview.length} rows ready to import:</p>
