@@ -24,10 +24,11 @@ export default function DeleteElectionButton({ id, title }: { id: string; title:
 
   async function handleDelete() {
     setDeleting(true)
-    await fetch(`/api/elections/${id}`, { method: "DELETE" })
+    const res = await fetch(`/api/elections/${id}`, { method: "DELETE" })
     setDeleting(false)
+    if (!res.ok) return
     closeAll()
-    router.refresh()
+    router.push("/elections")
   }
 
   return (
