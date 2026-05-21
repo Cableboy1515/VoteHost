@@ -164,7 +164,7 @@ function StorageSettings() {
   )
 }
 
-type EmailPreset = "resend" | "gmail" | "icloud" | "outlook" | "yahoo" | "smtp"
+type EmailPreset = "smtp" | "resend" | "gmail" | "icloud" | "outlook" | "yahoo"
 
 type EmailSettings = {
   email_provider: "resend" | "smtp"
@@ -180,8 +180,8 @@ type EmailSettings = {
 }
 
 const DEFAULT_SETTINGS: EmailSettings = {
-  email_provider: "resend",
-  email_preset: "resend",
+  email_provider: "smtp",
+  email_preset: "smtp",
   resend_api_key: "",
   email_from_address: "",
   email_from_name: BRAND_NAME,

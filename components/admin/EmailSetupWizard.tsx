@@ -92,7 +92,7 @@ export default function EmailSetupWizard({
 }) {
   const [step, setStep] = useState<WizardStep>("welcome")
   const [form, setForm] = useState<FormState>({
-    preset: "resend",
+    preset: "smtp",
     resend_api_key: "",
     smtp_host: "",
     smtp_port: "587",

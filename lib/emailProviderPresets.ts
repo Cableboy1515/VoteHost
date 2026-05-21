@@ -1,4 +1,4 @@
-export type EmailPreset = "resend" | "gmail" | "icloud" | "outlook" | "yahoo" | "smtp"
+export type EmailPreset = "smtp" | "resend" | "gmail" | "icloud" | "outlook" | "yahoo"
 
 export type PresetData = {
   label: string
@@ -10,6 +10,14 @@ export type PresetData = {
 }
 
 export const PRESETS: Record<EmailPreset, PresetData> = {
+  smtp: {
+    label: "General SMTP",
+    provider: "smtp",
+    smtp: { host: "", port: "587", secure: "false" },
+    tipTitle: "Custom SMTP server",
+    tipText:
+      "Enter your provider's SMTP host, port, and TLS mode. Use STARTTLS on port 587 or Implicit TLS on port 465 unless your provider specifies otherwise.",
+  },
   resend: {
     label: "Resend",
     provider: "resend",
@@ -52,14 +60,6 @@ export const PRESETS: Record<EmailPreset, PresetData> = {
     tipText:
       "Yahoo requires an App Password (2-step verification must be enabled). Use your full @yahoo.com address as the username.",
     tipUrl: { label: "Yahoo Account Security", href: "https://login.yahoo.com/account/security" },
-  },
-  smtp: {
-    label: "General SMTP",
-    provider: "smtp",
-    smtp: { host: "", port: "587", secure: "false" },
-    tipTitle: "Custom SMTP server",
-    tipText:
-      "Enter your provider's SMTP host, port, and TLS mode. Use STARTTLS on port 587 or Implicit TLS on port 465 unless your provider specifies otherwise.",
   },
 }
 
