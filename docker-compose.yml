@@ -74,7 +74,6 @@ services:
     hostname: ${TS_HOSTNAME:-votehost}
     environment:
       TS_AUTHKEY: ${TS_AUTHKEY}
-      TS_EXTRA_ARGS: --advertise-tags=tag:container
       TS_SERVE_CONFIG: /config/serve.json
     volumes:
       - tailscale_state:/var/lib/tailscale
