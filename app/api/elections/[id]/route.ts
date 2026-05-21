@@ -54,6 +54,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
       startsAt: true,
       endsAt: true,
       status: true,
+      firstVoteAt: true,
       completionEmailSentAt: true,
       _count: { select: { questions: true, voters: true } },
     },
@@ -120,6 +121,15 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     updates.closedById = session.sub
     updates.reopenedAt = null
     updates.reopenedById = null
+  }
+
+  // Reverting ACTIVE → DRAFT must go through the /cancel-activation endpoint,
+  // which enforces firstVoteAt==null and notifies invited voters.
+  if (parsed.data.status === "DRAFT" && before.status === "ACTIVE") {
+    const message = before.firstVoteAt
+      ? "Votes have been cast. Use Discard & Reopen to fix the ballot."
+      : "To cancel activation, use the Cancel Activation button on the Settings page."
+    return NextResponse.json({ error: message }, { status: 409 })
   }
 
   // Closed elections are immutable — reopening would silently invalidate the

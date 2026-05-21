@@ -11,6 +11,7 @@ import DiscardBallotButton from "@/components/admin/DiscardBallotButton"
 import PurgeImagesButton from "@/components/admin/PurgeImagesButton"
 import DeleteElectionButton from "@/components/admin/DeleteElectionButton"
 import CloseElectionEarlyButton from "@/components/admin/CloseElectionEarlyButton"
+import CancelActivationButton from "@/components/admin/CancelActivationButton"
 import { GuardLink } from "@/components/admin/UnsavedChangesGuard"
 import { autoCompleteElections } from "@/lib/autoCompleteElections"
 
@@ -76,6 +77,7 @@ export default async function EditElectionPage({ params }: { params: Promise<{ i
       />
       <h1 className="text-[26px] font-semibold mb-5">Settings</h1>
       <ElectionForm
+        key={election.status}
         electionId={election.id}
         closedAt={election.closedAt?.toISOString() ?? null}
         closedByEmail={closedByEmail}
@@ -110,6 +112,9 @@ export default async function EditElectionPage({ params }: { params: Promise<{ i
         <h2 className="text-[15px] font-semibold mb-1" style={{ color: "var(--vh-danger)" }}>Danger zone</h2>
         <p className="text-[13px] mb-4" style={{ color: "var(--vh-muted)" }}>These actions are permanent and cannot be undone.</p>
         <div className="flex flex-wrap gap-3">
+          {election.status === "ACTIVE" && !election.firstVoteAt && (
+            <CancelActivationButton electionId={id} electionTitle={election.title} />
+          )}
           {election.status === "ACTIVE" && (
             <CloseElectionEarlyButton id={id} title={election.title} variant="danger" />
           )}

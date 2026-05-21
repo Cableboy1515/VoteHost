@@ -1035,3 +1035,107 @@ export async function sendAutoActivateFailedStaffNotice(
   const html = buildAutoActivateFailedStaffHtml(election, reason)
   await sendStaffBlast("sendAutoActivateFailedStaffNotice", election.title, recipients, subject, html)
 }
+
+// ─── Activation cancellation notices ────────────────────────────────────────
+
+type ActivationCancelledVoter = { name: string; email: string }
+
+function buildActivationCancelledVoterHtml(voter: ActivationCancelledVoter, electionTitle: string): string {
+  const name = escapeHtml(voter.name)
+  const title = escapeHtml(electionTitle)
+  return emailWrapper(`
+    ${brandRow()}
+    <tr><td style="padding:24px 32px 14px;">
+      <h1 style="margin:0 0 14px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:22px;font-weight:600;color:${C.ink};letter-spacing:-0.02em;">Voting postponed</h1>
+      <p style="margin:0 0 14px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:14.5px;color:${C.inkSoft};line-height:1.6;">Hi ${name},</p>
+      <p style="margin:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:14.5px;color:${C.inkSoft};line-height:1.6;">
+        The election <strong style="color:${C.ink};">${title}</strong> has been postponed. The invitation link you received is no longer active.
+        You will receive a new invitation when voting opens.
+      </p>
+    </td></tr>
+    <tr><td style="padding:0 32px 28px;">
+      <table role="presentation" cellpadding="0" cellspacing="0" width="100%"><tr>
+        <td style="border-top:1px solid ${C.line};padding-top:18px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:12px;color:${C.muted};line-height:1.6;">
+          No action is needed on your part. We apologize for the inconvenience.
+        </td>
+      </tr></table>
+    </td></tr>
+  `)
+}
+
+function buildActivationCancelledAdminHtml(electionTitle: string, organizerEmail: string, notifiedCount: number): string {
+  const title = escapeHtml(electionTitle)
+  const organizer = escapeHtml(organizerEmail)
+  const electionsUrl = escapeHtml(absolutizeUrl("/elections"))
+  return emailWrapper(`
+    ${brandRow()}
+    <tr><td style="padding:24px 32px 14px;">
+      <h1 style="margin:0 0 14px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:22px;font-weight:600;color:${C.ink};letter-spacing:-0.02em;">Activation cancelled</h1>
+      <p style="margin:0 0 14px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:14.5px;color:${C.inkSoft};line-height:1.6;">
+        <strong style="color:${C.ink};">${organizer}</strong> cancelled the activation of
+        <strong style="color:${C.ink};">${title}</strong> and returned it to Draft status.
+        ${notifiedCount > 0
+          ? `${notifiedCount} invited voter${notifiedCount !== 1 ? "s" : ""} received a postponement notice.`
+          : "No voters had been invited yet."}
+      </p>
+    </td></tr>
+    <tr><td style="padding:0 32px 14px;">
+      <a href="${electionsUrl}" style="display:inline-block;background:${C.accent};color:#ffffff;text-decoration:none;padding:14px 28px;border-radius:10px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:15px;font-weight:500;">View Elections →</a>
+    </td></tr>
+    <tr><td style="padding:0 32px 28px;">
+      <table role="presentation" cellpadding="0" cellspacing="0" width="100%"><tr>
+        <td style="border-top:1px solid ${C.line};padding-top:18px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:12px;color:${C.muted};line-height:1.6;">
+          You received this because you are an administrator on ${BRAND_NAME}.
+        </td>
+      </tr></table>
+    </td></tr>
+  `)
+}
+
+export async function sendActivationCancelledVoterNotices(voters: ActivationCancelledVoter[], electionTitle: string): Promise<void> {
+  if (voters.length === 0) return
+  const config = await getAllEmailConfig()
+  const subject = `Voting postponed — ${electionTitle}`
+  const results = await Promise.allSettled(
+    voters.map((v) => sendRawEmail(config, v.email, subject, buildActivationCancelledVoterHtml(v, electionTitle)))
+  )
+  let sent = 0
+  let failed = 0
+  results.forEach((result, i) => {
+    const recipient = voters[i].email
+    if (result.status === "rejected") {
+      console.error(`[sendActivationCancelledVoterNotices] send threw for ${recipient}:`, result.reason)
+      failed++
+    } else if (result.value.error !== null) {
+      console.error(`[sendActivationCancelledVoterNotices] send failed for ${recipient}:`, result.value.error)
+      failed++
+    } else {
+      sent++
+    }
+  })
+  console.log(`[sendActivationCancelledVoterNotices] election=${electionTitle} sent=${sent} failed=${failed}`)
+}
+
+export async function sendActivationCancelledAdminNotice(electionTitle: string, organizerEmail: string, notifiedCount: number): Promise<void> {
+  const config = await getAllEmailConfig()
+  const admins = await db.adminUser.findMany({ where: { role: "ADMIN" }, select: { email: true } })
+  if (admins.length === 0) return
+  const subject = `Activation cancelled — ${electionTitle}`
+  const html = buildActivationCancelledAdminHtml(electionTitle, organizerEmail, notifiedCount)
+  const results = await Promise.allSettled(admins.map((a) => sendRawEmail(config, a.email, subject, html)))
+  let sent = 0
+  let failed = 0
+  results.forEach((result, i) => {
+    const recipient = admins[i].email
+    if (result.status === "rejected") {
+      console.error(`[sendActivationCancelledAdminNotice] send threw for ${recipient}:`, result.reason)
+      failed++
+    } else if (result.value.error !== null) {
+      console.error(`[sendActivationCancelledAdminNotice] send failed for ${recipient}:`, result.value.error)
+      failed++
+    } else {
+      sent++
+    }
+  })
+  console.log(`[sendActivationCancelledAdminNotice] election=${electionTitle} sent=${sent} failed=${failed}`)
+}

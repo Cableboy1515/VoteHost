@@ -381,8 +381,11 @@ export default function ElectionForm({
                       ? "Add at least one race on the Ballot tab before activating"
                       : activating && voterCount === 0
                       ? "Add at least one voter before activating"
+                      // Disable the DRAFT pill while the election is active — use Cancel Activation instead.
+                      : s === "DRAFT" && status === "ACTIVE"
+                      ? "To return this election to Draft, use Cancel Activation in the Danger Zone below"
                       : undefined
-                    const isDisabled = activating && !!disabledReason
+                    const isDisabled = !!disabledReason
                     const pill = (
                       <button
                         key={s}
