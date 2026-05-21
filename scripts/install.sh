@@ -318,12 +318,12 @@ if [ "$_DO_START" = "1" ]; then
     if [ -n "$TS_FQDN" ]; then
       NEXTAUTH_URL="https://${TS_FQDN}"
       sed -i.bak "s|NEXTAUTH_URL=.*|NEXTAUTH_URL=${NEXTAUTH_URL}|" .env && rm -f .env.bak
-      ${COMPOSE_CMD} restart app cron >/dev/null
+      ${COMPOSE_CMD} up -d --force-recreate --no-deps app cron >/dev/null
       ok "Tailscale ready! Your VoteHost URL: ${NEXTAUTH_URL}"
     else
       warn "Timed out waiting for Tailscale to authenticate."
       warn "Check '${COMPOSE_CMD} logs tailscale' for your full *.ts.net URL."
-      warn "Update NEXTAUTH_URL in .env to that URL and run: ${COMPOSE_CMD} restart app"
+      warn "Update NEXTAUTH_URL in .env to that URL and run: ${COMPOSE_CMD} up -d --force-recreate app"
       warn "Until you do this, admin actions (Settings, Users, etc.) will return Forbidden."
     fi
   fi

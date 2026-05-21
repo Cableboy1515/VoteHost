@@ -53,6 +53,6 @@ NEXTAUTH_URL="https://${TS_FQDN}"
 sed -i.bak "s|NEXTAUTH_URL=.*|NEXTAUTH_URL=${NEXTAUTH_URL}|" .env && rm -f .env.bak
 ok "NEXTAUTH_URL updated to ${NEXTAUTH_URL}"
 
-say "Restarting app and cron..."
-${COMPOSE_CMD} restart app cron
+say "Recreating app and cron to pick up new NEXTAUTH_URL..."
+${COMPOSE_CMD} up -d --force-recreate --no-deps app cron
 ok "Done. Your VoteHost URL: ${NEXTAUTH_URL}"
