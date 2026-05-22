@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "concurrently \"prisma dev\" \"next dev\"",
+    "dev": "concurrently -k \"prisma dev\" \"bash -c 'until nc -z 127.0.0.1 51214 2>/dev/null; do sleep 0.5; done && next dev'\"",
     "build": "next build",
     "start": "next start",
     "lint": "eslint"
