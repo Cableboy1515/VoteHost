@@ -4,6 +4,7 @@ import { useRef, useState } from "react"
 import { Pencil, Trash2, ImagePlus } from "lucide-react"
 import { avatarPreset, logoPreset, resizeForUpload } from "@/lib/clientImage"
 import { uploadImage, deleteImage } from "@/lib/imageHost"
+import AvatarCropModal from "./AvatarCropModal"
 
 interface Props {
   preset: "avatar" | "logo"
@@ -19,6 +20,7 @@ export default function ImageUploadField({ preset, url, setUrl, deleteUrl, setDe
   const [uploading, setUploading] = useState(false)
   const [error, setError] = useState("")
   const [dragging, setDragging] = useState(false)
+  const [cropFile, setCropFile] = useState<File | null>(null)
 
   const isAvatar = preset === "avatar"
   const imagePreset = isAvatar ? avatarPreset : logoPreset
@@ -26,6 +28,11 @@ export default function ImageUploadField({ preset, url, setUrl, deleteUrl, setDe
   async function handleFile(file: File) {
     if (!file.type.startsWith("image/")) { setError("Please select an image file"); return }
     setError("")
+    if (isAvatar) {
+      setCropFile(file)
+      if (fileRef.current) fileRef.current.value = ""
+      return
+    }
     setUploading(true)
     try {
       if (deleteUrl) { await deleteImage(deleteUrl).catch(() => undefined); setDeleteUrl("") }
@@ -38,6 +45,22 @@ export default function ImageUploadField({ preset, url, setUrl, deleteUrl, setDe
     } finally {
       setUploading(false)
       if (fileRef.current) fileRef.current.value = ""
+    }
+  }
+
+  async function handleCropConfirm(blob: Blob) {
+    setCropFile(null)
+    setUploading(true)
+    try {
+      if (deleteUrl) { await deleteImage(deleteUrl).catch(() => undefined); setDeleteUrl("") }
+      const name = (cropFile?.name ?? "photo").replace(/\.[^.]+$/, ".jpg")
+      const result = await uploadImage(blob, name)
+      setUrl(result.url)
+      setDeleteUrl(result.deleteUrl)
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Upload failed")
+    } finally {
+      setUploading(false)
     }
   }
 
@@ -141,6 +164,11 @@ export default function ImageUploadField({ preset, url, setUrl, deleteUrl, setDe
         )}
         {error && <p className="text-[11.5px]" style={{ color: "var(--vh-danger, #e11d48)" }}>{error}</p>}
         {hiddenInput}
+        <AvatarCropModal
+          file={cropFile}
+          onConfirm={handleCropConfirm}
+          onCancel={() => setCropFile(null)}
+        />
       </div>
     )
   }

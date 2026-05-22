@@ -7,6 +7,27 @@ export interface ImagePreset {
 export const avatarPreset: ImagePreset = { maxWidth: 256, maxHeight: 256, quality: 0.82 }
 export const logoPreset: ImagePreset = { maxWidth: 1120, maxHeight: 373, quality: 0.85 }
 
+export async function cropToSquare(
+  file: File,
+  area: { x: number; y: number; width: number; height: number },
+  outputSize = 256,
+  quality = avatarPreset.quality
+): Promise<Blob> {
+  const bitmap = await createImageBitmap(file, { imageOrientation: "from-image" })
+  const canvas = document.createElement("canvas")
+  canvas.width = outputSize
+  canvas.height = outputSize
+  canvas.getContext("2d")!.drawImage(bitmap, area.x, area.y, area.width, area.height, 0, 0, outputSize, outputSize)
+  bitmap.close()
+  return new Promise((resolve, reject) =>
+    canvas.toBlob(
+      (b) => (b ? resolve(b) : reject(new Error("Canvas toBlob failed"))),
+      "image/jpeg",
+      quality
+    )
+  )
+}
+
 export async function resizeForUpload(file: File, preset: ImagePreset): Promise<Blob> {
   const bitmap = await createImageBitmap(file, { imageOrientation: "from-image" })
 

@@ -10,6 +10,7 @@ interface Props {
   photoUrl?: string | null
   website?: string | null
   showAvatar?: boolean
+  avatarSize?: number
   type: "single" | "multi"
   checked: boolean
   disabled?: boolean
@@ -41,6 +42,7 @@ export function OptionCard({
   photoUrl,
   website,
   showAvatar = true,
+  avatarSize = 72,
   type,
   checked,
   disabled = false,
@@ -81,10 +83,10 @@ export function OptionCard({
             src={photoUrl}
             alt={name}
             className="flex-shrink-0 rounded-full object-cover border border-vh-line"
-            style={{ width: 48, height: 48 }}
+            style={{ width: avatarSize, height: avatarSize }}
           />
         ) : (
-          <Initials name={name} size={48} />
+          <Initials name={name} size={avatarSize} />
         ))}
 
         <div className="flex-1 min-w-0">
