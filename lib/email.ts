@@ -120,9 +120,18 @@ function escapeHtml(str: string): string {
     .replace(/'/g, "&#39;")
 }
 
-function formatCloseDate(iso: string): string {
-  return new Date(iso).toLocaleDateString("en-US", {
-    month: "long", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit",
+const DISPLAY_TZ: string | undefined = process.env.DISPLAY_TIME_ZONE || undefined
+
+function formatElectionDateTime(input: string | Date): string {
+  const d = typeof input === "string" ? new Date(input) : input
+  return d.toLocaleString("en-US", {
+    month: "long",
+    day: "numeric",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+    timeZone: DISPLAY_TZ,
+    timeZoneName: "short",
   })
 }
 
@@ -210,7 +219,7 @@ function buildInviteHtml(p: Payload): string {
         <table role="presentation" cellpadding="0" cellspacing="0" width="100%"><tr>
           <td style="background:${C.bg};border:1px solid ${C.line};border-radius:10px;padding:14px 18px;">
             <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:11.5px;color:${C.muted};letter-spacing:0.06em;text-transform:uppercase;margin-bottom:5px;">Voting closes</div>
-            <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:16px;font-weight:500;color:${C.ink};">${formatCloseDate(p.endsAt)}</div>
+            <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:16px;font-weight:500;color:${C.ink};">${formatElectionDateTime(p.endsAt)}</div>
           </td>
         </tr></table>
       </td></tr>`
@@ -248,7 +257,7 @@ function buildReminderEarlyHtml(p: Payload): string {
   const name = escapeHtml(p.voterName)
   const link = escapeHtml(p.magicLink)
   const days = p.daysLeft ?? null
-  const closeStr = p.endsAt ? formatCloseDate(p.endsAt) : null
+  const closeStr = p.endsAt ? formatElectionDateTime(p.endsAt) : null
 
   const pct = p.totalVoters && p.totalVoters > 0 && p.votedCount != null
     ? Math.round((p.votedCount / p.totalVoters) * 100)
@@ -308,7 +317,7 @@ function buildReminderFinalHtml(p: Payload): string {
   const title = escapeHtml(p.electionTitle)
   const name = escapeHtml(p.voterName)
   const link = escapeHtml(p.magicLink)
-  const closeStr = p.endsAt ? formatCloseDate(p.endsAt) : null
+  const closeStr = p.endsAt ? formatElectionDateTime(p.endsAt) : null
 
   return emailWrapper(`
     ${brandRow()}
@@ -343,7 +352,7 @@ function buildReminderFinalHtml(p: Payload): string {
 
 function buildResultsHtml(p: Payload): string {
   const title = escapeHtml(p.electionTitle)
-  const closeStr = p.endsAt ? formatCloseDate(p.endsAt) : null
+  const closeStr = p.endsAt ? formatElectionDateTime(p.endsAt) : null
   const r = p.results
 
   const turnoutBlock = r
@@ -519,7 +528,7 @@ function buildAdminInviteHtml(p: AdminInvitePayload): string {
 function buildPasswordResetLinkHtml(recipientEmail: string, resetLink: string, expiresAt: Date): string {
   const email = escapeHtml(recipientEmail)
   const link = escapeHtml(resetLink)
-  const expiry = expiresAt.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", timeZoneName: "short" })
+  const expiry = expiresAt.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", timeZone: DISPLAY_TZ, timeZoneName: "short" })
   return emailWrapper(`
     ${brandRow()}
     <tr><td style="padding:24px 32px 14px;">
@@ -548,7 +557,7 @@ function buildPasswordResetLinkHtml(recipientEmail: string, resetLink: string, e
 
 function buildPasswordChangedNoticeHtml(recipientEmail: string, changedAt: Date): string {
   const email = escapeHtml(recipientEmail)
-  const when = changedAt.toLocaleString("en-US", { dateStyle: "medium", timeStyle: "short" })
+  const when = formatElectionDateTime(changedAt)
   return emailWrapper(`
     ${brandRow()}
     <tr><td style="padding:24px 32px 14px;">
@@ -565,7 +574,7 @@ function buildPasswordChangedNoticeHtml(recipientEmail: string, changedAt: Date)
 
 function buildPasswordResetActivityHtml(event: "requested" | "completed", requesterEmail: string, occurredAt: Date): string {
   const email = escapeHtml(requesterEmail)
-  const when = occurredAt.toLocaleString("en-US", { dateStyle: "medium", timeStyle: "short" })
+  const when = formatElectionDateTime(occurredAt)
   const verb = event === "requested" ? "requested" : "completed"
   const usersUrl = escapeHtml(absolutizeUrl("/users"))
   return emailWrapper(`
@@ -779,7 +788,7 @@ type StaffElection = { id: string; title: string; endsAt?: Date | null; startsAt
 
 function buildClosingSoonStaffHtml(election: StaffElection, votedCount: number, totalVoters: number): string {
   const title = escapeHtml(election.title)
-  const closeStr = election.endsAt ? escapeHtml(formatCloseDate(election.endsAt.toISOString())) : ""
+  const closeStr = election.endsAt ? escapeHtml(formatElectionDateTime(election.endsAt.toISOString())) : ""
   const dashUrl = escapeHtml(absolutizeUrl("/dashboard"))
   const turnoutLine = totalVoters > 0
     ? `<strong style="color:${C.ink};">${votedCount}</strong> of <strong style="color:${C.ink};">${totalVoters}</strong> voters have cast a ballot so far.`
@@ -836,7 +845,7 @@ function buildCompletedStaffHtml(election: StaffElection, votedCount: number, to
 
 function buildDraftReminderStaffHtml(election: StaffElection): string {
   const title = escapeHtml(election.title)
-  const startStr = election.startsAt ? escapeHtml(formatCloseDate(election.startsAt.toISOString())) : ""
+  const startStr = election.startsAt ? escapeHtml(formatElectionDateTime(election.startsAt.toISOString())) : ""
   const editUrl = escapeHtml(absolutizeUrl(`/elections/${election.id}`))
   return emailWrapper(`
     ${brandRow()}
@@ -925,7 +934,7 @@ function buildFullTurnoutStaffHtml(election: StaffElection, voted: number, invit
   const title = escapeHtml(election.title)
   const electionUrl = escapeHtml(absolutizeUrl(`/elections/${election.id}`))
   const closeNote = election.endsAt
-    ? `You can close it now to finalize results, or let it run until it closes on ${escapeHtml(formatCloseDate(election.endsAt.toISOString()))}.`
+    ? `You can close it now to finalize results, or let it run until it closes on ${escapeHtml(formatElectionDateTime(election.endsAt.toISOString()))}.`
     : `You can close it now to finalize results, or wait until you close it manually.`
   return emailWrapper(`
     ${brandRow()}
@@ -1028,7 +1037,7 @@ function buildAutoActivateFailedStaffHtml(
     no_voters: `There are no voters. <a href="${votersUrl}" style="color:${C.accent};">Add at least one voter</a> before the system can open voting.`,
     past_endsAt: `The scheduled close date has already passed. Update it on the <a href="${editUrl}" style="color:${C.accent};">settings page</a>.`,
   }
-  const startStr = election.startsAt ? escapeHtml(formatCloseDate(election.startsAt.toISOString())) : "its scheduled start time"
+  const startStr = election.startsAt ? escapeHtml(formatElectionDateTime(election.startsAt.toISOString())) : "its scheduled start time"
   return emailWrapper(`
     ${brandRow()}
     <tr><td style="padding:24px 32px 14px;">
@@ -1183,7 +1192,7 @@ function buildElectionExtendedVoterHtml(
     <table role="presentation" cellpadding="0" cellspacing="0" width="100%"><tr>
       <td style="background:${C.bg};border:1px solid ${C.line};border-radius:10px;padding:14px 18px;">
         <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:11.5px;color:${C.muted};letter-spacing:0.06em;text-transform:uppercase;margin-bottom:5px;">New voting deadline</div>
-        <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:16px;font-weight:500;color:${C.ink};">${formatCloseDate(newEndsAt)}</div>
+        <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:16px;font-weight:500;color:${C.ink};">${formatElectionDateTime(newEndsAt)}</div>
       </td>
     </tr></table>
   </td></tr>`
@@ -1229,10 +1238,10 @@ function buildElectionExtendedStaffHtml(
       <table role="presentation" cellpadding="0" cellspacing="0" width="100%">
         <tr><td style="background:${C.bg};border:1px solid ${C.line};border-radius:10px;padding:14px 18px;">
           <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:13px;color:${C.muted};margin-bottom:6px;">
-            <span style="text-decoration:line-through;">${escapeHtml(formatCloseDate(oldEndsAt.toISOString()))}</span>
+            <span style="text-decoration:line-through;">${escapeHtml(formatElectionDateTime(oldEndsAt.toISOString()))}</span>
           </div>
           <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:15px;font-weight:500;color:${C.ink};">
-            ${escapeHtml(formatCloseDate(newEndsAt.toISOString()))}
+            ${escapeHtml(formatElectionDateTime(newEndsAt.toISOString()))}
           </div>
         </td></tr>
       </table>
