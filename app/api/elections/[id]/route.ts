@@ -4,7 +4,7 @@ import { join } from "node:path"
 import { getSession, requireRole } from "@/lib/auth"
 import { db } from "@/lib/db"
 import { ElectionBaseSchema, ElectionSchema } from "@/lib/validations"
-import { sendElectionCompletedStaffNotice } from "@/lib/email"
+import { sendElectionCompletedStaffNotice, sendElectionExtendedNoticeToUnvoted, sendElectionExtendedStaffNotice } from "@/lib/email"
 import { getStaffRecipients } from "@/lib/staffRecipients"
 import { canActivate, CANNOT_ACTIVATE_MESSAGES } from "@/lib/canActivate"
 import { sendBallotInvitationsToUninvited } from "@/lib/sendBallotInvitationsToUninvited"
@@ -78,25 +78,27 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     }
   }
 
+  // HTML datetime-local inputs are minute-precision only; sub-minute deltas are not real edits.
+  const TOLERANCE_MS = 60_000
+  function dateMeaningfullyChanged(prev: Date | null, next: string | null | undefined): boolean {
+    const pn = prev ? prev.getTime() : null
+    const nn = next ? new Date(next).getTime() : null
+    if (pn === null && nn === null) return false
+    if (pn === null || nn === null) return true
+    return Math.abs(pn - nn) > TOLERANCE_MS
+  }
+  const startsAtChanged = "startsAt" in parsed.data && dateMeaningfullyChanged(before.startsAt, parsed.data.startsAt)
+  const endsAtChanged = "endsAt" in parsed.data && dateMeaningfullyChanged(before.endsAt, parsed.data.endsAt)
+
   const updates: Record<string, unknown> = { ...parsed.data }
 
-  // Re-arm closing-soon reminder if endsAt is being moved
-  if ("endsAt" in parsed.data) {
-    const next = parsed.data.endsAt ? new Date(parsed.data.endsAt) : null
-    const prev = before.endsAt
-    const changed = (next?.getTime() ?? null) !== (prev?.getTime() ?? null)
-    if (changed) updates.endsSoonNoticeSentAt = null
-  }
+  // Re-arm closing-soon reminder if endsAt is meaningfully moved
+  if (endsAtChanged) updates.endsSoonNoticeSentAt = null
 
-  // Re-arm draft-reminder and auto-activate failed notice if startsAt is being moved
-  if ("startsAt" in parsed.data) {
-    const next = parsed.data.startsAt ? new Date(parsed.data.startsAt) : null
-    const prev = before.startsAt
-    const changed = (next?.getTime() ?? null) !== (prev?.getTime() ?? null)
-    if (changed) {
-      updates.startReminderSentAt = null
-      updates.autoActivateFailedNoticeSentAt = null
-    }
+  // Re-arm draft-reminder and auto-activate failed notice if startsAt is meaningfully moved
+  if (startsAtChanged) {
+    updates.startReminderSentAt = null
+    updates.autoActivateFailedNoticeSentAt = null
   }
 
   // Stamp activation audit fields on DRAFT → ACTIVE via settings form.
@@ -132,6 +134,38 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     return NextResponse.json({ error: message }, { status: 409 })
   }
 
+  // Lock Opens date entirely and Closes date to extension-only while ACTIVE.
+  let extending = false
+  if (before.status === "ACTIVE" && !transitioningToEnd) {
+    if (startsAtChanged) {
+      return NextResponse.json(
+        { error: "Schedule locked — election is in progress. Opens date cannot be changed." },
+        { status: 423 },
+      )
+    }
+    if ("endsAt" in parsed.data && before.endsAt !== null) {
+      const newEndsAt = parsed.data.endsAt ? new Date(parsed.data.endsAt) : null
+      if (newEndsAt === null) {
+        return NextResponse.json(
+          { error: "Closes date cannot be removed while election is in progress." },
+          { status: 423 },
+        )
+      }
+      if (endsAtChanged && newEndsAt.getTime() < before.endsAt.getTime()) {
+        return NextResponse.json(
+          { error: "Closes date can only be extended to a later time while the election is in progress." },
+          { status: 423 },
+        )
+      }
+      if (endsAtChanged && newEndsAt.getTime() > before.endsAt.getTime()) {
+        extending = true
+      }
+    }
+    // Preserve original date precision in the DB — only write if meaningfully changed.
+    if (!startsAtChanged) delete updates.startsAt
+    if (!endsAtChanged) delete updates.endsAt
+  }
+
   // Closed elections are immutable — reopening would silently invalidate the
   // published tallyHash without voters knowing. Start a new election instead.
   if (before.status === "COMPLETED" && parsed.data.status != null && parsed.data.status !== "COMPLETED") {
@@ -142,6 +176,24 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
   }
 
   const election = await db.election.update({ where: { id }, data: updates })
+
+  if (extending && before.endsAt && election.endsAt) {
+    const newEndsAt = election.endsAt
+    const oldEndsAt = before.endsAt
+    sendElectionExtendedNoticeToUnvoted(id, newEndsAt)
+      .catch((err) => console.error("[PATCH election] extended voter notice threw:", err))
+    getStaffRecipients()
+      .then((recipients) =>
+        sendElectionExtendedStaffNotice(
+          { id: election.id, title: election.title },
+          recipients,
+          oldEndsAt,
+          newEndsAt,
+          session.email,
+        ),
+      )
+      .catch((err) => console.error("[PATCH election] extended staff notice threw:", err))
+  }
 
   let inviteSummary: Awaited<ReturnType<typeof sendBallotInvitationsToUninvited>> | undefined
   if (transitioningToActive) {

@@ -3,6 +3,7 @@ import { BRAND_NAME } from "@/lib/branding"
 import nodemailer from "nodemailer"
 import { db } from "@/lib/db"
 import { absolutizeUrl } from "@/lib/absolutize-url"
+import { generateVoterToken } from "@/lib/voterToken"
 
 const ALL_KEYS = [
   "email_provider",
@@ -1163,4 +1164,143 @@ export async function sendActivationCancelledAdminNotice(electionTitle: string, 
     }
   })
   console.log(`[sendActivationCancelledAdminNotice] election=${electionTitle} sent=${sent} failed=${failed}`)
+}
+
+// ─── Election deadline extended notices ─────────────────────────────────────
+
+type ExtendedVoterInfo = { id: string; name: string; email: string }
+
+function buildElectionExtendedVoterHtml(
+  voter: ExtendedVoterInfo,
+  election: { title: string; emailLogoUrl?: string | null; emailFooter?: string | null },
+  newEndsAt: string,
+  magicLink: string,
+): string {
+  const name = escapeHtml(voter.name)
+  const title = escapeHtml(election.title)
+  const link = escapeHtml(magicLink)
+  const closingCallout = `<tr><td style="padding:0 32px 20px;">
+    <table role="presentation" cellpadding="0" cellspacing="0" width="100%"><tr>
+      <td style="background:${C.bg};border:1px solid ${C.line};border-radius:10px;padding:14px 18px;">
+        <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:11.5px;color:${C.muted};letter-spacing:0.06em;text-transform:uppercase;margin-bottom:5px;">New voting deadline</div>
+        <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:16px;font-weight:500;color:${C.ink};">${formatCloseDate(newEndsAt)}</div>
+      </td>
+    </tr></table>
+  </td></tr>`
+  return emailWrapper(`
+    ${brandRow()}
+    ${logoRow(election.emailLogoUrl)}
+    <tr><td style="padding:24px 32px 14px;">
+      <h1 style="margin:0 0 12px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:22px;font-weight:600;color:${C.ink};letter-spacing:-0.02em;">Voting deadline extended</h1>
+      <p style="margin:0 0 14px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:14.5px;color:${C.inkSoft};line-height:1.6;">Hi ${name},</p>
+      <p style="margin:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:14.5px;color:${C.inkSoft};line-height:1.6;">
+        Good news — the deadline for <strong style="color:${C.ink};">${title}</strong> has been extended. You still have time to cast your ballot.
+      </p>
+    </td></tr>
+    ${closingCallout}
+    <tr><td style="padding:0 32px 14px;">
+      <a href="${link}" style="display:inline-block;background:${C.accent};color:#ffffff;text-decoration:none;padding:14px 28px;border-radius:10px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:15px;font-weight:500;">Cast your ballot →</a>
+    </td></tr>
+    <tr><td style="padding:0 32px 20px;">
+      <p style="margin:0 0 4px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:12.5px;color:${C.muted};">Or paste this link into your browser:</p>
+      <div style="font-family:'Courier New',Courier,monospace;font-size:12px;color:${C.accentStrong};word-break:break-all;">${link}</div>
+    </td></tr>
+    ${footerRow(election.emailFooter)}
+  `)
+}
+
+function buildElectionExtendedStaffHtml(
+  election: StaffElection,
+  oldEndsAt: Date,
+  newEndsAt: Date,
+  extendedByEmail: string,
+): string {
+  const title = escapeHtml(election.title)
+  const by = escapeHtml(extendedByEmail)
+  const dashUrl = escapeHtml(absolutizeUrl("/dashboard"))
+  return emailWrapper(`
+    ${brandRow()}
+    <tr><td style="padding:24px 32px 14px;">
+      <h1 style="margin:0 0 14px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:22px;font-weight:600;color:${C.ink};letter-spacing:-0.02em;">Voting deadline extended</h1>
+      <p style="margin:0 0 14px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:14.5px;color:${C.inkSoft};line-height:1.6;">
+        <strong style="color:${C.ink};">${by}</strong> extended the close date for
+        <strong style="color:${C.ink};">${title}</strong>.
+      </p>
+      <table role="presentation" cellpadding="0" cellspacing="0" width="100%">
+        <tr><td style="background:${C.bg};border:1px solid ${C.line};border-radius:10px;padding:14px 18px;">
+          <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:13px;color:${C.muted};margin-bottom:6px;">
+            <span style="text-decoration:line-through;">${escapeHtml(formatCloseDate(oldEndsAt.toISOString()))}</span>
+          </div>
+          <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:15px;font-weight:500;color:${C.ink};">
+            ${escapeHtml(formatCloseDate(newEndsAt.toISOString()))}
+          </div>
+        </td></tr>
+      </table>
+    </td></tr>
+    <tr><td style="padding:14px 32px 14px;">
+      <a href="${dashUrl}" style="display:inline-block;background:${C.accent};color:#ffffff;text-decoration:none;padding:14px 28px;border-radius:10px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:15px;font-weight:500;">Open Dashboard →</a>
+    </td></tr>
+    <tr><td style="padding:0 32px 28px;">
+      <table role="presentation" cellpadding="0" cellspacing="0" width="100%"><tr>
+        <td style="border-top:1px solid ${C.line};padding-top:18px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:12px;color:${C.muted};line-height:1.6;">
+          You received this because you administer or organize elections on ${BRAND_NAME}.
+        </td>
+      </tr></table>
+    </td></tr>
+  `)
+}
+
+export async function sendElectionExtendedNoticeToUnvoted(
+  electionId: string,
+  newEndsAt: Date,
+): Promise<void> {
+  const election = await db.election.findUnique({
+    where: { id: electionId },
+    select: { title: true, emailLogoUrl: true, emailFooter: true },
+  })
+  if (!election) return
+
+  const voters = await db.voter.findMany({
+    where: { electionId, hasVoted: false, invitedAt: { not: null } },
+    select: { id: true, name: true, email: true },
+  })
+  if (voters.length === 0) return
+
+  const config = await getAllEmailConfig()
+  const baseUrl = process.env.NEXTAUTH_URL ?? "http://localhost:3000"
+  const subject = `Voting deadline extended — ${election.title}`
+  let sent = 0
+  let failed = 0
+
+  for (const voter of voters) {
+    try {
+      const { token, tokenHash } = generateVoterToken()
+      await db.voter.update({ where: { id: voter.id }, data: { tokenHash } })
+      const magicLink = `${baseUrl}/vote/${token}`
+      const html = buildElectionExtendedVoterHtml(voter, election, newEndsAt.toISOString(), magicLink)
+      const result = await sendRawEmail(config, voter.email, subject, html)
+      if (result.error) {
+        console.error(`[sendElectionExtendedNoticeToUnvoted] send failed for ${voter.email}:`, result.error)
+        failed++
+      } else {
+        sent++
+      }
+    } catch (err) {
+      console.error(`[sendElectionExtendedNoticeToUnvoted] threw for ${voter.email}:`, err)
+      failed++
+    }
+  }
+  console.log(`[sendElectionExtendedNoticeToUnvoted] election=${election.title} sent=${sent} failed=${failed}`)
+}
+
+export async function sendElectionExtendedStaffNotice(
+  election: StaffElection,
+  recipients: Array<{ email: string }>,
+  oldEndsAt: Date,
+  newEndsAt: Date,
+  extendedByEmail: string,
+): Promise<void> {
+  const subject = `Voting deadline extended — ${election.title}`
+  const html = buildElectionExtendedStaffHtml(election, oldEndsAt, newEndsAt, extendedByEmail)
+  await sendStaffBlast("sendElectionExtendedStaffNotice", election.title, recipients, subject, html)
 }

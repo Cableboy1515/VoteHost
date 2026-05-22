@@ -299,7 +299,9 @@ export default function ElectionForm({
         : new Date(startsAt))
     : null
   const isStartsAtFuture = effectiveStartsAtMoment != null && effectiveStartsAtMoment > new Date()
-  const opensLockedByActivation = status === "ACTIVE" && initialValues?.status === "DRAFT"
+  const isActive = initialValues?.status === "ACTIVE"
+  const opensLocked = isActive || (status === "ACTIVE" && initialValues?.status === "DRAFT")
+  const closesMinIso = isActive && initialValues?.endsAt ? toLocalInput(initialValues.endsAt) : undefined
 
   const firstReminderDaysNum = parseInt(firstReminderDays, 10)
   const endsAtDate = endsAt
@@ -449,9 +451,9 @@ export default function ElectionForm({
                   type="date"
                   value={dateOnly(startsAt)}
                   onChange={(e) => setStartsAt(e.target.value ? `${e.target.value}T00:00` : "")}
-                  disabled={opensLockedByActivation}
+                  disabled={opensLocked}
                   className={inputCls}
-                  style={{ ...inputStyle, ...(opensLockedByActivation ? { opacity: 0.5, cursor: "not-allowed" } : {}) }}
+                  style={{ ...inputStyle, ...(opensLocked ? { opacity: 0.5, cursor: "not-allowed" } : {}) }}
                   onFocus={onFocusIn}
                   onBlur={onFocusOut}
                 />
@@ -461,9 +463,9 @@ export default function ElectionForm({
                   type="datetime-local"
                   value={startsAt}
                   onChange={(e) => setStartsAt(e.target.value)}
-                  disabled={opensLockedByActivation}
+                  disabled={opensLocked}
                   className={inputCls}
-                  style={{ ...inputStyle, ...(opensLockedByActivation ? { opacity: 0.5, cursor: "not-allowed" } : {}) }}
+                  style={{ ...inputStyle, ...(opensLocked ? { opacity: 0.5, cursor: "not-allowed" } : {}) }}
                   onFocus={onFocusIn}
                   onBlur={onFocusOut}
                 />
@@ -471,26 +473,28 @@ export default function ElectionForm({
               <div className="mt-1.5 flex items-center gap-3 text-[12px]" style={{ color: "var(--vh-muted)" }}>
                 <label
                   className="flex items-center gap-1.5"
-                  style={{ cursor: opensLockedByActivation ? "not-allowed" : "pointer", opacity: opensLockedByActivation ? 0.5 : 1 }}
+                  style={{ cursor: opensLocked ? "not-allowed" : "pointer", opacity: opensLocked ? 0.5 : 1 }}
                 >
                   <input
                     type="checkbox"
                     checked={startsAtAllDay}
                     onChange={(e) => setStartsAtAllDay(e.target.checked)}
-                    disabled={opensLockedByActivation}
+                    disabled={opensLocked}
                     className="flex-shrink-0"
                   />
                   All day
                 </label>
-                {startsAt && !opensLockedByActivation && (
+                {startsAt && !opensLocked && (
                   <button type="button" onClick={() => setStartsAt("")} className="underline">
                     Clear
                   </button>
                 )}
               </div>
-              {opensLockedByActivation && (
+              {opensLocked && (
                 <p className="mt-1.5 text-[12px]" style={{ color: "var(--vh-muted)" }}>
-                  Activating this election will start it immediately on save.
+                  {isActive
+                    ? "Locked — election is in progress. To change, use Cancel Activation (if no votes cast) or Discard & Reopen on the Settings tab."
+                    : "Activating this election will start it immediately on save."}
                 </p>
               )}
             </div>
@@ -502,6 +506,7 @@ export default function ElectionForm({
                   type="date"
                   value={dateOnly(endsAt)}
                   onChange={(e) => setEndsAt(e.target.value ? `${e.target.value}T00:00` : "")}
+                  min={closesMinIso ? dateOnly(closesMinIso) : undefined}
                   className={inputCls}
                   style={inputStyle}
                   onFocus={onFocusIn}
@@ -513,6 +518,7 @@ export default function ElectionForm({
                   type="datetime-local"
                   value={endsAt}
                   onChange={(e) => setEndsAt(e.target.value)}
+                  min={closesMinIso}
                   className={inputCls}
                   style={inputStyle}
                   onFocus={onFocusIn}
@@ -520,21 +526,30 @@ export default function ElectionForm({
                 />
               )}
               <div className="mt-1.5 flex items-center gap-3 text-[12px]" style={{ color: "var(--vh-muted)" }}>
-                <label className="flex items-center gap-1.5 cursor-pointer">
+                <label
+                  className="flex items-center gap-1.5"
+                  style={{ cursor: isActive ? "not-allowed" : "pointer", opacity: isActive ? 0.5 : 1 }}
+                >
                   <input
                     type="checkbox"
                     checked={endsAtAllDay}
                     onChange={(e) => setEndsAtAllDay(e.target.checked)}
+                    disabled={isActive}
                     className="flex-shrink-0"
                   />
                   All day
                 </label>
-                {endsAt && (
+                {endsAt && !isActive && (
                   <button type="button" onClick={() => setEndsAt("")} className="underline">
                     Clear
                   </button>
                 )}
               </div>
+              {isActive && (
+                <p className="mt-1.5 text-[12px]" style={{ color: "var(--vh-muted)" }}>
+                  Election is in progress — Closes can only be extended to a later time. Voters who haven&apos;t voted yet will be notified.
+                </p>
+              )}
             </div>
           </div>
           <div className="mt-3 pt-3" style={{ borderTop: "1px solid var(--vh-line)" }}>
@@ -560,7 +575,7 @@ export default function ElectionForm({
               <p className="mt-1.5 pl-6 text-[12px]" style={{ color: "var(--vh-muted)" }}>
                 {!startsAt
                   ? "Pick an Opens date to enable auto-start."
-                  : opensLockedByActivation
+                  : opensLocked
                   ? "Auto-start isn't needed — saving as Active will start this election immediately."
                   : "Auto-start requires a future Opens time. Use Activate now from the Voters tab to start immediately."}
               </p>
