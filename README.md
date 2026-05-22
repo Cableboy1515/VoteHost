@@ -174,19 +174,33 @@ No domain required. Gives you a stable `https://<hostname>.<tailnet>.ts.net` URL
 
 2. **Choose an isolation mode** (see [Security and threat model](#security-and-threat-model) for the tradeoff):
 
-   **Isolated (recommended):** VoteHost joins as a tagged device with no peer access to the rest of your tailnet. Add to your tailnet policy file at `admin/acls/file`:
+   **Isolated (recommended):** VoteHost joins as a tagged device with no peer access to the rest of your tailnet. Edit the [policy file](https://login.tailscale.com/admin/acls/file) — merge these three top-level keys into it (the file is one JSON object; create any keys that don't exist):
    ```jsonc
-   "tagOwners": { "tag:votehost": ["autogroup:admin"] },
-   "nodeAttrs": [{ "target": ["tag:votehost"], "attr": ["funnel"] }],
-   "acls": [
-     { "action": "accept", "src": ["autogroup:member"], "dst": ["autogroup:member:*"] }
-   ]
+   {
+     "tagOwners": {
+       "tag:votehost": ["autogroup:admin"]
+     },
+     "nodeAttrs": [
+       { "target": ["tag:votehost"], "attr": ["funnel"] }
+     ],
+     "acls": [
+       { "action": "accept",
+         "src":    ["autogroup:member"],
+         "dst":    ["autogroup:member:*"] }
+     ]
+   }
    ```
-   Replace any default `{"src":["*"],"dst":["*:*"]}` rule with the member-only `acls` entry above.
+   The `acls` entry replaces the default `{"src":["*"], "dst":["*:*"]}` rule. (The visual policy editor doesn't have a one-click button for this combination; the file edit is the only path.)
 
-   **Non-isolated (simpler):** VoteHost is a normal tailnet peer. Only add to `nodeAttrs`:
+   **Non-isolated (simpler):** VoteHost is a normal tailnet peer.
+
+   *Easiest:* in [Access controls](https://login.tailscale.com/admin/acls), expand the **Funnel** section and click **Add Funnel to policy**. Tailscale writes the rule for you.
+
+   *Or* edit the [policy file](https://login.tailscale.com/admin/acls/file) directly — add this key to the top-level JSON object (create it if it doesn't exist):
    ```jsonc
-   "nodeAttrs": [{ "target": ["autogroup:member"], "attr": ["funnel"] }]
+   "nodeAttrs": [
+     { "target": ["autogroup:member"], "attr": ["funnel"] }
+   ]
    ```
 
 3. **Generate a Reusable auth key** at `admin/settings/keys` and add to `.env`:
