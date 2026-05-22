@@ -474,10 +474,10 @@ export default function BallotForm({ token, electionTitle, electionDescription, 
               <div className="flex items-start justify-between gap-3 mb-3">
                 <div className="min-w-0 flex-1">
                   <span
-                    className="inline-flex items-center text-xs font-semibold rounded-pill px-2 py-0.5 mb-1.5"
-                    style={{ background: "var(--vh-accent-soft)", color: "var(--vh-accent-strong)" }}
+                    className="inline-flex items-center justify-center text-base font-semibold rounded-[8px] px-2.5 mb-1.5"
+                    style={{ background: "var(--vh-accent)", color: "var(--vh-accent-fg)", minWidth: 32, height: 32 }}
                   >
-                    Q{i + 1}
+                    {i + 1}
                   </span>
                   <p className="text-base font-medium text-vh-ink break-words">{q.text}</p>
                 </div>
@@ -646,10 +646,10 @@ export default function BallotForm({ token, electionTitle, electionDescription, 
                   <div className="mb-4">
                     <div className="flex items-center gap-2 mb-2">
                       <span
-                        className="inline-flex items-center text-[11px] font-semibold rounded-pill px-2 py-0.5"
-                        style={{ background: "var(--vh-accent-soft)", color: "var(--vh-accent-strong)" }}
+                        className="inline-flex items-center justify-center text-base font-semibold rounded-[8px] px-2.5"
+                        style={{ background: "var(--vh-accent)", color: "var(--vh-accent-fg)", minWidth: 32, height: 32 }}
                       >
-                        Q{i + 1}
+                        {i + 1}
                       </span>
                       {q.required && (
                         <span className="text-xs" style={{ color: "var(--vh-danger)" }}>Required</span>
