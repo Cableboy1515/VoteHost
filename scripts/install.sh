@@ -338,7 +338,7 @@ if [ -n "$UNATTENDED" ]; then
 else
   printf "\n${BOLD}Create your first admin account during install?${NC}\n"
   say "Recommended — the wizard creates it automatically after the stack starts."
-  say "If you skip, visit ${NEXTAUTH_URL}/admin/setup and paste the SETUP_TOKEN from .env."
+  say "If you skip, visit ${NEXTAUTH_URL}/setup and paste the SETUP_TOKEN from .env."
   ask "Create admin now? (Y/n)" "Y"
   case "$REPLY" in
     [nN]*)
@@ -439,7 +439,7 @@ if [ "$_DO_START" = "1" ]; then
       warn "  2. Edit .env: replace TS_AUTHKEY=... with the new key."
       warn "  3. ${COMPOSE_CMD} --profile tailscale up -d --force-recreate tailscale"
       warn "  4. bash scripts/refresh-tailscale-url.sh   (patches NEXTAUTH_URL + recreates app)"
-      warn "  5. Visit <real ts.net url>/admin/setup and paste SETUP_TOKEN from .env."
+      warn "  5. Visit <real ts.net url>/setup and paste SETUP_TOKEN from .env."
     fi
   fi
   printf "\n"
@@ -455,7 +455,7 @@ if [ "$_DO_START" = "1" ]; then
     done
     if ! curl -sf http://127.0.0.1:3000/api/health >/dev/null 2>&1; then
       warn "App did not become healthy in time. Check: ${COMPOSE_CMD} logs app"
-      warn "Bootstrap manually: visit ${NEXTAUTH_URL}/admin/setup and paste SETUP_TOKEN from .env"
+      warn "Bootstrap manually: visit ${NEXTAUTH_URL}/setup and paste SETUP_TOKEN from .env"
     else
       say "Creating admin account..."
       HTTP_CODE=$(curl -s -o /tmp/votehost-bootstrap.json -w "%{http_code}" \
@@ -465,25 +465,25 @@ if [ "$_DO_START" = "1" ]; then
         http://127.0.0.1:3000/api/users)
       if [ "$HTTP_CODE" = "201" ]; then
         ok "Admin account created for ${ADMIN_EMAIL}"
-        say "Login at: ${NEXTAUTH_URL}/admin/login"
+        say "Login at: ${NEXTAUTH_URL}/login"
       else
         warn "Bootstrap returned HTTP ${HTTP_CODE}:"
         cat /tmp/votehost-bootstrap.json; printf "\n"
-        warn "Finish manually: visit ${NEXTAUTH_URL}/admin/setup and paste SETUP_TOKEN from .env"
+        warn "Finish manually: visit ${NEXTAUTH_URL}/setup and paste SETUP_TOKEN from .env"
       fi
       rm -f /tmp/votehost-bootstrap.json
     fi
   elif [ -n "$ADMIN_EMAIL" ]; then
     warn "Skipping admin bootstrap because Tailscale did not come up."
     warn "After completing the recovery steps above:"
-    warn "  Visit <real ts.net url>/admin/setup and paste SETUP_TOKEN from .env"
+    warn "  Visit <real ts.net url>/setup and paste SETUP_TOKEN from .env"
   else
-    say "Next step: visit ${NEXTAUTH_URL}/admin/setup"
+    say "Next step: visit ${NEXTAUTH_URL}/setup"
     say "Paste the SETUP_TOKEN from your .env file to create your admin account."
   fi
 else
   printf "\nWhen ready, run:\n  ${COMPOSE_UP} --build\n"
   if [ -n "$ADMIN_EMAIL" ]; then
-    say "After starting, re-run this script or visit ${NEXTAUTH_URL}/admin/setup (paste SETUP_TOKEN from .env)."
+    say "After starting, re-run this script or visit ${NEXTAUTH_URL}/setup (paste SETUP_TOKEN from .env)."
   fi
 fi

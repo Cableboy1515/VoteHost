@@ -16,10 +16,10 @@
 
 Run these before opening the app to the public:
 
-1. **Proxy guard** — open an incognito window and navigate to `/admin/dashboard`. You must be redirected to `/admin/login`, not shown the dashboard.
+1. **Proxy guard** — open an incognito window and navigate to `/dashboard`. You must be redirected to `/login`, not shown the dashboard.
 2. **API guard** — `curl -X GET https://your-domain.com/api/users` must return `403`, not user data.
 3. **Secure cookie** — log in, open browser DevTools → Application → Cookies → confirm `vh_session` has the **Secure** and **HttpOnly** flags set.
-4. **First-run setup** — on a fresh DB, navigate to `/admin/setup`. After creating the first admin, confirm that a second visit to `/admin/setup` redirects to `/admin/login`.
+4. **First-run setup** — on a fresh DB, navigate to `/setup`. After creating the first admin, confirm that a second visit to `/setup` redirects to `/login`.
 5. **SMTP/Resend secrets** — after configuring email settings, do `GET /api/settings/email` (with an admin session). Confirm that `smtp_pass` and `resend_api_key` show `***`, not the actual values.
 
 ## Voter reminder cron job

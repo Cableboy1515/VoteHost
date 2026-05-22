@@ -341,7 +341,7 @@ printf "  ${GREEN}${BOLD}━━━━━━━━━━━━━━━━━━�
 printf "\n"
 printf "  %-18s %s\n" "Container ID:"  "$CTID"
 printf "  %-18s %s\n" "LXC IP:"        "$LXC_IP"
-printf "  %-18s %s/admin/login\n" "Admin login:"  "$PUBLIC_URL"
+printf "  %-18s %s/login\n" "Admin login:"  "$PUBLIC_URL"
 printf "  %-18s %s\n" "Admin email:"   "$ADMIN_EMAIL"
 printf "\n"
 

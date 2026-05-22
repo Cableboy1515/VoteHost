@@ -135,11 +135,11 @@ You should see `Postgres is ready`, `Schema applied`, and `Starting VoteHost Ele
 
 **5. Create your admin account**
 
-Visit `https://your-domain.com/admin/setup`. The form asks for a **setup token** — paste the `SETUP_TOKEN` value from your `.env` file. This prevents anyone on the internet from racing you for the admin account while the server is first starting up.
+Visit `https://your-domain.com/setup`. The form asks for a **setup token** — paste the `SETUP_TOKEN` value from your `.env` file. This prevents anyone on the internet from racing you for the admin account while the server is first starting up.
 
 Once the admin account is created, you can optionally delete `SETUP_TOKEN` from `.env` and run `docker compose restart app` — it's never checked again after the first admin exists.
 
-> **Tip — SSH port-forward**: if you need to reach the setup page before your tunnel/DNS is live, `ssh -L 3000:localhost:3000 user@your-server` lets you browse `http://localhost:3000/admin/setup` from your workstation. The forward closes when you exit the session.
+> **Tip — SSH port-forward**: if you need to reach the setup page before your tunnel/DNS is live, `ssh -L 3000:localhost:3000 user@your-server` lets you browse `http://localhost:3000/setup` from your workstation. The forward closes when you exit the session.
 
 ---
 
@@ -273,7 +273,7 @@ The Resend free tier allows 100 emails/day and 3,000/month — sufficient for sm
 
 After setup and email configuration, run through these before your first election:
 
-1. **Proxy guard** — open an incognito window and navigate to `/admin/dashboard`. You must be redirected to `/admin/login`.
+1. **Proxy guard** — open an incognito window and navigate to `/dashboard`. You must be redirected to `/login`.
 2. **API guard** — `curl -X GET https://your-domain.com/api/users` must return `403`.
 3. **Secure cookie** — log in, open browser DevTools → Application → Cookies → confirm `vh_session` has `Secure` and `HttpOnly` set.
 4. **Email test** — Settings → Email → Send test email. Confirm it arrives.
@@ -497,7 +497,7 @@ cp .env.example .env
 npm run dev
 ```
 
-`npm run dev` starts Prisma's development server alongside Next.js. Visit `http://localhost:3000/admin/setup` to create a local admin account.
+`npm run dev` starts Prisma's development server alongside Next.js. Visit `http://localhost:3000/setup` to create a local admin account.
 
 Database schema changes are applied with:
 
