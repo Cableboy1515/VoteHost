@@ -166,26 +166,60 @@ Requires a domain you control on Cloudflare DNS. The tunnel is free; domain regi
 
 ### Tailscale Funnel
 
-No domain required. Gives you a stable `https://<hostname>.<tailnet>.ts.net` URL that's publicly reachable.
+No domain required. Gives you a stable `https://<hostname>.<tailnet>.ts.net` URL that's publicly reachable. The install wizard walks you through this interactively; the steps below are the manual equivalent.
 
-1. Go to [Tailscale admin](https://login.tailscale.com/admin/settings/keys) → Settings → Keys → Generate auth key
-2. Add to your `.env`:
+**Prerequisites — one-time tailnet setup** ([Tailscale admin](https://login.tailscale.com/admin)):
+
+1. **Enable HTTPS certificates** at `admin/dns` → "Enable HTTPS"
+
+2. **Choose an isolation mode** (see [Security and threat model](#security-and-threat-model) for the tradeoff):
+
+   **Isolated (recommended):** VoteHost joins as a tagged device with no peer access to the rest of your tailnet. Add to your tailnet policy file at `admin/acls/file`:
+   ```jsonc
+   "tagOwners": { "tag:votehost": ["autogroup:admin"] },
+   "nodeAttrs": [{ "target": ["tag:votehost"], "attr": ["funnel"] }],
+   "acls": [
+     { "action": "accept", "src": ["autogroup:member"], "dst": ["autogroup:member:*"] }
+   ]
    ```
-   TS_AUTHKEY=<your-key>
+   Replace any default `{"src":["*"],"dst":["*:*"]}` rule with the member-only `acls` entry above.
+
+   **Non-isolated (simpler):** VoteHost is a normal tailnet peer. Only add to `nodeAttrs`:
+   ```jsonc
+   "nodeAttrs": [{ "target": ["autogroup:member"], "attr": ["funnel"] }]
+   ```
+
+3. **Generate a Reusable auth key** at `admin/settings/keys` and add to `.env`:
+   ```
+   TS_AUTHKEY=tskey-auth-...
    TS_HOSTNAME=votehost
+   # Isolated mode (recommended) — or leave TS_EXTRA_ARGS unset for the same effect
+   TS_EXTRA_ARGS=--advertise-tags=tag:votehost
+   # Non-isolated mode — set to empty
+   # TS_EXTRA_ARGS=
    ```
-3. Start with the tailscale profile:
+
+4. Start with the tailscale profile:
    ```bash
    docker compose --profile tailscale up -d
    ```
-4. Check the Tailscale logs for your full public URL:
+
+5. Run the URL helper after the container authenticates — it detects your full `*.ts.net` hostname, patches `NEXTAUTH_URL` in `.env`, and recreates the app container:
    ```bash
-   docker compose logs tailscale
+   bash scripts/refresh-tailscale-url.sh
    ```
-5. Update `NEXTAUTH_URL` in `.env` with the `*.ts.net` address, then restart the app:
-   ```bash
-   docker compose restart app
-   ```
+
+**Verify isolation** (isolated mode only):
+```bash
+docker compose exec tailscale tailscale status   # self line should include tag:votehost
+tailscale ping votehost                          # from your laptop — should fail (that's success)
+```
+
+**Switching modes later:**
+
+To go from non-isolated → isolated: apply the three-snippet policy above, edit `.env` to set `TS_EXTRA_ARGS=--advertise-tags=tag:votehost`, delete the existing untagged device at `admin/machines`, then `docker compose --profile tailscale up -d --force-recreate tailscale`.
+
+To go from isolated → non-isolated: set `TS_EXTRA_ARGS=` (empty) in `.env`, optionally revert the ACL, delete the tagged device, and recreate the container.
 
 ### Own reverse proxy
 
@@ -429,6 +463,8 @@ VoteHost is designed for small-organisation elections (HOAs, clubs, small nonpro
 - **Admin 2FA** — TOTP two-factor authentication is mandatory for ADMIN and ORGANIZER roles
 
 VoteHost uses a **server-trust model** — the organisation running the server is trusted. It is not end-to-end verifiable like [Helios](https://heliosvoting.org/) or [Belenios](https://www.belenios.org/). If you need a cryptographically verifiable ballot, those platforms are better suited.
+
+**Tailnet isolation (Tailscale deployments)** — by default the installer joins VoteHost to your tailnet as a tagged device (`tag:votehost`) that is excluded from all peer-to-peer tailnet ACL rules. Funnel traffic from the public internet still reaches it, but a compromise of the app cannot pivot laterally to your laptop, NAS, or other tailnet devices. This is a defense-in-depth measure: the realistic compromise path (web RCE in the app) lands the attacker in the app container, which has no Tailscale credentials or socket. The isolation closes the narrower risk of a tailscaled vulnerability or a future config change exposing that socket. You can opt out at install time; see [Tailscale Funnel](#tailscale-funnel) for both modes and how to switch between them.
 
 For vulnerability reports, see [SECURITY.md](./SECURITY.md).
 

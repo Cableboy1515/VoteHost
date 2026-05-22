@@ -75,7 +75,7 @@ services:
     environment:
       TS_AUTHKEY: ${TS_AUTHKEY}
       TS_SERVE_CONFIG: /config/serve.json
-      TS_EXTRA_ARGS: ${TS_EXTRA_ARGS:---advertise-tags=tag:votehost}
+      TS_EXTRA_ARGS: ${TS_EXTRA_ARGS---advertise-tags=tag:votehost}
     volumes:
       - tailscale_state:/var/lib/tailscale
       - ./tailscale:/config

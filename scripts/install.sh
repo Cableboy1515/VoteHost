@@ -8,6 +8,7 @@
 #   VOTEHOST_CLOUDFLARE_TUNNEL_TOKEN  — required for cloudflare mode
 #   VOTEHOST_TS_AUTHKEY               — required for tailscale mode
 #   VOTEHOST_TS_HOSTNAME              — tailscale hostname (default: votehost)
+#   VOTEHOST_TAILSCALE_ISOLATE        — 1 (default) to tag+isolate from tailnet, 0 to skip
 #   VOTEHOST_ADMIN_EMAIL              — optional; skips admin bootstrap if unset
 #   VOTEHOST_ADMIN_PASSWORD           — required when VOTEHOST_ADMIN_EMAIL is set
 set -e
@@ -102,6 +103,12 @@ if [ -n "$UNATTENDED" ]; then
     die "VOTEHOST_TS_AUTHKEY is required for tailscale mode."
   [ "$_TUNNEL" = "tailscale" ] && [ -n "${VOTEHOST_TS_AUTHKEY:-}" ] && \
     _validate_ts_authkey "${VOTEHOST_TS_AUTHKEY}"
+  if [ "$_TUNNEL" = "tailscale" ]; then
+    _VH_ISOLATE="${VOTEHOST_TAILSCALE_ISOLATE:-1}"
+    case "$_VH_ISOLATE" in 0|1) ;; *) die "VOTEHOST_TAILSCALE_ISOLATE must be 0 or 1." ;; esac
+  else
+    _VH_ISOLATE=0
+  fi
   if [ -n "${VOTEHOST_ADMIN_EMAIL:-}" ]; then
     [ -z "${VOTEHOST_ADMIN_PASSWORD:-}" ] && die "VOTEHOST_ADMIN_PASSWORD is required when VOTEHOST_ADMIN_EMAIL is set."
     [ "${#VOTEHOST_ADMIN_PASSWORD}" -lt 8 ] && die "VOTEHOST_ADMIN_PASSWORD must be at least 8 characters."
@@ -182,6 +189,7 @@ TS_AUTHKEY=""
 TS_HOSTNAME="votehost"
 NEXTAUTH_URL=""
 TUNNEL_CHOICE=""
+_VH_ISOLATE=0
 
 if [ -n "$UNATTENDED" ]; then
   case "${VOTEHOST_TUNNEL_MODE}" in
@@ -197,6 +205,7 @@ if [ -n "$UNATTENDED" ]; then
       TS_HOSTNAME="${VOTEHOST_TS_HOSTNAME:-votehost}"
       NEXTAUTH_URL="${VOTEHOST_PUBLIC_URL:-https://${TS_HOSTNAME}.example.ts.net}"
       PROFILE="tailscale"
+      _VH_ISOLATE="${VOTEHOST_TAILSCALE_ISOLATE:-1}"
       ;;
     lan)
       TUNNEL_CHOICE="3"
@@ -233,39 +242,64 @@ else
     2)
       say "\nTailscale Funnel selected."
       say ""
-      say "VoteHost will be a tagged Tailscale device (tag:votehost), reachable only"
-      say "from the public internet via Funnel — NOT from your other tailnet devices."
+      printf "${BOLD}Isolate VoteHost from your other tailnet devices? (Y/n)${NC}\n"
+      say "  Y (recommended): VoteHost joins as a tagged device (tag:votehost)."
+      say "    Reachable only via the public Funnel URL — not from your laptop/NAS."
+      say "    If the app is ever compromised, the attacker cannot pivot to other"
+      say "    tailnet devices. Requires a one-time tailnet policy update (shown next)."
       say ""
-      say "One-time tailnet configuration (free, ~1 min):"
-      say "  1. Enable HTTPS certificates:"
-      say "       https://login.tailscale.com/admin/dns  ->  Enable HTTPS"
+      say "  n: VoteHost joins as a normal tailnet peer — simpler setup, no ACL changes."
+      say "    Suitable for solo tailnets or trusted environments."
+      ask "Choose [Y/n]" "Y"
+      case "$REPLY" in
+        [nN]*) _VH_ISOLATE=0 ;;
+        *)     _VH_ISOLATE=1 ;;
+      esac
       say ""
-      say "  2. Open your tailnet policy file:"
-      say "       https://login.tailscale.com/admin/acls/file"
-      say "     Add (or merge) these three sections, then Save:"
-      say ""
-      say "     a) Declare the tag:"
-      say "          \"tagOwners\": {"
-      say "            \"tag:votehost\": [\"autogroup:admin\"]"
-      say "          }"
-      say ""
-      say "     b) Grant it Funnel:"
-      say "          \"nodeAttrs\": ["
-      say "            { \"target\": [\"tag:votehost\"], \"attr\": [\"funnel\"] }"
-      say "          ]"
-      say ""
-      say "     c) Isolate it from your other tailnet devices."
-      say "        Replace any default {\"src\":[\"*\"],\"dst\":[\"*:*\"]} rule with:"
-      say "          \"acls\": ["
-      say "            { \"action\": \"accept\","
-      say "              \"src\":    [\"autogroup:member\"],"
-      say "              \"dst\":    [\"autogroup:member:*\"] }"
-      say "          ]"
-      say "        Your other devices still reach each other; tag:votehost is excluded."
-      say ""
-      say "Save the policy, then generate a Reusable auth key:"
-      say "  https://login.tailscale.com/admin/settings/keys"
-      say "  (No need to pre-tag it — the installer requests tag:votehost automatically.)"
+      if [ "$_VH_ISOLATE" = "1" ]; then
+        say "One-time tailnet configuration (free, ~1 min):"
+        say "  1. Enable HTTPS certificates:"
+        say "       https://login.tailscale.com/admin/dns  ->  Enable HTTPS"
+        say ""
+        say "  2. Open your tailnet policy file:"
+        say "       https://login.tailscale.com/admin/acls/file"
+        say "     Add (or merge) these three sections, then Save:"
+        say ""
+        say "     a) Declare the tag:"
+        say "          \"tagOwners\": {"
+        say "            \"tag:votehost\": [\"autogroup:admin\"]"
+        say "          }"
+        say ""
+        say "     b) Grant it Funnel:"
+        say "          \"nodeAttrs\": ["
+        say "            { \"target\": [\"tag:votehost\"], \"attr\": [\"funnel\"] }"
+        say "          ]"
+        say ""
+        say "     c) Isolate it from your other tailnet devices."
+        say "        Replace any default {\"src\":[\"*\"],\"dst\":[\"*:*\"]} rule with:"
+        say "          \"acls\": ["
+        say "            { \"action\": \"accept\","
+        say "              \"src\":    [\"autogroup:member\"],"
+        say "              \"dst\":    [\"autogroup:member:*\"] }"
+        say "          ]"
+        say "        Your other devices still reach each other; tag:votehost is excluded."
+        say ""
+        say "Save the policy, then generate a Reusable auth key:"
+        say "  https://login.tailscale.com/admin/settings/keys"
+        say "  (No need to pre-tag the key — the installer requests tag:votehost automatically.)"
+      else
+        say "Tailnet configuration (free, ~30 s):"
+        say "  1. Enable HTTPS certificates:"
+        say "       https://login.tailscale.com/admin/dns  ->  Enable HTTPS"
+        say ""
+        say "  2. Open your tailnet policy file:"
+        say "       https://login.tailscale.com/admin/acls/file"
+        say "     Add to nodeAttrs and Save:"
+        say "       { \"target\": [\"autogroup:member\"], \"attr\": [\"funnel\"] }"
+        say ""
+        say "Generate a Reusable auth key:"
+        say "  https://login.tailscale.com/admin/settings/keys"
+      fi
       ask "Paste your Tailscale auth key" ""
       TS_AUTHKEY="$REPLY"
       _validate_ts_authkey
@@ -316,6 +350,11 @@ else
 fi
 
 # ── Write .env ─────────────────────────────────────────────────────────────────
+if [ "$_VH_ISOLATE" = "1" ]; then
+  TS_EXTRA_ARGS="--advertise-tags=tag:votehost"
+else
+  TS_EXTRA_ARGS=""
+fi
 cat > .env <<EOF
 # Generated by scripts/install.sh
 POSTGRES_USER=${POSTGRES_USER}
@@ -331,6 +370,7 @@ CRON_SECRET=${CRON_SECRET}
 CLOUDFLARE_TUNNEL_TOKEN=${CLOUDFLARE_TUNNEL_TOKEN}
 TS_AUTHKEY=${TS_AUTHKEY}
 TS_HOSTNAME=${TS_HOSTNAME}
+TS_EXTRA_ARGS=${TS_EXTRA_ARGS}
 
 SETUP_TOKEN=${SETUP_TOKEN}
 EOF
