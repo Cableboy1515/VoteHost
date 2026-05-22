@@ -176,7 +176,9 @@ No domain required. Gives you a stable `https://<hostname>.<tailnet>.ts.net` URL
 
    **Isolated (recommended):** VoteHost joins as a tagged device with no peer access to the rest of your tailnet.
 
-   Open the [policy file](https://login.tailscale.com/admin/acls/file). The file is a single JSON object — `tagOwners`, `nodeAttrs`, and `grants` (or `acls`) are **sibling top-level keys**, not nested inside each other. Replace the file with this (for a `grants`-based tailnet, which is the modern default):
+   Open the [policy file](https://login.tailscale.com/admin/acls/file).
+
+   *New Tailscale user / untouched policy file* — **replace the entire file** with this and Save:
    ```jsonc
    {
      "tagOwners": {
@@ -192,11 +194,11 @@ No domain required. Gives you a stable `https://<hostname>.<tailnet>.ts.net` URL
      ]
    }
    ```
-   The `grants` entry replaces the default wildcard rule — your other devices still reach each other; `tag:votehost` is excluded from peer traffic.
+   The `grants` entry replaces the default wildcard — your other devices still reach each other; `tag:votehost` is excluded.
 
-   > **Common mistake:** pasting `tagOwners`/`nodeAttrs` *inside* the `grants` array causes `Error: json: unknown field "tagOwners"`. They must be siblings of `grants`, not children.
+   *Existing tailnet* (you have custom groups, ACL rules, SSH rules, tests, etc.) — add `tagOwners` and `nodeAttrs` as **top-level keys** (siblings of `grants`/`acls`, **not** nested inside the array), and replace the default wildcard grant with the member-only entry above.
 
-   **Legacy `acls`-based file?** Older tailnets use `"acls"` instead of `"grants"` (the two can't coexist in the same file). Replace the `grants` block above with:
+   **Legacy `acls`-based tailnet?** Older accounts use `"acls"` instead of `"grants"` (the two can't coexist). Substitute this for the `grants` block:
    ```jsonc
    "acls": [
      { "action": "accept",
@@ -208,9 +210,11 @@ No domain required. Gives you a stable `https://<hostname>.<tailnet>.ts.net` URL
 
    **Non-isolated (simpler):** VoteHost is a normal tailnet peer.
 
-   *Easiest:* in [Access controls](https://login.tailscale.com/admin/acls), expand the **Funnel** section and click **Add Funnel to policy**. Tailscale writes the rule for you.
+   *Easiest:* in [Access controls](https://login.tailscale.com/admin/acls), expand the **Funnel** section and click **Add Funnel to policy**. Done.
 
-   *Or* edit the [policy file](https://login.tailscale.com/admin/acls/file) directly — add `nodeAttrs` as a **top-level sibling** of `grants`/`acls` (not nested inside the array), then Save:
+   *Or* edit the [policy file](https://login.tailscale.com/admin/acls/file) directly:
+   - *New Tailscale user:* replace the whole file with `{ "nodeAttrs": [{ "target": ["autogroup:member"], "attr": ["funnel"] }] }`.
+   - *Existing tailnet:* add `nodeAttrs` as a **top-level key** (sibling of `grants`/`acls`, not nested inside):
    ```jsonc
    "nodeAttrs": [
      { "target": ["autogroup:member"], "attr": ["funnel"] }
