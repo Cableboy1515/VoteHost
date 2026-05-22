@@ -29,6 +29,8 @@ interface Props {
     emailFooter?: string | null
     firstReminderDays?: number | null
     autoActivate?: boolean | null
+    autoSendResults?: boolean | null
+    resultsEmailSentAt?: string | null
   }
 }
 
@@ -152,6 +154,7 @@ export default function ElectionForm({
     initialValues?.firstReminderDays != null ? String(initialValues.firstReminderDays) : ""
   )
   const [autoActivate, setAutoActivate] = useState(initialValues?.autoActivate ?? true)
+  const [autoSendResults, setAutoSendResults] = useState(initialValues?.autoSendResults ?? false)
   const [startsAtAllDay, setStartsAtAllDay] = useState(
     initialValues?.startsAt ? isMidnightLocal(initialValues.startsAt) : true
   )
@@ -180,6 +183,7 @@ export default function ElectionForm({
       emailFooter: emailFooter.trim(),
       firstReminderDays,
       autoActivate,
+      autoSendResults,
       startsAtAllDay,
       endsAtAllDay,
     })
@@ -214,6 +218,7 @@ export default function ElectionForm({
       emailFooter: emailFooter || null,
       firstReminderDays: firstReminderDays !== "" ? parseInt(firstReminderDays, 10) : null,
       autoActivate,
+      autoSendResults,
     }
 
     const url = electionId ? `/api/elections/${electionId}` : "/api/elections"
@@ -580,6 +585,44 @@ export default function ElectionForm({
                   : "Auto-start requires a future Opens time. Use Activate now from the Voters tab to start immediately."}
               </p>
             )}
+          </div>
+          <div className="mt-3 pt-3" style={{ borderTop: "1px solid var(--vh-line)" }}>
+            {(() => {
+              const alreadySent = !!initialValues?.resultsEmailSentAt
+              return (
+                <>
+                  <label
+                    className="flex items-center gap-2.5"
+                    style={{
+                      opacity: alreadySent ? 0.5 : 1,
+                      cursor: alreadySent ? "not-allowed" : "pointer",
+                    }}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={autoSendResults}
+                      disabled={alreadySent}
+                      onChange={(e) => setAutoSendResults(e.target.checked)}
+                      className="flex-shrink-0"
+                    />
+                    <span className="text-[13px]" style={{ color: "var(--vh-ink-soft)" }}>
+                      Auto-send results — email results to voters automatically when the election closes
+                    </span>
+                  </label>
+                  {alreadySent && (
+                    <p className="mt-1.5 pl-6 text-[12px]" style={{ color: "var(--vh-muted)" }}>
+                      Results email already sent on{" "}
+                      {new Date(initialValues!.resultsEmailSentAt!).toLocaleDateString(undefined, {
+                        month: "short",
+                        day: "numeric",
+                        year: "numeric",
+                      })}
+                      .
+                    </p>
+                  )}
+                </>
+              )
+            })()}
           </div>
         </VhCard>
 

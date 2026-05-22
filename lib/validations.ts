@@ -44,6 +44,7 @@ export const ElectionBaseSchema = z.object({
   emailFooter: z.string().optional().nullable(),
   firstReminderDays: z.number().int().positive().nullish(),
   autoActivate: z.boolean().optional(),
+  autoSendResults: z.boolean().optional(),
   heroColor: z.enum(HERO_COLOR_KEYS as [string, ...string[]]).nullable().optional(),
 })
 

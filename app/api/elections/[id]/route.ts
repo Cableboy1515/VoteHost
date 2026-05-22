@@ -9,6 +9,7 @@ import { getStaffRecipients } from "@/lib/staffRecipients"
 import { canActivate, CANNOT_ACTIVATE_MESSAGES } from "@/lib/canActivate"
 import { sendBallotInvitationsToUninvited } from "@/lib/sendBallotInvitationsToUninvited"
 import { computeTallyHash } from "@/lib/verification"
+import { sendElectionResultsEmail } from "@/lib/sendElectionResultsEmail"
 
 const UPLOADS_DIR = join(process.cwd(), "public", "uploads")
 
@@ -56,6 +57,8 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
       status: true,
       firstVoteAt: true,
       completionEmailSentAt: true,
+      autoSendResults: true,
+      resultsEmailSentAt: true,
       _count: { select: { questions: true, voters: true } },
     },
   })
@@ -224,6 +227,12 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
         ),
       )
       .catch((err) => console.error("[PATCH election] completion email threw:", err))
+
+    if (before.autoSendResults && !before.resultsEmailSentAt) {
+      sendElectionResultsEmail(id).catch((err) =>
+        console.error("[PATCH election] auto-send results email threw:", err)
+      )
+    }
   }
 
   return NextResponse.json({ ...election, ...(inviteSummary ?? {}) })

@@ -58,6 +58,7 @@ model Election {
   activatedById                  String?
   autoActivate                   Boolean   @default(true)
   autoActivateFailedNoticeSentAt DateTime?
+  autoSendResults                Boolean   @default(false)
 
   heroColor String?
 
