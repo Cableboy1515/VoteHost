@@ -204,6 +204,20 @@ type PresetConfig = {
 }
 
 const PRESETS: Record<EmailPreset, PresetConfig> = {
+  smtp: {
+    label: "General SMTP",
+    provider: "smtp",
+    smtp: { host: "", port: "587", secure: "false" },
+    tips: {
+      title: "Custom SMTP server",
+      body: (
+        <>
+          Enter your provider&apos;s SMTP host, port, and TLS mode below. Use STARTTLS on port 587 or Implicit TLS
+          on port 465 unless your provider specifies otherwise.
+        </>
+      ),
+    },
+  },
   resend: {
     label: "Resend",
     provider: "resend",
@@ -294,20 +308,6 @@ const PRESETS: Record<EmailPreset, PresetConfig> = {
           </a>{" "}
           → Generate app password (2-step verification must be enabled). Use your full @yahoo.com address as the
           username.
-        </>
-      ),
-    },
-  },
-  smtp: {
-    label: "General SMTP",
-    provider: "smtp",
-    smtp: { host: "", port: "587", secure: "false" },
-    tips: {
-      title: "Custom SMTP server",
-      body: (
-        <>
-          Enter your provider&apos;s SMTP host, port, and TLS mode below. Use STARTTLS on port 587 or Implicit TLS
-          on port 465 unless your provider specifies otherwise.
         </>
       ),
     },

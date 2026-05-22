@@ -271,8 +271,8 @@ Any standard SMTP provider works. Tested options:
 |---|---|---|---|---|
 | iCloud Mail | `smtp.mail.me.com` | 587 | ~1,000 | Requires an [app-specific password](https://support.apple.com/en-us/102654), not your Apple ID password |
 | Gmail | `smtp.gmail.com` | 587 | 500 | Requires an [app password](https://myaccount.google.com/apppasswords) with 2FA enabled |
-| Brevo | `smtp-relay.brevo.com` | 587 | 300 (free) | Free tier; create account at brevo.com |
-| Fastmail | `smtp.fastmail.com` | 587 | No daily limit | Paid service |
+| Microsoft 365 / Outlook | `smtp.office365.com` | 587 | Varies | Use your full email as username; may require [enabling Authenticated SMTP](https://learn.microsoft.com/en-us/exchange/clients-and-mobile-in-exchange-online/authenticated-client-smtp-submission) in your tenant |
+| Yahoo Mail | `smtp.mail.yahoo.com` | 465 | Varies | Requires an [App Password](https://login.yahoo.com/account/security) with 2-step verification enabled |
 
 In the admin panel: **Settings → Email → SMTP settings**. Enter the host, port, username, and password. Use the "Send test email" button to confirm delivery before your first election.
 

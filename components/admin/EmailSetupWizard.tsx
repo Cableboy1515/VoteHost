@@ -20,7 +20,7 @@ const selectClass =
 type WizardStep = "welcome" | "credentials" | "identity" | "test" | "done"
 
 type FormState = {
-  preset: EmailPreset
+  preset: EmailPreset | ""
   resend_api_key: string
   smtp_host: string
   smtp_port: string
@@ -92,7 +92,7 @@ export default function EmailSetupWizard({
 }) {
   const [step, setStep] = useState<WizardStep>("welcome")
   const [form, setForm] = useState<FormState>({
-    preset: "smtp",
+    preset: "",
     resend_api_key: "",
     smtp_host: "",
     smtp_port: "587",
@@ -114,7 +114,11 @@ export default function EmailSetupWizard({
     setForm((f) => ({ ...f, [k]: v }))
   }
 
-  function applyPreset(next: EmailPreset) {
+  function applyPreset(next: EmailPreset | "") {
+    if (!next) {
+      setForm((f) => ({ ...f, preset: "" }))
+      return
+    }
     const cfg = PRESETS[next]
     setForm((f) => ({
       ...f,
@@ -148,6 +152,7 @@ export default function EmailSetupWizard({
   }
 
   async function handleSaveAndContinue() {
+    if (!form.preset) return
     setSaving(true)
     setSaveError("")
     const preset = PRESETS[form.preset]
@@ -216,7 +221,7 @@ export default function EmailSetupWizard({
     onClose(true)
   }
 
-  const preset = PRESETS[form.preset]
+  const preset = form.preset ? PRESETS[form.preset] : null
 
   return (
     <Dialog
@@ -272,120 +277,125 @@ export default function EmailSetupWizard({
               <select
                 id="wiz_preset"
                 value={form.preset}
-                onChange={(e) => applyPreset(e.target.value as EmailPreset)}
+                onChange={(e) => applyPreset(e.target.value as EmailPreset | "")}
                 className={selectClass}
               >
+                <option value="" disabled>Choose email provider…</option>
                 {PRESET_KEYS.map((k) => (
                   <option key={k} value={k}>{PRESETS[k].label}</option>
                 ))}
               </select>
             </div>
 
-            <div
-              className="rounded-lg p-3 text-[12.5px]"
-              style={{ background: "var(--vh-surface-2)", border: "1px solid var(--vh-line)" }}
-            >
-              <div className="font-medium mb-1" style={{ color: "var(--vh-ink)" }}>{preset.tipTitle}</div>
-              <p style={{ color: "var(--vh-ink-soft)" }} className="leading-relaxed">
-                {preset.tipText}{" "}
-                {preset.tipUrl && (
-                  <a
-                    href={preset.tipUrl.href}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="underline"
-                    style={{ color: "var(--vh-accent)" }}
-                  >
-                    {preset.tipUrl.label}
-                  </a>
-                )}
-              </p>
-            </div>
+            {preset && (
+              <>
+                <div
+                  className="rounded-lg p-3 text-[12.5px]"
+                  style={{ background: "var(--vh-surface-2)", border: "1px solid var(--vh-line)" }}
+                >
+                  <div className="font-medium mb-1" style={{ color: "var(--vh-ink)" }}>{preset.tipTitle}</div>
+                  <p style={{ color: "var(--vh-ink-soft)" }} className="leading-relaxed">
+                    {preset.tipText}{" "}
+                    {preset.tipUrl && (
+                      <a
+                        href={preset.tipUrl.href}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="underline"
+                        style={{ color: "var(--vh-accent)" }}
+                      >
+                        {preset.tipUrl.label}
+                      </a>
+                    )}
+                  </p>
+                </div>
 
-            {form.preset === "resend" ? (
-              <div className="space-y-1.5">
-                <Label htmlFor="wiz_resend_key">Resend API Key</Label>
-                <Input
-                  id="wiz_resend_key"
-                  type="password"
-                  placeholder="re_••••••••••••••••••••••"
-                  value={form.resend_api_key}
-                  onChange={(e) => setField("resend_api_key", e.target.value)}
-                  autoComplete="off"
-                  className="bg-white"
-                />
-              </div>
-            ) : (
-              <div className="space-y-4">
-                {form.preset === "smtp" && (
+                {form.preset === "resend" ? (
                   <div className="space-y-1.5">
-                    <Label htmlFor="wiz_smtp_host">SMTP Host</Label>
+                    <Label htmlFor="wiz_resend_key">Resend API Key</Label>
                     <Input
-                      id="wiz_smtp_host"
-                      type="url"
-                      placeholder="smtp.example.com"
-                      value={form.smtp_host}
-                      onChange={(e) => setField("smtp_host", e.target.value)}
+                      id="wiz_resend_key"
+                      type="password"
+                      placeholder="re_••••••••••••••••••••••"
+                      value={form.resend_api_key}
+                      onChange={(e) => setField("resend_api_key", e.target.value)}
+                      autoComplete="off"
                       className="bg-white"
                     />
                   </div>
-                )}
-                {form.preset === "smtp" && (
-                  <div className="grid grid-cols-2 gap-3">
+                ) : (
+                  <div className="space-y-4">
+                    {form.preset === "smtp" && (
+                      <div className="space-y-1.5">
+                        <Label htmlFor="wiz_smtp_host">SMTP Host</Label>
+                        <Input
+                          id="wiz_smtp_host"
+                          type="url"
+                          placeholder="smtp.example.com"
+                          value={form.smtp_host}
+                          onChange={(e) => setField("smtp_host", e.target.value)}
+                          className="bg-white"
+                        />
+                      </div>
+                    )}
+                    {form.preset === "smtp" && (
+                      <div className="grid grid-cols-2 gap-3">
+                        <div className="space-y-1.5">
+                          <Label htmlFor="wiz_smtp_port">Port</Label>
+                          <Input
+                            id="wiz_smtp_port"
+                            type="number"
+                            placeholder="587"
+                            value={form.smtp_port}
+                            onChange={(e) => setField("smtp_port", e.target.value)}
+                            className="bg-white"
+                          />
+                        </div>
+                        <div className="space-y-1.5">
+                          <Label htmlFor="wiz_smtp_secure">TLS Mode</Label>
+                          <select
+                            id="wiz_smtp_secure"
+                            value={form.smtp_secure}
+                            onChange={(e) => setField("smtp_secure", e.target.value)}
+                            className={selectClass}
+                          >
+                            <option value="false">STARTTLS (587)</option>
+                            <option value="true">Implicit TLS (465)</option>
+                          </select>
+                        </div>
+                      </div>
+                    )}
                     <div className="space-y-1.5">
-                      <Label htmlFor="wiz_smtp_port">Port</Label>
+                      <Label htmlFor="wiz_smtp_user">
+                        {form.preset === "smtp" ? "Username" : "Email address"}
+                      </Label>
                       <Input
-                        id="wiz_smtp_port"
-                        type="number"
-                        placeholder="587"
-                        value={form.smtp_port}
-                        onChange={(e) => setField("smtp_port", e.target.value)}
+                        id="wiz_smtp_user"
+                        placeholder="you@example.com"
+                        value={form.smtp_user}
+                        onChange={(e) => setField("smtp_user", e.target.value)}
+                        autoCapitalize="none"
+                        autoCorrect="off"
+                        spellCheck={false}
                         className="bg-white"
                       />
                     </div>
                     <div className="space-y-1.5">
-                      <Label htmlFor="wiz_smtp_secure">TLS Mode</Label>
-                      <select
-                        id="wiz_smtp_secure"
-                        value={form.smtp_secure}
-                        onChange={(e) => setField("smtp_secure", e.target.value)}
-                        className={selectClass}
-                      >
-                        <option value="false">STARTTLS (587)</option>
-                        <option value="true">Implicit TLS (465)</option>
-                      </select>
+                      <Label htmlFor="wiz_smtp_pass">
+                        {form.preset === "smtp" ? "Password" : "App Password"}
+                      </Label>
+                      <Input
+                        id="wiz_smtp_pass"
+                        type="password"
+                        value={form.smtp_pass}
+                        onChange={(e) => setField("smtp_pass", e.target.value)}
+                        autoComplete="new-password"
+                        className="bg-white"
+                      />
                     </div>
                   </div>
                 )}
-                <div className="space-y-1.5">
-                  <Label htmlFor="wiz_smtp_user">
-                    {form.preset === "smtp" ? "Username" : "Email address"}
-                  </Label>
-                  <Input
-                    id="wiz_smtp_user"
-                    placeholder="you@example.com"
-                    value={form.smtp_user}
-                    onChange={(e) => setField("smtp_user", e.target.value)}
-                    autoCapitalize="none"
-                    autoCorrect="off"
-                    spellCheck={false}
-                    className="bg-white"
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <Label htmlFor="wiz_smtp_pass">
-                    {form.preset === "smtp" ? "Password" : "App Password"}
-                  </Label>
-                  <Input
-                    id="wiz_smtp_pass"
-                    type="password"
-                    value={form.smtp_pass}
-                    onChange={(e) => setField("smtp_pass", e.target.value)}
-                    autoComplete="new-password"
-                    className="bg-white"
-                  />
-                </div>
-              </div>
+              </>
             )}
           </div>
         )}
@@ -556,7 +566,7 @@ export default function EmailSetupWizard({
               </Button>
             )}
             {step === "credentials" && (
-              <Button onClick={() => setStep("identity")} size="lg">
+              <Button onClick={() => setStep("identity")} disabled={!form.preset} size="lg">
                 Next
               </Button>
             )}
