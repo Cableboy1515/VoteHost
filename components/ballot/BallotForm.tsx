@@ -629,7 +629,7 @@ export default function BallotForm({ token, electionTitle, electionDescription, 
 
         {/* Right column — all questions */}
         <main className="flex-1 py-12 px-10 overflow-y-auto">
-          <div className="max-w-[720px]">
+          <div className="max-w-[564px]">
             <div className="mb-16">
               <h1 className="text-2xl font-semibold text-vh-ink mb-1">{electionTitle}</h1>
               {electionDescription && (
@@ -646,7 +646,7 @@ export default function BallotForm({ token, electionTitle, electionDescription, 
                   ref={(el) => { questionRefs.current[q.id] = el }}
                 >
                   <div className="mb-4 flex items-start gap-3">
-                    <div className="flex flex-col items-center gap-1 flex-shrink-0">
+                    <div className="flex flex-col items-end gap-1 flex-shrink-0">
                       <span
                         className="inline-flex items-center justify-center text-base font-semibold rounded-[8px] px-2.5"
                         style={{ background: "var(--vh-accent)", color: "var(--vh-accent-fg)", minWidth: 32, height: 32 }}
@@ -672,7 +672,7 @@ export default function BallotForm({ token, electionTitle, electionDescription, 
                       )}
                     </div>
                   </div>
-                  {renderQuestionInput(q)}
+                  <div className="pl-11">{renderQuestionInput(q)}</div>
                 </section>
               ))}
             </div>
