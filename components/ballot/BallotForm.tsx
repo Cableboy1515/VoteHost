@@ -630,10 +630,12 @@ export default function BallotForm({ token, electionTitle, electionDescription, 
         {/* Right column — all questions */}
         <main className="flex-1 py-12 px-10 overflow-y-auto">
           <div className="max-w-[720px]">
-            <h1 className="text-2xl font-semibold text-vh-ink mb-1">{electionTitle}</h1>
-            {electionDescription && (
-              <p className="text-[15px] leading-relaxed text-vh-muted mb-10 whitespace-pre-wrap">{electionDescription}</p>
-            )}
+            <div className="mb-16">
+              <h1 className="text-2xl font-semibold text-vh-ink mb-1">{electionTitle}</h1>
+              {electionDescription && (
+                <p className="text-[15px] leading-relaxed text-vh-muted whitespace-pre-wrap">{electionDescription}</p>
+              )}
+            </div>
 
             {renderIssuesPanel("desktop")}
 
@@ -643,8 +645,8 @@ export default function BallotForm({ token, electionTitle, electionDescription, 
                   key={q.id}
                   ref={(el) => { questionRefs.current[q.id] = el }}
                 >
-                  <div className="mb-4">
-                    <div className="flex items-center gap-2 mb-2">
+                  <div className="mb-4 flex items-start gap-3">
+                    <div className="flex flex-col items-center gap-1 flex-shrink-0">
                       <span
                         className="inline-flex items-center justify-center text-base font-semibold rounded-[8px] px-2.5"
                         style={{ background: "var(--vh-accent)", color: "var(--vh-accent-fg)", minWidth: 32, height: 32 }}
@@ -652,21 +654,23 @@ export default function BallotForm({ token, electionTitle, electionDescription, 
                         {i + 1}
                       </span>
                       {q.required && (
-                        <span className="text-xs" style={{ color: "var(--vh-danger)" }}>Required</span>
+                        <span className="text-[11px] font-medium" style={{ color: "var(--vh-danger)" }}>Required</span>
                       )}
                     </div>
-                    <h3 className="text-[18px] font-semibold text-vh-ink">{q.text}</h3>
-                    {q.description && (
-                      <p className="text-[15px] leading-relaxed text-vh-muted mt-1.5">{q.description}</p>
-                    )}
-                    {q.type === "MULTIPLE_CHOICE" && q.maxSelections && (
-                      <p className="text-xs text-vh-muted mt-1.5">
-                        Pick up to {q.maxSelections}{" "}
-                        <span className="tabular-nums">
-                          ({((answers[q.id] as string[]) ?? []).length}/{q.maxSelections})
-                        </span>
-                      </p>
-                    )}
+                    <div className="min-w-0 flex-1 pt-0.5">
+                      <h3 className="text-[18px] font-semibold text-vh-ink">{q.text}</h3>
+                      {q.description && (
+                        <p className="text-[15px] leading-relaxed text-vh-muted mt-1.5">{q.description}</p>
+                      )}
+                      {q.type === "MULTIPLE_CHOICE" && q.maxSelections && (
+                        <p className="text-xs text-vh-muted mt-1.5">
+                          Pick up to {q.maxSelections}{" "}
+                          <span className="tabular-nums">
+                            ({((answers[q.id] as string[]) ?? []).length}/{q.maxSelections})
+                          </span>
+                        </p>
+                      )}
+                    </div>
                   </div>
                   {renderQuestionInput(q)}
                 </section>
@@ -678,10 +682,10 @@ export default function BallotForm({ token, electionTitle, electionDescription, 
             )}
 
             <div
-              className="mt-12 -mx-10 px-10 py-6 border-t border-vh-line flex items-center justify-between"
+              className="mt-12 px-6 py-5 rounded-[14px] flex items-center justify-between gap-4"
               style={{ background: "var(--vh-ink)" }}
             >
-              <p className="text-sm text-white/70">Review your answers before submitting.</p>
+              <p className="text-[17px] font-medium text-white/85">Review your answers before submitting.</p>
               <button
                 type="button"
                 onClick={goToReview}
