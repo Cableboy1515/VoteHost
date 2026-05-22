@@ -76,7 +76,7 @@ export function OptionCard({
       }}
     >
       {/* Main row */}
-      <div className="flex items-center gap-3.5 py-2.5 px-4">
+      <div className="flex items-center gap-3.5 py-2.5 px-4 min-h-[84px]">
         {showAvatar && (photoUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
@@ -90,7 +90,7 @@ export function OptionCard({
         ))}
 
         <div className="flex-1 min-w-0">
-          <p className="text-[15.5px] font-medium text-vh-ink break-words">{name}</p>
+          <p className="text-[17px] font-medium text-vh-ink break-words">{name}</p>
           {subtitle && (
             <p className="text-[13px] text-vh-muted truncate">{subtitle}</p>
           )}
