@@ -66,6 +66,8 @@ export default async function EditElectionPage({ params }: { params: Promise<{ i
         ballotResetByEmail={resetByEmail}
         reopenedAt={election.reopenedAt?.toISOString() ?? null}
         reopenedByEmail={reopenedByEmail}
+        electionStatus={election.status}
+        onSettingsTab
       />
       <FullTurnoutBanner
         electionId={id}

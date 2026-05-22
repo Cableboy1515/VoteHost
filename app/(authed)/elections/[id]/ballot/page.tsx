@@ -44,6 +44,7 @@ export default async function BallotPage({ params }: { params: Promise<{ id: str
         firstVoteAt={election.firstVoteAt?.toISOString() ?? null}
         ballotResetAt={election.ballotResetAt?.toISOString() ?? null}
         ballotResetByEmail={resetByEmail}
+        electionStatus={election.status}
       />
       <div className="mb-5">
         <h1 className="text-[26px] font-semibold mb-1">Ballot Builder</h1>

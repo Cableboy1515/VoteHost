@@ -493,7 +493,7 @@ export default function ElectionForm({
               {opensLocked && (
                 <p className="mt-1.5 text-[12px]" style={{ color: "var(--vh-muted)" }}>
                   {isActive
-                    ? "Locked — election is in progress. To change, use Cancel Activation (if no votes cast) or Discard & Reopen on the Settings tab."
+                    ? "Locked — election is in progress. To change, use Cancel Activation (if no votes cast) or Discard & Reopen at the bottom of this page."
                     : "Activating this election will start it immediately on save."}
                 </p>
               )}
