@@ -663,7 +663,7 @@ export default function BallotForm({ token, electionTitle, electionDescription, 
                         <p className="text-[15px] leading-relaxed text-vh-muted mt-1.5">{q.description}</p>
                       )}
                       {q.type === "MULTIPLE_CHOICE" && q.maxSelections && (
-                        <p className="text-xs text-vh-muted mt-1.5">
+                        <p className="text-sm text-vh-muted mt-1.5">
                           Pick up to {q.maxSelections}{" "}
                           <span className="tabular-nums">
                             ({((answers[q.id] as string[]) ?? []).length}/{q.maxSelections})
@@ -717,7 +717,7 @@ export default function BallotForm({ token, electionTitle, electionDescription, 
             <p className="text-[15px] leading-relaxed text-vh-muted mt-2">{questions[step].description}</p>
           )}
           {questions[step].type === "MULTIPLE_CHOICE" && questions[step].maxSelections && (
-            <p className="text-xs text-vh-muted mt-2">
+            <p className="text-sm text-vh-muted mt-2">
               Pick up to {questions[step].maxSelections}{" "}
               <span className="tabular-nums">
                 ({((answers[questions[step].id] as string[]) ?? []).length}/{questions[step].maxSelections})
