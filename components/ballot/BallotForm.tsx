@@ -685,7 +685,7 @@ export default function BallotForm({ token, electionTitle, electionDescription, 
               className="mt-12 px-6 py-5 rounded-[14px] flex items-center justify-between gap-4"
               style={{ background: "var(--vh-accent)" }}
             >
-              <p className="text-[17px] font-medium text-white/90">Review your answers before submitting.</p>
+              <p className="text-[17px] font-semibold text-white">Review your answers before submitting.</p>
               <button
                 type="button"
                 onClick={goToReview}
