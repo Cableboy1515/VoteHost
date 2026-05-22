@@ -217,7 +217,7 @@ export default function ImageUploadField({ preset, url, setUrl, deleteUrl, setDe
               <span className="text-[13px]" style={{ color: dragging ? "var(--vh-accent)" : "var(--vh-ink-soft)" }}>
                 {dragging ? "Drop to upload" : "Drop image or click to browse"}
               </span>
-              <span className="text-[11.5px]" style={{ color: "var(--vh-muted)" }}>PNG or JPG · ~1120 px wide recommended</span>
+              <span className="text-[11.5px]" style={{ color: "var(--vh-muted)" }}>{isAvatar ? "PNG or JPG · square crop recommended" : "PNG or JPG · ~1120×373 banner (3:1) recommended · taller images auto-scaled"}</span>
             </>
           )}
         </div>

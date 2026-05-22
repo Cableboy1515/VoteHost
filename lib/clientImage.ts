@@ -5,7 +5,7 @@ export interface ImagePreset {
 }
 
 export const avatarPreset: ImagePreset = { maxWidth: 256, maxHeight: 256, quality: 0.82 }
-export const logoPreset: ImagePreset = { maxWidth: 1120, maxHeight: 2000, quality: 0.85 }
+export const logoPreset: ImagePreset = { maxWidth: 1120, maxHeight: 373, quality: 0.85 }
 
 export async function resizeForUpload(file: File, preset: ImagePreset): Promise<Blob> {
   const bitmap = await createImageBitmap(file, { imageOrientation: "from-image" })
