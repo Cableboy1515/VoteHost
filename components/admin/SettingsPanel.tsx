@@ -621,7 +621,7 @@ export default function SettingsPage({ hasActiveElections }: { hasActiveElection
               <Label htmlFor="smtp_host">SMTP Host</Label>
               <Input
                 id="smtp_host"
-                type="url"
+                type="text"
                 placeholder="smtp.example.com"
                 value={settings.smtp_host}
                 onChange={(e) => set("smtp_host", e.target.value)}
