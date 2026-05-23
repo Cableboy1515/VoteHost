@@ -213,7 +213,8 @@ const PRESETS: Record<EmailPreset, PresetConfig> = {
       body: (
         <>
           Enter your provider&apos;s SMTP host, port, and TLS mode below. Use STARTTLS on port 587 or Implicit TLS
-          on port 465 unless your provider specifies otherwise.
+          on port 465 unless your provider specifies otherwise. Daily send limit: varies by provider — check your
+          service&apos;s documentation.
         </>
       ),
     },
@@ -229,7 +230,8 @@ const PRESETS: Record<EmailPreset, PresetConfig> = {
           <a href="https://resend.com/api-keys" target="_blank" rel="noreferrer" className="underline">
             resend.com/api-keys
           </a>
-          . The From Address must be on a domain you&apos;ve verified in Resend.
+          . The From Address must be on a domain you&apos;ve verified in Resend. Daily send limit: ~100 emails on
+          the free tier (3,000/month); paid plans send substantially more.
         </>
       ),
     },
@@ -289,7 +291,8 @@ const PRESETS: Record<EmailPreset, PresetConfig> = {
           >
             App Password
           </a>{" "}
-          if MFA is enabled.
+          if MFA is enabled. Daily send limit: ~300 emails for free outlook.com accounts; ~10,000 for Microsoft 365
+          business mailboxes.
         </>
       ),
     },
@@ -307,7 +310,7 @@ const PRESETS: Record<EmailPreset, PresetConfig> = {
             Yahoo Account Security
           </a>{" "}
           → Generate app password (2-step verification must be enabled). Use your full @yahoo.com address as the
-          username.
+          username. Daily send limit: ~500 emails on free accounts.
         </>
       ),
     },

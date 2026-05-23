@@ -289,84 +289,87 @@ export default function BallotBuilder({ electionId, electionStatus, firstVoteAt,
               />
 
               {/* Type + required toggles */}
-              <div className="flex gap-1.5 flex-wrap items-center">
-                {TYPES.map((t) => {
-                  const active = q.type === t.value
-                  return (
-                    <button
-                      key={t.value}
-                      type="button"
-                      disabled={locked}
-                      onClick={() => {
-                        if (locked) return
-                        updateQuestion(qIndex, {
-                          type: t.value,
-                          maxSelections: t.value === "MULTIPLE_CHOICE" ? q.maxSelections : undefined,
-                          options: t.value === "WRITE_IN" ? [] : q.options.length ? q.options : [{ text: "", order: 0 }, { text: "", order: 1 }],
-                        })
-                      }}
-                      className="px-2.5 py-1.5 rounded-[8px] text-[12.5px] transition-colors"
-                      style={{
-                        border: `1px solid ${active ? "var(--vh-accent)" : "var(--vh-line-strong)"}`,
-                        background: active ? "var(--vh-accent-soft)" : "var(--vh-surface)",
-                        color: active ? "var(--vh-accent-strong)" : "var(--vh-ink-soft)",
-                        fontWeight: active ? 500 : 400,
-                        cursor: locked ? "not-allowed" : "pointer",
-                        opacity: locked ? 0.6 : 1,
-                      }}
-                    >
-                      {t.label}
-                    </button>
-                  )
-                })}
-                <div className="flex-1" />
-                <button
-                  type="button"
-                  disabled={locked}
-                  onClick={() => !locked && updateQuestion(qIndex, { required: !q.required })}
-                  className="px-2.5 py-1.5 rounded-[8px] text-[12.5px] transition-colors"
-                  style={{
-                    border: `1px solid ${q.required ? "var(--vh-accent)" : "var(--vh-line-strong)"}`,
-                    background: q.required ? "var(--vh-accent)" : "var(--vh-surface)",
-                    color: q.required ? "white" : "var(--vh-ink-soft)",
-                    cursor: locked ? "not-allowed" : "pointer",
-                  }}
-                >
-                  {q.required ? "Required" : "Optional"}
-                </button>
-                {(q.type === "SINGLE_CHOICE" || q.type === "MULTIPLE_CHOICE") && (
-                  <>
-                    <button
-                      type="button"
-                      disabled={locked}
-                      onClick={() => !locked && updateQuestion(qIndex, { randomizeOptions: !q.randomizeOptions })}
-                      className="px-2.5 py-1.5 rounded-[8px] text-[12.5px] transition-colors"
-                      style={{
-                        border: `1px solid ${q.randomizeOptions ? "var(--vh-success)" : "var(--vh-line-strong)"}`,
-                        background: q.randomizeOptions ? "var(--vh-success-soft)" : "var(--vh-surface)",
-                        color: q.randomizeOptions ? "oklch(0.35 0.10 155)" : "var(--vh-ink-soft)",
-                        cursor: locked ? "not-allowed" : "pointer",
-                      }}
-                    >
-                      Randomize order
-                    </button>
-                    <button
-                      type="button"
-                      disabled={locked}
-                      onClick={() => !locked && updateQuestion(qIndex, { showOptionAvatars: !(q.showOptionAvatars ?? true) })}
-                      className="px-2.5 py-1.5 rounded-[8px] text-[12.5px] transition-colors"
-                      style={{
-                        border: `1px solid ${(q.showOptionAvatars ?? true) ? "var(--vh-accent)" : "var(--vh-line-strong)"}`,
-                        background: (q.showOptionAvatars ?? true) ? "var(--vh-accent)" : "var(--vh-surface)",
-                        color: (q.showOptionAvatars ?? true) ? "white" : "var(--vh-ink-soft)",
-                        cursor: locked ? "not-allowed" : "pointer",
-                        opacity: locked ? 0.6 : 1,
-                      }}
-                    >
-                      Show avatars
-                    </button>
-                  </>
-                )}
+              <div className="flex flex-col gap-1.5">
+                <div className="flex gap-1.5 flex-wrap items-center">
+                  {TYPES.map((t) => {
+                    const active = q.type === t.value
+                    return (
+                      <button
+                        key={t.value}
+                        type="button"
+                        disabled={locked}
+                        onClick={() => {
+                          if (locked) return
+                          updateQuestion(qIndex, {
+                            type: t.value,
+                            maxSelections: t.value === "MULTIPLE_CHOICE" ? q.maxSelections : undefined,
+                            options: t.value === "WRITE_IN" ? [] : q.options.length ? q.options : [{ text: "", order: 0 }, { text: "", order: 1 }],
+                          })
+                        }}
+                        className="px-2.5 py-1.5 rounded-[8px] text-[12.5px] transition-colors"
+                        style={{
+                          border: `1px solid ${active ? "var(--vh-accent)" : "var(--vh-line-strong)"}`,
+                          background: active ? "var(--vh-accent-soft)" : "var(--vh-surface)",
+                          color: active ? "var(--vh-accent-strong)" : "var(--vh-ink-soft)",
+                          fontWeight: active ? 500 : 400,
+                          cursor: locked ? "not-allowed" : "pointer",
+                          opacity: locked ? 0.6 : 1,
+                        }}
+                      >
+                        {t.label}
+                      </button>
+                    )
+                  })}
+                </div>
+                <div className="flex gap-1.5 flex-wrap items-center">
+                  <button
+                    type="button"
+                    disabled={locked}
+                    onClick={() => !locked && updateQuestion(qIndex, { required: !q.required })}
+                    className="px-2.5 py-1.5 rounded-[8px] text-[12.5px] transition-colors"
+                    style={{
+                      border: `1px solid ${q.required ? "var(--vh-accent)" : "var(--vh-line-strong)"}`,
+                      background: q.required ? "var(--vh-accent)" : "var(--vh-surface)",
+                      color: q.required ? "white" : "var(--vh-ink-soft)",
+                      cursor: locked ? "not-allowed" : "pointer",
+                    }}
+                  >
+                    {q.required ? "Required" : "Optional"}
+                  </button>
+                  {(q.type === "SINGLE_CHOICE" || q.type === "MULTIPLE_CHOICE") && (
+                    <>
+                      <button
+                        type="button"
+                        disabled={locked}
+                        onClick={() => !locked && updateQuestion(qIndex, { randomizeOptions: !q.randomizeOptions })}
+                        className="px-2.5 py-1.5 rounded-[8px] text-[12.5px] transition-colors"
+                        style={{
+                          border: `1px solid ${q.randomizeOptions ? "var(--vh-success)" : "var(--vh-line-strong)"}`,
+                          background: q.randomizeOptions ? "var(--vh-success-soft)" : "var(--vh-surface)",
+                          color: q.randomizeOptions ? "oklch(0.35 0.10 155)" : "var(--vh-ink-soft)",
+                          cursor: locked ? "not-allowed" : "pointer",
+                        }}
+                      >
+                        Randomize order
+                      </button>
+                      <button
+                        type="button"
+                        disabled={locked}
+                        onClick={() => !locked && updateQuestion(qIndex, { showOptionAvatars: !(q.showOptionAvatars ?? true) })}
+                        className="px-2.5 py-1.5 rounded-[8px] text-[12.5px] transition-colors"
+                        style={{
+                          border: `1px solid ${(q.showOptionAvatars ?? true) ? "var(--vh-accent)" : "var(--vh-line-strong)"}`,
+                          background: (q.showOptionAvatars ?? true) ? "var(--vh-accent)" : "var(--vh-surface)",
+                          color: (q.showOptionAvatars ?? true) ? "white" : "var(--vh-ink-soft)",
+                          cursor: locked ? "not-allowed" : "pointer",
+                          opacity: locked ? 0.6 : 1,
+                        }}
+                      >
+                        Show avatars
+                      </button>
+                    </>
+                  )}
+                </div>
               </div>
 
               {/* Options */}

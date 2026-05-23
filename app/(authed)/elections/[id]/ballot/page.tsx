@@ -33,7 +33,7 @@ export default async function BallotPage({ params }: { params: Promise<{ id: str
     : null
 
   return (
-    <div className="p-4 sm:p-8 max-w-[860px]">
+    <div className="p-4 sm:p-8 max-w-[720px]">
       <div className="text-[13px] mb-3.5" style={{ color: "var(--vh-muted)" }}>
         <GuardLink href="/dashboard">Elections</GuardLink>
         <span className="mx-1.5">›</span>

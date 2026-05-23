@@ -16,14 +16,14 @@ export const PRESETS: Record<EmailPreset, PresetData> = {
     smtp: { host: "", port: "587", secure: "false" },
     tipTitle: "Custom SMTP server",
     tipText:
-      "Enter your provider's SMTP host, port, and TLS mode. Use STARTTLS on port 587 or Implicit TLS on port 465 unless your provider specifies otherwise.",
+      "Enter your provider's SMTP host, port, and TLS mode. Use STARTTLS on port 587 or Implicit TLS on port 465 unless your provider specifies otherwise. Daily send limit: varies by provider — check your service's documentation.",
   },
   resend: {
     label: "Resend",
     provider: "resend",
     tipTitle: "About Resend",
     tipText:
-      "API-based delivery with high deliverability. The From Address must be on a domain you've verified in Resend.",
+      "API-based delivery with high deliverability. The From Address must be on a domain you've verified in Resend. Daily send limit: ~100 emails on the free tier (3,000/month); paid plans send substantially more.",
     tipUrl: { label: "resend.com/api-keys", href: "https://resend.com/api-keys" },
   },
   gmail: {
@@ -50,7 +50,7 @@ export const PRESETS: Record<EmailPreset, PresetData> = {
     smtp: { host: "smtp.office365.com", port: "587", secure: "false" },
     tipTitle: "Setting up Microsoft 365 / Outlook",
     tipText:
-      "Use your full email address as the username. If basic SMTP auth is blocked, ask an admin to enable Authenticated SMTP, or generate an App Password if MFA is enabled.",
+      "Use your full email address as the username. If basic SMTP auth is blocked, ask an admin to enable Authenticated SMTP, or generate an App Password if MFA is enabled. Daily send limit: ~300 emails for free outlook.com accounts; ~10,000 for Microsoft 365 business mailboxes.",
   },
   yahoo: {
     label: "Yahoo Mail",
@@ -58,7 +58,7 @@ export const PRESETS: Record<EmailPreset, PresetData> = {
     smtp: { host: "smtp.mail.yahoo.com", port: "465", secure: "true" },
     tipTitle: "Setting up Yahoo Mail",
     tipText:
-      "Yahoo requires an App Password (2-step verification must be enabled). Use your full @yahoo.com address as the username.",
+      "Yahoo requires an App Password (2-step verification must be enabled). Use your full @yahoo.com address as the username. Daily send limit: ~500 emails on free accounts.",
     tipUrl: { label: "Yahoo Account Security", href: "https://login.yahoo.com/account/security" },
   },
 }
