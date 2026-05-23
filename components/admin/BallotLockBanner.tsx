@@ -30,8 +30,8 @@ export default function BallotLockBanner({ firstVoteAt, ballotResetAt, ballotRes
       >
         <span className="text-base mt-0.5 flex-shrink-0">🔒</span>
         <p className="text-[13.5px]" style={{ color: "oklch(0.4 0.12 65)" }}>
-          <strong>Ballot locked</strong> — first vote cast {relativeTime(firstVoteAt)}.
-          Ballot structure cannot be edited. To restart with a fresh ballot, use{" "}
+          <strong>Election locked</strong> — first vote cast {relativeTime(firstVoteAt)}.
+          Ballot and settings cannot be edited (except the close date). To restart with a fresh ballot and settings, use{" "}
           <strong>Discard &amp; Reopen</strong>{" "}
           {onSettingsTab ? "at the bottom of this page" : "on the Settings tab"}.
         </p>

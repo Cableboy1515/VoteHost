@@ -13,6 +13,7 @@ export type InviteSendSummary = {
 
 export async function sendBallotInvitationsToUninvited(
   electionId: string,
+  callbacks?: { onSent?: () => void; onFailed?: () => void },
 ): Promise<InviteSendSummary> {
   const election = await db.election.findUnique({
     where: { id: electionId },
@@ -57,12 +58,14 @@ export async function sendBallotInvitationsToUninvited(
 
       if (classification === "quota") {
         console.error("[sendBallotInvitationsToUninvited] quota reached at", voter.email, error)
+        callbacks?.onFailed?.()
         return { sent, failed: failed + 1, stopped: true, stopReason: "quota", lastError: error ?? undefined, failedAt: voter.email }
       }
 
       if (error) {
         console.error("[sendBallotInvitationsToUninvited] send failed for", voter.email, error)
         failed++
+        callbacks?.onFailed?.()
         if (classification === "transient") {
           consecutiveFails++
           if (consecutiveFails >= 5) {
@@ -78,10 +81,12 @@ export async function sendBallotInvitationsToUninvited(
       await db.voter.update({ where: { id: voter.id }, data: { invitedAt: now } })
       sent++
       consecutiveFails = 0
+      callbacks?.onSent?.()
     } catch (err) {
       console.error("[sendBallotInvitationsToUninvited] send threw for", voter.email, err)
       failed++
       consecutiveFails++
+      callbacks?.onFailed?.()
       if (consecutiveFails >= 5) {
         return { sent, failed, stopped: true, stopReason: "consecutive_failures", lastError: String(err), failedAt: voter.email }
       }

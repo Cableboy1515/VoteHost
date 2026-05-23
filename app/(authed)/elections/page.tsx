@@ -263,7 +263,7 @@ export default async function ElectionsListPage({
                 >
                   Results
                 </Link>
-                <ArchiveElectionButton id={e.id} archived={false} />
+                <ArchiveElectionButton id={e.id} archived={false} electionStatus={e.status} />
                 <DeleteElectionButton id={e.id} title={e.title} />
               </div>
             </div>

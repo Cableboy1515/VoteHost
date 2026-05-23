@@ -101,6 +101,7 @@ export default async function EditElectionPage({ params }: { params: Promise<{ i
           autoActivate: election.autoActivate,
           autoSendResults: election.autoSendResults,
           resultsEmailSentAt: election.resultsEmailSentAt?.toISOString() ?? null,
+          firstVoteAt: election.firstVoteAt?.toISOString() ?? null,
         }}
       />
       {isClosed && (

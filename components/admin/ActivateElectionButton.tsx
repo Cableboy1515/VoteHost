@@ -1,13 +1,15 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import ActivationConfirmDialog from "@/components/admin/ActivationConfirmDialog"
+import type { ActivationStatus } from "@/components/admin/InvitationProgress"
 
 interface Props {
   electionId: string
   electionTitle: string
   uninvitedCount: number
   onActivated?: () => void
+  onProgressTick?: () => void
   children: React.ReactNode
 }
 
@@ -16,15 +18,58 @@ export default function ActivateElectionButton({
   electionTitle,
   uninvitedCount,
   onActivated,
+  onProgressTick,
   children,
 }: Props) {
   const [open, setOpen] = useState(false)
   const [activating, setActivating] = useState(false)
   const [error, setError] = useState("")
+  const [progress, setProgress] = useState<ActivationStatus | null>(null)
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
+
+  function stopPolling() {
+    if (intervalRef.current) {
+      clearInterval(intervalRef.current)
+      intervalRef.current = null
+    }
+  }
+
+  useEffect(() => {
+    return () => stopPolling()
+  }, [])
 
   function handleOpenChange(next: boolean) {
-    if (!next) setError("")
+    if (!next) {
+      setError("")
+      if (!progress?.sending) {
+        // Only fully reset if sending is done or not started
+        setProgress(null)
+        stopPolling()
+        onActivated?.()
+      }
+    }
     setOpen(next)
+  }
+
+  function startProgressPolling() {
+    stopPolling()
+
+    async function poll() {
+      try {
+        const res = await fetch(`/api/elections/${electionId}/activation-status?t=${Date.now()}`, { cache: "no-store" })
+        if (!res.ok) return
+        const data: ActivationStatus = await res.json()
+        setProgress(data)
+        onProgressTick?.()
+        if (!data.sending) {
+          stopPolling()
+          onActivated?.()
+        }
+      } catch {}
+    }
+
+    poll() // immediate first fetch — don't wait 2 s
+    intervalRef.current = setInterval(poll, 2000)
   }
 
   async function handleActivate() {
@@ -38,25 +83,16 @@ export default function ActivateElectionButton({
         setActivating(false)
         return
       }
-      const { sent = 0, failed = 0, stopped = false, stopReason, failedAt } =
-        body as { sent?: number; failed?: number; stopped?: boolean; stopReason?: string; failedAt?: string }
-      if (stopped) {
-        const detail = stopReason === "quota"
-          ? `Email provider quota reached at ${failedAt ?? "unknown"}. Sent ${sent} of ${sent + failed}. Try again later or check your provider settings.`
-          : `Sending stopped after repeated failures at ${failedAt ?? "unknown"}. Sent ${sent} of ${sent + failed}. Check email settings or server logs.`
-        setError(`Activated, but ${detail}`)
-        setActivating(false)
-        onActivated?.()
-        return
+      setActivating(false)
+      const initial: ActivationStatus = {
+        total: body.total ?? 0,
+        invited: 0,
+        failed: 0,
+        sending: true,
+        stopped: false,
       }
-      if (failed > 0) {
-        setError(`Activated, but ${failed} of ${sent + failed} invitation(s) failed to send. Check email settings or server logs.`)
-        setActivating(false)
-        onActivated?.()
-        return
-      }
-      setOpen(false)
-      onActivated?.()
+      setProgress(initial)
+      startProgressPolling()
     } catch {
       setError("Network error — please try again.")
       setActivating(false)
@@ -76,6 +112,7 @@ export default function ActivateElectionButton({
         onConfirm={handleActivate}
         confirming={activating}
         error={error}
+        progress={progress}
       />
     </>
   )

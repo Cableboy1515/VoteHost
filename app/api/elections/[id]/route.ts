@@ -55,6 +55,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
       startsAt: true,
       endsAt: true,
       status: true,
+      archived: true,
       firstVoteAt: true,
       completionEmailSentAt: true,
       autoSendResults: true,
@@ -169,6 +170,29 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     // Preserve original date precision in the DB — only write if meaningfully changed.
     if (!startsAtChanged) delete updates.startsAt
     if (!endsAtChanged) delete updates.endsAt
+  }
+
+  // Archive is a post-completion action; unarchive (archived: false) is unrestricted.
+  if (parsed.data.archived === true && before.archived !== true && before.status !== "COMPLETED") {
+    return NextResponse.json(
+      { error: "Only completed elections can be archived. Close this election first." },
+      { status: 409 },
+    )
+  }
+
+  // Lock settings once voting has started (mirrors completed-election lock,
+  // but allows endsAt extension via the ACTIVE date guards above).
+  if (before.firstVoteAt && before.status !== "COMPLETED") {
+    const VOTING_STARTED_ALLOWED_KEYS = new Set([
+      "endsAt", "status", "archived", "autoSendResults", "heroColor",
+    ])
+    const lockedKeys = Object.keys(parsed.data).filter((k) => !VOTING_STARTED_ALLOWED_KEYS.has(k))
+    if (lockedKeys.length > 0) {
+      return NextResponse.json(
+        { error: "Settings are locked — voting has started. To restart with fresh settings, use Discard & Reopen." },
+        { status: 423 },
+      )
+    }
   }
 
   // Closed elections are immutable — reopening would silently invalidate the

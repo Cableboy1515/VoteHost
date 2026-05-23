@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useRef } from "react"
+import { useState, useRef, useEffect, useCallback } from "react"
 import { useRouter } from "next/navigation"
 import {
   Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle,
@@ -9,6 +9,7 @@ import { Toaster } from "@/components/ui/sonner"
 import { toast } from "sonner"
 import Papa from "papaparse"
 import ActivateElectionButton from "@/components/admin/ActivateElectionButton"
+import InvitationProgress, { type ActivationStatus } from "@/components/admin/InvitationProgress"
 import { useDisplayTimeZone } from "@/components/TimezoneProvider"
 
 interface Voter {
@@ -123,6 +124,7 @@ export default function VoterManager({
   const router = useRouter()
   const tz = useDisplayTimeZone()
   const [voters, setVoters] = useState<Voter[]>(initialVoters)
+  const [activationStatus, setActivationStatus] = useState<ActivationStatus | null>(null)
   const [name, setName] = useState("")
   const [email, setEmail] = useState("")
   const [csvPreview, setCsvPreview] = useState<{ name: string; email: string }[]>([])
@@ -142,6 +144,7 @@ export default function VoterManager({
   const [bulkBusy, setBulkBusy] = useState<null | "delete" | "resend">(null)
   const [csvFileName, setCsvFileName] = useState<string | null>(null)
   const fileRef = useRef<HTMLInputElement>(null)
+  const wasSendingRef = useRef(false)
 
   function toggleSort(key: SortKey) {
     if (sortKey === key) setSortDir((d) => (d === "asc" ? "desc" : "asc"))
@@ -173,8 +176,11 @@ export default function VoterManager({
   const allVisibleSelected = sorted.length > 0 && sorted.every((v) => selectedIds.has(v.id))
   const someVisibleSelected = sorted.some((v) => selectedIds.has(v.id)) && !allVisibleSelected
 
-  async function refreshVoters() {
-    const res = await fetch(`/api/elections/${electionId}/voters`)
+  // Sync local state when RSC re-renders with fresh initialVoters (e.g. after router.refresh())
+  useEffect(() => { setVoters(initialVoters) }, [initialVoters])
+
+  const refreshVoters = useCallback(async () => {
+    const res = await fetch(`/api/elections/${electionId}/voters`, { cache: "no-store" })
     if (res.ok) {
       const updated = await res.json()
       setVoters(updated)
@@ -185,7 +191,39 @@ export default function VoterManager({
         return next.size === prev.size ? prev : next
       })
     }
-  }
+  }, [electionId])
+
+  // Poll activation-status when ACTIVE — drives live voter row updates and banner state.
+  // Interval runs continuously so it picks up new send jobs (e.g. resume after adding voters).
+  useEffect(() => {
+    if (electionStatus !== "ACTIVE") return
+
+    let cancelled = false
+
+    async function poll() {
+      try {
+        const res = await fetch(`/api/elections/${electionId}/activation-status?t=${Date.now()}`, { cache: "no-store" })
+        if (!res.ok || cancelled) return
+        const data: ActivationStatus = await res.json()
+        setActivationStatus(data)
+        if (data.sending) {
+          wasSendingRef.current = true
+          refreshVoters()
+        } else if (wasSendingRef.current) {
+          wasSendingRef.current = false
+          refreshVoters() // one final refresh when send completes
+        }
+      } catch {}
+    }
+
+    poll()
+    const intervalId = setInterval(poll, 2000)
+
+    return () => {
+      cancelled = true
+      clearInterval(intervalId)
+    }
+  }, [electionId, electionStatus, refreshVoters])
 
   async function handleAddVoter(e: React.FormEvent) {
     e.preventDefault()
@@ -271,6 +309,20 @@ export default function VoterManager({
     } else {
       toast.error("Failed to send invitations")
     }
+  }
+
+  async function handleResumeInvites() {
+    setSending(true)
+    const res = await fetch(`/api/elections/${electionId}/resume-invitations`, { method: "POST" })
+    setSending(false)
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}))
+      toast.error(body.error ?? "Failed to start sending invitations")
+      return
+    }
+    const { total } = await res.json()
+    setActivationStatus({ total, invited: 0, failed: 0, sending: true, stopped: false })
+    wasSendingRef.current = true
   }
 
   async function handleResend(voter: Voter) {
@@ -505,6 +557,7 @@ export default function VoterManager({
               electionTitle={electionTitle}
               uninvitedCount={uninvited}
               onActivated={() => router.refresh()}
+              onProgressTick={refreshVoters}
             >
               <button
                 type="button"
@@ -554,6 +607,7 @@ export default function VoterManager({
             electionTitle={electionTitle}
             uninvitedCount={uninvited}
             onActivated={() => router.refresh()}
+            onProgressTick={refreshVoters}
           >
             <button
               type="button"
@@ -574,20 +628,42 @@ export default function VoterManager({
       {electionStatus === "ACTIVE" && uninvited > 0 && (
         <div
           className="flex items-center gap-3 rounded-[14px] px-[18px] py-3.5"
-          style={{ background: "var(--vh-accent-soft)" }}
+          style={{ background: "var(--vh-accent-soft)", border: "1px solid oklch(0.85 0.05 255)" }}
         >
-          <span className="text-lg">📨</span>
-          <div className="flex-1 text-[13.5px]" style={{ color: "var(--vh-accent-strong)" }}>
-            <strong>{uninvited} voter{uninvited !== 1 ? "s" : ""}</strong> {uninvited !== 1 ? "haven't" : "hasn't"} been invited yet.
-          </div>
-          <button
-            onClick={handleSendInvites}
-            disabled={sending}
-            className="px-3.5 py-2 rounded-[10px] text-[13px] font-medium text-white transition-colors disabled:opacity-60"
-            style={{ background: "var(--vh-accent)" }}
-          >
-            {sending ? "Sending…" : `Send ${uninvited} invitation${uninvited !== 1 ? "s" : ""}`}
-          </button>
+          <span className="text-lg flex-shrink-0">📨</span>
+          {activationStatus?.sending ? (
+            <div className="flex-1 min-w-0">
+              <p className="text-[13px] font-medium mb-2" style={{ color: "var(--vh-accent-strong)" }}>
+                Sending invitations…
+              </p>
+              <InvitationProgress status={activationStatus} />
+            </div>
+          ) : (
+            <>
+              <div className="flex-1 text-[13.5px]" style={{ color: "var(--vh-accent-strong)" }}>
+                {activationStatus?.stopped ? (
+                  <>
+                    <strong>Sending stopped</strong>
+                    {activationStatus.stopReason === "quota" && " — email provider quota reached"}.{" "}
+                    {uninvited} voter{uninvited !== 1 ? "s" : ""} not yet invited.
+                  </>
+                ) : (
+                  <>
+                    <strong>{uninvited} voter{uninvited !== 1 ? "s" : ""}</strong>{" "}
+                    {uninvited !== 1 ? "haven't" : "hasn't"} been invited yet.
+                  </>
+                )}
+              </div>
+              <button
+                onClick={handleResumeInvites}
+                disabled={sending}
+                className="px-3.5 py-2 rounded-[10px] text-[13px] font-medium text-white transition-colors disabled:opacity-60 flex-shrink-0"
+                style={{ background: "var(--vh-accent)" }}
+              >
+                {sending ? "Sending…" : activationStatus?.stopped ? "Resume invitations" : `Send ${uninvited} invitation${uninvited !== 1 ? "s" : ""}`}
+              </button>
+            </>
+          )}
         </div>
       )}
 
@@ -668,11 +744,11 @@ export default function VoterManager({
               {electionStatus === "ACTIVE" && (
                 <button
                   onClick={handleSendInvites}
-                  disabled={sending}
+                  disabled={sending || activationStatus?.sending}
                   className="px-3.5 py-1.5 rounded-[8px] text-[13px] transition-colors disabled:opacity-50"
                   style={{ border: "1px solid var(--vh-line-strong)", background: "var(--vh-surface)", color: "var(--vh-ink-soft)" }}
                 >
-                  {sending ? "Sending…" : "Send invitations"}
+                  {sending || activationStatus?.sending ? "Sending…" : "Send invitations"}
                 </button>
               )}
             </div>

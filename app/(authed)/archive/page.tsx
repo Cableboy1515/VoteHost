@@ -142,7 +142,7 @@ export default async function ArchivePage() {
                         >
                           Results →
                         </Link>
-                        <ArchiveElectionButton id={e.id} archived={true} />
+                        <ArchiveElectionButton id={e.id} archived={true} electionStatus={e.status} />
                         <DeleteElectionButton id={e.id} title={e.title} />
                       </div>
                     </div>

@@ -1,9 +1,10 @@
+export const dynamic = "force-dynamic"
+
 import { NextResponse, after } from "next/server"
 import { requireRole } from "@/lib/auth"
 import { db } from "@/lib/db"
-import { canActivate, CANNOT_ACTIVATE_MESSAGES } from "@/lib/canActivate"
 import { sendBallotInvitationsToUninvited } from "@/lib/sendBallotInvitationsToUninvited"
-import { startProgress, recordSent, recordFailed, finishProgress } from "@/lib/activationProgress"
+import { startProgress, recordSent, recordFailed, finishProgress, getProgress } from "@/lib/activationProgress"
 
 export async function POST(_req: Request, { params }: { params: Promise<{ id: string }> }) {
   const session = await requireRole("ORGANIZER")
@@ -13,36 +14,23 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
 
   const election = await db.election.findUnique({
     where: { id: electionId },
-    include: { _count: { select: { questions: true, voters: true } } },
+    select: { status: true },
   })
   if (!election) return NextResponse.json({ error: "Not found" }, { status: 404 })
-  if (election.status !== "DRAFT") {
-    return NextResponse.json({ error: "Election is not in Draft status." }, { status: 409 })
+  if (election.status !== "ACTIVE") {
+    return NextResponse.json({ error: "Election is not active." }, { status: 409 })
   }
 
-  const check = canActivate({
-    questionCount: election._count.questions,
-    voterCount: election._count.voters,
-    endsAt: election.endsAt,
-  })
-  if (!check.ok) {
-    return NextResponse.json({ error: CANNOT_ACTIVATE_MESSAGES[check.reason] }, { status: 409 })
+  const existing = getProgress(electionId)
+  if (existing?.running) {
+    return NextResponse.json({ error: "Invitations are already sending." }, { status: 409 })
   }
-
-  const now = new Date()
-
-  await db.election.update({
-    where: { id: electionId },
-    data: {
-      status: "ACTIVE",
-      activatedAt: now,
-      activatedById: session.sub,
-      startsAt: now,
-      startReminderSentAt: null,
-    },
-  })
 
   const total = await db.voter.count({ where: { electionId, invitedAt: null } })
+  if (total === 0) {
+    return NextResponse.json({ sending: false, total: 0 })
+  }
+
   startProgress(electionId, total)
 
   after(() =>
@@ -54,5 +42,5 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
       .catch((err) => finishProgress(electionId, { sent: 0, failed: total, stopped: true, lastError: String(err) }))
   )
 
-  return NextResponse.json({ activated: true, sending: true, total }, { status: 202 })
+  return NextResponse.json({ sending: true, total }, { status: 202 })
 }

@@ -445,103 +445,144 @@ export default function BallotForm({ token, electionTitle, electionDescription, 
   // ── Review step ─────────────────────────────────────────────────────────
 
   if (step === questions.length) {
+    const reviewCards = (
+      <>
+        {questions.map((q, i) => (
+          <div key={q.id} className="bg-vh-surface border border-vh-line rounded-card p-4">
+            <div className="flex items-start justify-between gap-3 mb-3">
+              <div className="min-w-0 flex-1">
+                <span
+                  className="inline-flex items-center justify-center text-base font-semibold rounded-[8px] px-2.5 mb-1.5"
+                  style={{ background: "var(--vh-accent)", color: "var(--vh-accent-fg)", minWidth: 32, height: 32 }}
+                >
+                  {i + 1}
+                </span>
+                <p className="text-base font-medium text-vh-ink break-words">{q.text}</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => { setStep(i); setError("") }}
+                className="shrink-0 text-sm text-vh-ink-soft border border-vh-line px-3 py-1.5 rounded-[8px] hover:bg-vh-surface-2 transition-colors"
+              >
+                Edit
+              </button>
+            </div>
+            {q.type === "RANKED_CHOICE" ? (
+              <div className="space-y-2">
+                {(rankedOrders[q.id] ?? []).length === 0 ? (
+                  <p className="text-base text-vh-muted">(not ranked)</p>
+                ) : (
+                  (rankedOrders[q.id] ?? []).map((id, idx) => {
+                    const opt = q.options.find((o) => o.id === id)
+                    return (
+                      <div
+                        key={id}
+                        className="flex items-center gap-3 px-3 py-2 rounded-[12px] border"
+                        style={{ background: "var(--vh-accent-soft)", borderColor: "oklch(0.85 0.05 255)" }}
+                      >
+                        <span
+                          className="w-8 h-8 flex-shrink-0 inline-grid place-items-center rounded-full text-white text-sm font-semibold"
+                          style={{ background: "var(--vh-accent)" }}
+                        >
+                          {idx + 1}
+                        </span>
+                        <span className="flex-1 min-w-0 break-words text-base font-medium text-vh-ink">
+                          {opt?.text ?? id}
+                        </span>
+                      </div>
+                    )
+                  })
+                )}
+              </div>
+            ) : (
+              <div className="space-y-1">
+                {getSummaryLines(q).map((line, j) => (
+                  <p key={j} className="text-base font-medium text-vh-ink break-words">{line}</p>
+                ))}
+              </div>
+            )}
+          </div>
+        ))}
+
+        <p className="text-sm text-vh-muted text-center py-1">
+          🔒 Once submitted, your ballot is final and recorded anonymously.
+        </p>
+
+        {error && <p className="text-base text-center" style={{ color: "var(--vh-danger)" }}>{error}</p>}
+
+        <button
+          type="button"
+          onClick={handleConfirmSubmit}
+          disabled={submitting}
+          className="w-full py-3.5 font-semibold text-white text-base rounded-[var(--vh-radius-sm)] transition-opacity disabled:opacity-60"
+          style={{ background: "var(--vh-accent)" }}
+        >
+          {submitting ? "Submitting…" : "Submit my ballot"}
+        </button>
+      </>
+    )
+
     return (
       <div className="min-h-screen bg-vh-bg">
-        <header className="sticky top-0 z-10 bg-vh-surface border-b border-vh-line">
-          <div className="max-w-xl mx-auto px-4 py-4 flex items-center gap-3">
+
+        {/* ── Mobile ── */}
+        <div className="md:hidden">
+          <header className="sticky top-0 z-10 bg-vh-surface border-b border-vh-line">
+            <div className="max-w-xl mx-auto px-4 py-4 flex items-center gap-3">
+              <button
+                type="button"
+                onClick={() => { setStep(questions.length - 1); setError("") }}
+                className="text-vh-muted hover:text-vh-ink transition-colors p-1 leading-none"
+              >
+                ←
+              </button>
+              <BrandMark size={28} />
+              <div className="flex-1 min-w-0">
+                <p className="text-base font-semibold text-vh-ink">Review your ballot</p>
+                <p className="text-xs text-vh-muted truncate">{electionTitle}</p>
+              </div>
+            </div>
+          </header>
+          <div className="max-w-xl mx-auto px-4 py-8 space-y-4">
+            <p className="text-sm text-vh-muted pb-1">
+              Check your answers below. Use Edit to change any response before submitting.
+            </p>
+            {reviewCards}
+          </div>
+        </div>
+
+        {/* ── Desktop 2-column layout ── */}
+        <div className="hidden md:flex min-h-screen">
+          <aside
+            className="w-[260px] flex-shrink-0 sticky top-0 h-screen border-r border-vh-line bg-vh-surface overflow-y-auto flex flex-col"
+            style={{ padding: "28px 20px" }}
+          >
+            <BrandMark size={28} className="mb-8" />
+            <p className="text-[15px] font-semibold text-vh-ink mb-4 break-words">{electionTitle}</p>
+            <div className="flex-1" />
             <button
               type="button"
               onClick={() => { setStep(questions.length - 1); setError("") }}
-              className="text-vh-muted hover:text-vh-ink transition-colors p-1 leading-none"
+              className="w-full py-2.5 text-sm font-semibold text-vh-ink-soft bg-vh-surface border border-vh-line rounded-[var(--vh-radius-sm)] hover:bg-vh-surface-2 transition-colors"
             >
-              ←
+              ← Back to questions
             </button>
-            <BrandMark size={28} />
-            <div className="flex-1 min-w-0">
-              <p className="text-base font-semibold text-vh-ink">Review your ballot</p>
-              <p className="text-xs text-vh-muted truncate">{electionTitle}</p>
-            </div>
-          </div>
-        </header>
-
-        <div className="max-w-xl mx-auto px-4 py-8 space-y-4">
-          <p className="text-sm text-vh-muted pb-1">
-            Check your answers below. Use Edit to change any response before submitting.
-          </p>
-
-          {questions.map((q, i) => (
-            <div key={q.id} className="bg-vh-surface border border-vh-line rounded-card p-4">
-              <div className="flex items-start justify-between gap-3 mb-3">
-                <div className="min-w-0 flex-1">
-                  <span
-                    className="inline-flex items-center justify-center text-base font-semibold rounded-[8px] px-2.5 mb-1.5"
-                    style={{ background: "var(--vh-accent)", color: "var(--vh-accent-fg)", minWidth: 32, height: 32 }}
-                  >
-                    {i + 1}
-                  </span>
-                  <p className="text-base font-medium text-vh-ink break-words">{q.text}</p>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => { setStep(i); setError("") }}
-                  className="shrink-0 text-sm text-vh-ink-soft border border-vh-line px-3 py-1.5 rounded-[8px] hover:bg-vh-surface-2 transition-colors"
-                >
-                  Edit
-                </button>
+          </aside>
+          <main className="flex-1 py-12 px-10 overflow-y-auto">
+            <div className="max-w-[564px]">
+              <div className="mb-10">
+                <h1 className="text-2xl font-semibold text-vh-ink mb-1">Review your ballot</h1>
+                <p className="text-[15px] leading-relaxed text-vh-muted">
+                  Check your answers below. Use Edit to change any response before submitting.
+                </p>
               </div>
-              {q.type === "RANKED_CHOICE" ? (
-                <div className="space-y-2">
-                  {(rankedOrders[q.id] ?? []).length === 0 ? (
-                    <p className="text-base text-vh-muted">(not ranked)</p>
-                  ) : (
-                    (rankedOrders[q.id] ?? []).map((id, idx) => {
-                      const opt = q.options.find((o) => o.id === id)
-                      return (
-                        <div
-                          key={id}
-                          className="flex items-center gap-3 px-3 py-2 rounded-[12px] border"
-                          style={{ background: "var(--vh-accent-soft)", borderColor: "oklch(0.85 0.05 255)" }}
-                        >
-                          <span
-                            className="w-8 h-8 flex-shrink-0 inline-grid place-items-center rounded-full text-white text-sm font-semibold"
-                            style={{ background: "var(--vh-accent)" }}
-                          >
-                            {idx + 1}
-                          </span>
-                          <span className="flex-1 min-w-0 break-words text-base font-medium text-vh-ink">
-                            {opt?.text ?? id}
-                          </span>
-                        </div>
-                      )
-                    })
-                  )}
-                </div>
-              ) : (
-                <div className="space-y-1">
-                  {getSummaryLines(q).map((line, j) => (
-                    <p key={j} className="text-base font-medium text-vh-ink break-words">{line}</p>
-                  ))}
-                </div>
-              )}
+              <div className="space-y-4">
+                {reviewCards}
+              </div>
             </div>
-          ))}
-
-          <p className="text-sm text-vh-muted text-center py-1">
-            🔒 Once submitted, your ballot is final and recorded anonymously.
-          </p>
-
-          {error && <p className="text-base text-center" style={{ color: "var(--vh-danger)" }}>{error}</p>}
-
-          <button
-            type="button"
-            onClick={handleConfirmSubmit}
-            disabled={submitting}
-            className="w-full py-3.5 font-semibold text-white text-base rounded-[var(--vh-radius-sm)] transition-opacity disabled:opacity-60"
-            style={{ background: "var(--vh-accent)" }}
-          >
-            {submitting ? "Submitting…" : "Submit my ballot"}
-          </button>
+          </main>
         </div>
+
       </div>
     )
   }
@@ -682,14 +723,14 @@ export default function BallotForm({ token, electionTitle, electionDescription, 
             )}
 
             <div
-              className="mt-12 px-6 py-5 rounded-[14px] flex items-center justify-between gap-4"
+              className="mt-12 ml-11 px-6 py-5 rounded-[14px] flex items-center justify-between gap-4"
               style={{ background: "var(--vh-accent)" }}
             >
-              <p className="text-[17px] font-semibold text-white">Review your answers before submitting.</p>
+              <p className="text-[16px] font-bold text-white min-w-0">Review your answers before submitting.</p>
               <button
                 type="button"
                 onClick={goToReview}
-                className="px-5 py-2.5 text-[15px] font-semibold rounded-[var(--vh-radius-sm)] transition-colors"
+                className="px-5 py-2.5 text-[15px] font-semibold rounded-[var(--vh-radius-sm)] transition-colors flex-shrink-0"
                 style={{ background: "white", color: "var(--vh-ink)" }}
                 onMouseEnter={(e) => ((e.currentTarget as HTMLElement).style.background = "var(--vh-surface-2)")}
                 onMouseLeave={(e) => ((e.currentTarget as HTMLElement).style.background = "white")}

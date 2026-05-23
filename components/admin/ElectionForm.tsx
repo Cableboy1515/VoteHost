@@ -32,6 +32,7 @@ interface Props {
     autoActivate?: boolean | null
     autoSendResults?: boolean | null
     resultsEmailSentAt?: string | null
+    firstVoteAt?: string | null
   }
 }
 
@@ -311,6 +312,8 @@ export default function ElectionForm({
   const isStartsAtFuture = effectiveStartsAtMoment != null && effectiveStartsAtMoment > new Date()
   const isActive = initialValues?.status === "ACTIVE"
   const isCompleted = initialValues?.status === "COMPLETED"
+  const firstVoteAt = initialValues?.firstVoteAt ?? null
+  const settingsLocked = isCompleted || !!firstVoteAt
   const opensLocked = isActive || (status === "ACTIVE" && initialValues?.status === "DRAFT")
   const closesMinIso = isActive && initialValues?.endsAt ? toLocalInput(initialValues.endsAt) : undefined
 
@@ -329,7 +332,7 @@ export default function ElectionForm({
   return (
     <div className="max-w-[800px]">
       <form onSubmit={handleSubmit} className="flex flex-col gap-3.5">
-        {isCompleted && (
+        {settingsLocked && (
           <div
             className="rounded-[10px] px-4 py-3 text-[13px]"
             style={{
@@ -338,7 +341,9 @@ export default function ElectionForm({
               border: "1px solid var(--vh-line-strong)",
             }}
           >
-            This election is completed and its record is locked. To run another vote, create a new election.
+            {isCompleted
+              ? "This election is completed and its record is locked. To run another vote, create a new election."
+              : "Voting has started — settings are locked except the close date. Push Closes later if you need more time, or use Discard & Reopen to restart."}
           </div>
         )}
         {/* Basics */}
@@ -353,9 +358,9 @@ export default function ElectionForm({
                 required
                 autoComplete="off"
                 placeholder="Election title"
-                disabled={isCompleted}
+                disabled={settingsLocked}
                 className={inputCls}
-                style={{ ...inputStyle, ...(isCompleted ? { opacity: 0.5, cursor: "not-allowed" } : {}) }}
+                style={{ ...inputStyle, ...(settingsLocked ? { opacity: 0.5, cursor: "not-allowed" } : {}) }}
                 onFocus={onFocusIn}
                 onBlur={onFocusOut}
               />
@@ -368,9 +373,9 @@ export default function ElectionForm({
                 onChange={(e) => setDescription(e.target.value)}
                 rows={3}
                 placeholder="Shown to voters at the top of their ballot"
-                disabled={isCompleted}
+                disabled={settingsLocked}
                 className={inputCls}
-                style={{ ...inputStyle, resize: "none", ...(isCompleted ? { opacity: 0.5, cursor: "not-allowed" } : {}) }}
+                style={{ ...inputStyle, resize: "none", ...(settingsLocked ? { opacity: 0.5, cursor: "not-allowed" } : {}) }}
                 onFocus={onFocusIn}
                 onBlur={onFocusOut}
               />
@@ -476,9 +481,9 @@ export default function ElectionForm({
                   type="date"
                   value={dateOnly(startsAt)}
                   onChange={(e) => setStartsAt(e.target.value ? `${e.target.value}T00:00` : "")}
-                  disabled={opensLocked || isCompleted}
+                  disabled={opensLocked || settingsLocked}
                   className={inputCls}
-                  style={{ ...inputStyle, ...(opensLocked || isCompleted ? { opacity: 0.5, cursor: "not-allowed" } : {}) }}
+                  style={{ ...inputStyle, ...(opensLocked || settingsLocked ? { opacity: 0.5, cursor: "not-allowed" } : {}) }}
                   onFocus={onFocusIn}
                   onBlur={onFocusOut}
                 />
@@ -488,9 +493,9 @@ export default function ElectionForm({
                   type="datetime-local"
                   value={startsAt}
                   onChange={(e) => setStartsAt(e.target.value)}
-                  disabled={opensLocked || isCompleted}
+                  disabled={opensLocked || settingsLocked}
                   className={inputCls}
-                  style={{ ...inputStyle, ...(opensLocked || isCompleted ? { opacity: 0.5, cursor: "not-allowed" } : {}) }}
+                  style={{ ...inputStyle, ...(opensLocked || settingsLocked ? { opacity: 0.5, cursor: "not-allowed" } : {}) }}
                   onFocus={onFocusIn}
                   onBlur={onFocusOut}
                 />
@@ -498,18 +503,18 @@ export default function ElectionForm({
               <div className="mt-1.5 flex items-center gap-3 text-[12px]" style={{ color: "var(--vh-muted)" }}>
                 <label
                   className="flex items-center gap-1.5"
-                  style={{ cursor: opensLocked || isCompleted ? "not-allowed" : "pointer", opacity: opensLocked || isCompleted ? 0.5 : 1 }}
+                  style={{ cursor: opensLocked || settingsLocked ? "not-allowed" : "pointer", opacity: opensLocked || settingsLocked ? 0.5 : 1 }}
                 >
                   <input
                     type="checkbox"
                     checked={startsAtAllDay}
                     onChange={(e) => setStartsAtAllDay(e.target.checked)}
-                    disabled={opensLocked || isCompleted}
+                    disabled={opensLocked || settingsLocked}
                     className="flex-shrink-0"
                   />
                   All day
                 </label>
-                {startsAt && !opensLocked && !isCompleted && (
+                {startsAt && !opensLocked && !settingsLocked && (
                   <button type="button" onClick={() => setStartsAt("")} className="underline">
                     Clear
                   </button>
@@ -583,14 +588,14 @@ export default function ElectionForm({
             <label
               className="flex items-center gap-2.5"
               style={{
-                opacity: isStartsAtFuture && !isCompleted ? 1 : 0.5,
-                cursor: isStartsAtFuture && !isCompleted ? "pointer" : "not-allowed",
+                opacity: isStartsAtFuture && !settingsLocked ? 1 : 0.5,
+                cursor: isStartsAtFuture && !settingsLocked ? "pointer" : "not-allowed",
               }}
             >
               <input
                 type="checkbox"
                 checked={autoActivate}
-                disabled={!isStartsAtFuture || isCompleted}
+                disabled={!isStartsAtFuture || settingsLocked}
                 onChange={(e) => setAutoActivate(e.target.checked)}
                 className="flex-shrink-0"
               />
@@ -662,9 +667,9 @@ export default function ElectionForm({
                 placeholder="Leave blank for no early reminder"
                 value={firstReminderDays}
                 onChange={(e) => setFirstReminderDays(e.target.value)}
-                disabled={!endsAt || isCompleted}
+                disabled={!endsAt || settingsLocked}
                 className={inputCls}
-                style={{ ...inputStyle, maxWidth: 200, opacity: !endsAt || isCompleted ? 0.5 : 1 }}
+                style={{ ...inputStyle, maxWidth: 200, opacity: !endsAt || settingsLocked ? 0.5 : 1 }}
                 onFocus={onFocusIn}
                 onBlur={onFocusOut}
               />
@@ -697,9 +702,9 @@ export default function ElectionForm({
                 value={emailSubject}
                 onChange={(e) => setEmailSubject(e.target.value)}
                 autoComplete="off"
-                disabled={isCompleted}
+                disabled={settingsLocked}
                 className={inputCls}
-                style={{ ...inputStyle, ...(isCompleted ? { opacity: 0.5, cursor: "not-allowed" } : {}) }}
+                style={{ ...inputStyle, ...(settingsLocked ? { opacity: 0.5, cursor: "not-allowed" } : {}) }}
                 onFocus={onFocusIn}
                 onBlur={onFocusOut}
               />
@@ -712,7 +717,7 @@ export default function ElectionForm({
                 setUrl={setEmailLogoUrl}
                 deleteUrl={emailLogoDeleteUrl}
                 setDeleteUrl={setEmailLogoDeleteUrl}
-                disabled={saving || isCompleted}
+                disabled={saving || settingsLocked}
               />
             </div>
             <div>
@@ -723,9 +728,9 @@ export default function ElectionForm({
                 rows={3}
                 value={emailMessage}
                 onChange={(e) => setEmailMessage(e.target.value)}
-                disabled={isCompleted}
+                disabled={settingsLocked}
                 className={inputCls}
-                style={{ ...inputStyle, resize: "none", ...(isCompleted ? { opacity: 0.5, cursor: "not-allowed" } : {}) }}
+                style={{ ...inputStyle, resize: "none", ...(settingsLocked ? { opacity: 0.5, cursor: "not-allowed" } : {}) }}
                 onFocus={onFocusIn}
                 onBlur={onFocusOut}
               />
@@ -738,9 +743,9 @@ export default function ElectionForm({
                 rows={2}
                 value={emailFooter}
                 onChange={(e) => setEmailFooter(e.target.value)}
-                disabled={isCompleted}
+                disabled={settingsLocked}
                 className={inputCls}
-                style={{ ...inputStyle, resize: "none", ...(isCompleted ? { opacity: 0.5, cursor: "not-allowed" } : {}) }}
+                style={{ ...inputStyle, resize: "none", ...(settingsLocked ? { opacity: 0.5, cursor: "not-allowed" } : {}) }}
                 onFocus={onFocusIn}
                 onBlur={onFocusOut}
               />
