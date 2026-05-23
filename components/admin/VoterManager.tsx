@@ -447,6 +447,20 @@ export default function VoterManager({
         ))}
       </div>
 
+      {/* Completed read-only notice */}
+      {electionStatus === "COMPLETED" && (
+        <div
+          className="rounded-[14px] px-[18px] py-3.5 text-[13.5px]"
+          style={{
+            background: "var(--vh-surface-2)",
+            border: "1px solid var(--vh-line-strong)",
+            color: "var(--vh-ink-soft)",
+          }}
+        >
+          This election is completed. The voter list is read-only.
+        </div>
+      )}
+
       {/* Draft activation banners */}
       {electionStatus === "DRAFT" && questionCount === 0 && (
         <div
@@ -633,20 +647,24 @@ export default function VoterManager({
                   {selectionMode ? "Cancel selection" : "Select voters"}
                 </button>
               )}
-              <button
-                onClick={() => setShowAddModal(true)}
-                className="px-3.5 py-1.5 rounded-[8px] text-[13px] font-medium text-white transition-colors"
-                style={{ background: "var(--vh-accent)" }}
-              >
-                + Add voter
-              </button>
-              <button
-                onClick={() => setShowCsvModal(true)}
-                className="px-3.5 py-1.5 rounded-[8px] text-[13px] transition-colors"
-                style={{ border: "1px solid var(--vh-line-strong)", background: "var(--vh-surface)", color: "var(--vh-ink-soft)" }}
-              >
-                Import CSV
-              </button>
+              {electionStatus !== "COMPLETED" && (
+                <>
+                  <button
+                    onClick={() => setShowAddModal(true)}
+                    className="px-3.5 py-1.5 rounded-[8px] text-[13px] font-medium text-white transition-colors"
+                    style={{ background: "var(--vh-accent)" }}
+                  >
+                    + Add voter
+                  </button>
+                  <button
+                    onClick={() => setShowCsvModal(true)}
+                    className="px-3.5 py-1.5 rounded-[8px] text-[13px] transition-colors"
+                    style={{ border: "1px solid var(--vh-line-strong)", background: "var(--vh-surface)", color: "var(--vh-ink-soft)" }}
+                  >
+                    Import CSV
+                  </button>
+                </>
+              )}
               {electionStatus === "ACTIVE" && (
                 <button
                   onClick={handleSendInvites}
