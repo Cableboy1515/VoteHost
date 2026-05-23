@@ -60,6 +60,16 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
       completionEmailSentAt: true,
       autoSendResults: true,
       resultsEmailSentAt: true,
+      title: true,
+      description: true,
+      emailSubject: true,
+      emailMessage: true,
+      emailLogoUrl: true,
+      emailLogoDeleteUrl: true,
+      emailFooter: true,
+      firstReminderDays: true,
+      autoActivate: true,
+      heroColor: true,
       _count: { select: { questions: true, voters: true } },
     },
   })
@@ -180,13 +190,24 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     )
   }
 
+  // Only flag a key as a lock violation if its submitted value actually differs
+  // from what's stored — idempotent re-submissions of unchanged fields are fine.
+  function changedKeysOutside(allowed: Set<string>): string[] {
+    return Object.keys(parsed.data!).filter((k) => {
+      if (allowed.has(k)) return false
+      const submitted = (parsed.data as Record<string, unknown>)[k]
+      const stored = (before as Record<string, unknown>)[k]
+      return (submitted ?? null) !== (stored ?? null)
+    })
+  }
+
   // Lock settings once voting has started (mirrors completed-election lock,
   // but allows endsAt extension via the ACTIVE date guards above).
   if (before.firstVoteAt && before.status !== "COMPLETED") {
     const VOTING_STARTED_ALLOWED_KEYS = new Set([
       "endsAt", "status", "archived", "autoSendResults", "heroColor",
     ])
-    const lockedKeys = Object.keys(parsed.data).filter((k) => !VOTING_STARTED_ALLOWED_KEYS.has(k))
+    const lockedKeys = changedKeysOutside(VOTING_STARTED_ALLOWED_KEYS)
     if (lockedKeys.length > 0) {
       return NextResponse.json(
         { error: "Settings are locked — voting has started. To restart with fresh settings, use Discard & Reopen." },
@@ -208,7 +229,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
   // fields remain editable (archived, autoSendResults, heroColor).
   if (before.status === "COMPLETED") {
     const COMPLETED_ALLOWED_KEYS = new Set(["status", "archived", "autoSendResults", "heroColor"])
-    const lockedKeys = Object.keys(parsed.data).filter((k) => !COMPLETED_ALLOWED_KEYS.has(k))
+    const lockedKeys = changedKeysOutside(COMPLETED_ALLOWED_KEYS)
     if (lockedKeys.length > 0) {
       return NextResponse.json(
         { error: "This election is completed — its historical record is locked. To run another vote, create a new election." },
