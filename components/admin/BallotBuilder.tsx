@@ -2,6 +2,7 @@
 
 import { useRef, useState } from "react"
 import { useRouter } from "next/navigation"
+import { ChevronDown, ChevronUp } from "lucide-react"
 import { useUnsavedChangesGuard } from "@/components/admin/UnsavedChangesGuard"
 import { Textarea } from "@/components/ui/textarea"
 import { Toaster } from "@/components/ui/sonner"
@@ -344,10 +345,11 @@ export default function BallotBuilder({ electionId, electionStatus, firstVoteAt,
                         onClick={() => !locked && updateQuestion(qIndex, { randomizeOptions: !q.randomizeOptions })}
                         className="px-2.5 py-1.5 rounded-[8px] text-[12.5px] transition-colors"
                         style={{
-                          border: `1px solid ${q.randomizeOptions ? "var(--vh-success)" : "var(--vh-line-strong)"}`,
-                          background: q.randomizeOptions ? "var(--vh-success-soft)" : "var(--vh-surface)",
-                          color: q.randomizeOptions ? "oklch(0.35 0.10 155)" : "var(--vh-ink-soft)",
+                          border: `1px solid ${q.randomizeOptions ? "var(--vh-accent)" : "var(--vh-line-strong)"}`,
+                          background: q.randomizeOptions ? "var(--vh-accent)" : "var(--vh-surface)",
+                          color: q.randomizeOptions ? "white" : "var(--vh-ink-soft)",
                           cursor: locked ? "not-allowed" : "pointer",
+                          opacity: locked ? 0.6 : 1,
                         }}
                       >
                         Randomize order
@@ -406,10 +408,11 @@ export default function BallotBuilder({ electionId, electionStatus, firstVoteAt,
                             type="button"
                             onClick={() => toggleDetails(detailKey)}
                             disabled={locked}
-                            className="text-[12px] px-2 py-1 rounded-[7px] transition-colors"
+                            className="flex items-center gap-0.5 text-[13px] font-semibold px-2 py-1 rounded-[7px] transition-colors"
                             style={{ color: "var(--vh-muted)", background: "transparent" }}
                           >
                             Details
+                            {detailOpen ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
                           </button>
                           <button
                             type="button"
@@ -432,7 +435,7 @@ export default function BallotBuilder({ electionId, electionStatus, firstVoteAt,
                             style={{ background: "var(--vh-bg)", border: "1px solid var(--vh-line)" }}
                           >
                             <div>
-                              <label className="block text-[11.5px] font-medium mb-1" style={{ color: "var(--vh-muted)" }}>Description</label>
+                              <label className="block text-[13px] font-medium mb-1" style={{ color: "var(--vh-muted)" }}>Description</label>
                               <Textarea
                                 placeholder="Short description shown to voters (max 500 chars)"
                                 value={o.bio ?? ""}
@@ -444,7 +447,7 @@ export default function BallotBuilder({ electionId, electionStatus, firstVoteAt,
                               />
                             </div>
                             <div>
-                              <label className="block text-[11.5px] font-medium mb-1" style={{ color: "var(--vh-muted)" }}>Photo</label>
+                              <label className="block text-[13px] font-medium mb-1" style={{ color: "var(--vh-muted)" }}>Photo</label>
                               <ImageUploadField
                                 preset="avatar"
                                 url={o.photoUrl ?? ""}
@@ -455,7 +458,7 @@ export default function BallotBuilder({ electionId, electionStatus, firstVoteAt,
                               />
                             </div>
                             <div>
-                              <label className="block text-[11.5px] font-medium mb-1" style={{ color: "var(--vh-muted)" }}>Website</label>
+                              <label className="block text-[13px] font-medium mb-1" style={{ color: "var(--vh-muted)" }}>Website</label>
                               <input
                                 type="url"
                                 placeholder="example.com"
@@ -503,7 +506,7 @@ export default function BallotBuilder({ electionId, electionStatus, firstVoteAt,
                           })
                         }
                         disabled={locked}
-                        className="w-20 text-sm px-2 py-1.5 rounded-[8px]"
+                        className="w-28 text-sm px-2 py-1.5 rounded-[8px]"
                         style={{ border: "1px solid var(--vh-line-strong)", background: "var(--vh-surface)", color: "var(--vh-ink)", outline: "none" }}
                       />
                       <span className="text-[12px]" style={{ color: "var(--vh-muted)" }}>Leave blank for no limit</span>
