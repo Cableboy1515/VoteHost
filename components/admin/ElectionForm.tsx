@@ -8,6 +8,7 @@ import { useUnsavedChangesGuard } from "@/components/admin/UnsavedChangesGuard"
 import ImageUploadField from "@/components/admin/ImageUploadField"
 import ActivationConfirmDialog from "@/components/admin/ActivationConfirmDialog"
 import EmailPreviewDialog from "@/components/admin/EmailPreviewDialog"
+import { useDisplayTimeZone } from "@/components/TimezoneProvider"
 
 interface Props {
   electionId?: string
@@ -34,6 +35,9 @@ interface Props {
   }
 }
 
+// TODO: These helpers use browser-local getHours()/getMinutes(), so the datetime-local <input>
+// round-trip is in the browser's timezone, not the configured display timezone. Fixing this
+// requires parsing "YYYY-MM-DDTHH:mm" as if it were in the configured tz and converting to UTC.
 function toLocalInput(iso: string): string {
   const d = new Date(iso)
   const pad = (n: number) => String(n).padStart(2, "0")
@@ -140,6 +144,7 @@ export default function ElectionForm({
   initialValues,
 }: Props) {
   const router = useRouter()
+  const tz = useDisplayTimeZone()
   const [title, setTitle] = useState(initialValues?.title ?? "")
   const [description, setDescription] = useState(initialValues?.description ?? "")
   const [status, setStatus] = useState(initialValues?.status ?? "DRAFT")
@@ -317,7 +322,7 @@ export default function ElectionForm({
       ? new Date(endsAtDate.getTime() - firstReminderDaysNum * 86_400_000)
       : null
   const reminderDateStr = reminderSendDate
-    ? reminderSendDate.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
+    ? reminderSendDate.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: tz })
     : null
 
   return (
@@ -371,9 +376,9 @@ export default function ElectionForm({
                   </span>
                   <span className="text-[12.5px]" style={{ color: "var(--vh-muted)" }}>
                     {closedAt && closedByEmail
-                      ? `Closed early on ${new Date(closedAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })} by ${closedByEmail}.`
+                      ? `Closed early on ${new Date(closedAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: tz })} by ${closedByEmail}.`
                       : closedAt
-                      ? `Closed early on ${new Date(closedAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}.`
+                      ? `Closed early on ${new Date(closedAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: tz })}.`
                       : "Auto-closed at scheduled end date."}
                     {" "}Use Reopen from the Elections list to make changes.
                   </span>
@@ -612,10 +617,11 @@ export default function ElectionForm({
                   {alreadySent && (
                     <p className="mt-1.5 pl-6 text-[12px]" style={{ color: "var(--vh-muted)" }}>
                       Results email already sent on{" "}
-                      {new Date(initialValues!.resultsEmailSentAt!).toLocaleDateString(undefined, {
+                      {new Date(initialValues!.resultsEmailSentAt!).toLocaleDateString("en-US", {
                         month: "short",
                         day: "numeric",
                         year: "numeric",
+                        timeZone: tz,
                       })}
                       .
                     </p>

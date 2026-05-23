@@ -1,6 +1,7 @@
 "use client"
 
 import { useState } from "react"
+import { useDisplayTimeZone } from "@/components/TimezoneProvider"
 import { BRAND_NAME } from "@/lib/branding"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -60,6 +61,7 @@ function userStatus(u: User): { label: string; variant: "default" | "secondary" 
 }
 
 export default function UserManager({ users: initialUsers, currentUserId }: Props) {
+  const tz = useDisplayTimeZone()
   const [users, setUsers] = useState<User[]>(initialUsers)
 
   const [createOpen, setCreateOpen] = useState(false)
@@ -201,7 +203,7 @@ export default function UserManager({ users: initialUsers, currentUserId }: Prop
                         </p>
                       )}
                       <p className="text-[12px] text-zinc-500 mt-0.5">
-                        Created {new Date(u.createdAt).toLocaleDateString()}
+                        Created {new Date(u.createdAt).toLocaleDateString("en-US", { timeZone: tz })}
                       </p>
                     </div>
                     <Badge variant={status.variant} className="flex-shrink-0">{status.label}</Badge>
@@ -285,7 +287,7 @@ export default function UserManager({ users: initialUsers, currentUserId }: Prop
                       <Badge variant={status.variant}>{status.label}</Badge>
                     </TableCell>
                     <TableCell className="text-sm text-zinc-500">
-                      {new Date(u.createdAt).toLocaleDateString()}
+                      {new Date(u.createdAt).toLocaleDateString("en-US", { timeZone: tz })}
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex gap-2 justify-end">

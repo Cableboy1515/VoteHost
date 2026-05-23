@@ -29,11 +29,12 @@ RUN npm run build
 # ── Stage 4: runtime ──────────────────────────────────────────────────────────
 FROM node:22-alpine AS runner
 WORKDIR /app
-RUN apk add --no-cache openssl netcat-openbsd
+RUN apk add --no-cache openssl netcat-openbsd tzdata
 
 ENV NODE_ENV=production \
     PORT=3000 \
-    HOSTNAME=0.0.0.0
+    HOSTNAME=0.0.0.0 \
+    TZ=UTC
 
 # Non-root user
 RUN addgroup --system --gid 1001 nodejs \

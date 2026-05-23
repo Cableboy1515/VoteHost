@@ -9,6 +9,7 @@ import { Toaster } from "@/components/ui/sonner"
 import { toast } from "sonner"
 import Papa from "papaparse"
 import ActivateElectionButton from "@/components/admin/ActivateElectionButton"
+import { useDisplayTimeZone } from "@/components/TimezoneProvider"
 
 interface Voter {
   id: string
@@ -60,8 +61,9 @@ function Avatar({ name, size = 32 }: { name: string; size?: number }) {
 }
 
 function StatusChip({ v }: { v: Voter }) {
+  const tz = useDisplayTimeZone()
   const fmtDate = (iso: string) =>
-    new Date(iso).toLocaleDateString(undefined, { month: "short", day: "numeric" })
+    new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: tz })
   if (v.hasVoted) {
     const tip = [v.invitedAt && `Invited ${fmtDate(v.invitedAt)}`, v.votedAt && `Voted ${fmtDate(v.votedAt)}`].filter(Boolean).join(" · ")
     return (
@@ -103,10 +105,10 @@ function isToday(d: Date): boolean {
   return d.getFullYear() === n.getFullYear() && d.getMonth() === n.getMonth() && d.getDate() === n.getDate()
 }
 
-function formatScheduledOpen(iso: string): string {
+function formatScheduledOpen(iso: string, tz: string): string {
   const d = new Date(iso)
-  if (isToday(d)) return `today at ${d.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" })}`
-  return d.toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" })
+  if (isToday(d)) return `today at ${d.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", timeZone: tz })}`
+  return d.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", timeZone: tz })
 }
 
 export default function VoterManager({
@@ -119,6 +121,7 @@ export default function VoterManager({
   initialVoters,
 }: Props) {
   const router = useRouter()
+  const tz = useDisplayTimeZone()
   const [voters, setVoters] = useState<Voter[]>(initialVoters)
   const [name, setName] = useState("")
   const [email, setEmail] = useState("")
@@ -518,14 +521,14 @@ export default function VoterManager({
               {electionAutoActivate ? (
                 <>
                   <strong>Voting opens{" "}
-                  {formatScheduledOpen(electionStartsAt!)}.
+                  {formatScheduledOpen(electionStartsAt!, tz)}.
                   </strong>{" "}
                   Invitations will send automatically when the election opens.
                 </>
               ) : (
                 <>
                   <strong>Voting opens{" "}
-                  {formatScheduledOpen(electionStartsAt!)}.
+                  {formatScheduledOpen(electionStartsAt!, tz)}.
                   </strong>{" "}
                   Auto-start is off — you&apos;ll need to activate manually.
                 </>

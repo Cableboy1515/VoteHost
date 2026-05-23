@@ -3,13 +3,15 @@ import ErrorScreen from "@/components/ballot/ErrorScreen"
 import BallotForm from "@/components/ballot/BallotForm"
 import { canActivate } from "@/lib/canActivate"
 import { hashVoterToken } from "@/lib/voterToken"
+import { getDisplayTimeZone } from "@/lib/timezone"
 
 export default async function VotePage({ params }: { params: Promise<{ token: string }> }) {
   const { token } = await params
 
   // Phase 1: lightweight check — skips the questions/options join for invalid or
   // closed-election tokens (the common case for stale magic links in old emails).
-  const quick = await db.voter.findUnique({
+  const [quick, tz] = await Promise.all([
+  db.voter.findUnique({
     where: { tokenHash: hashVoterToken(token) },
     select: {
       id: true,
@@ -25,7 +27,9 @@ export default async function VotePage({ params }: { params: Promise<{ token: st
         },
       },
     },
-  })
+  }),
+  getDisplayTimeZone(),
+  ])
 
   if (!quick) return <ErrorScreen type="invalid" />
   if (quick.hasVoted) return <ErrorScreen type="already-voted" />
@@ -56,7 +60,7 @@ export default async function VotePage({ params }: { params: Promise<{ token: st
 
   // Future startsAt (DRAFT or ACTIVE) → save-the-date with concrete open date.
   if (quick.election.startsAt && now < quick.election.startsAt) {
-    return <ErrorScreen type="not-open" startsAt={quick.election.startsAt.toISOString()} />
+    return <ErrorScreen type="not-open" startsAt={quick.election.startsAt.toISOString()} timeZone={tz} />
   }
   // DRAFT with no startsAt, or past startsAt the organizer hasn't activated yet.
   if (quick.election.status === "DRAFT") return <ErrorScreen type="draft-pending" />

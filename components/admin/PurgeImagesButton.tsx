@@ -2,6 +2,7 @@
 
 import { useState } from "react"
 import { Trash2 } from "lucide-react"
+import { useDisplayTimeZone } from "@/components/TimezoneProvider"
 
 interface Props {
   electionId: string
@@ -9,6 +10,7 @@ interface Props {
 }
 
 export default function PurgeImagesButton({ electionId, purgedAt: initialPurgedAt }: Props) {
+  const tz = useDisplayTimeZone()
   const [purgedAt, setPurgedAt] = useState(initialPurgedAt)
   const [purging, setPurging] = useState(false)
   const [error, setError] = useState("")
@@ -41,7 +43,7 @@ export default function PurgeImagesButton({ electionId, purgedAt: initialPurgedA
         <h3 className="text-[14px] font-semibold mb-1">Uploaded images</h3>
         {purgedAt ? (
           <p className="text-[13px]" style={{ color: "var(--vh-muted)" }}>
-            Images purged on {new Date(purgedAt).toLocaleDateString(undefined, { year: "numeric", month: "long", day: "numeric" })}.
+            Images purged on {new Date(purgedAt).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric", timeZone: tz })}.
             Logo and avatar URLs are now serving a transparent placeholder (~70 bytes each).
           </p>
         ) : (
