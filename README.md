@@ -524,3 +524,16 @@ npx prisma db push
 ```
 
 This project does not use migration files — `prisma db push` is the source of truth for schema state.
+
+---
+
+## License
+
+VoteHost is licensed under the **GNU Affero General Public License v3.0 or later** (AGPL-3.0-or-later). See [LICENSE](./LICENSE) for the full text.
+
+In plain English:
+- You are free to use, study, modify, and share VoteHost.
+- If you modify VoteHost and run it as a service (including offering paid hosting to others), you must publish your modifications under the AGPL-3.0.
+- Derivative works must also be AGPL-3.0-or-later.
+
+"VoteHost" is the name of the project. The license covers the source code; it does not grant rights to use the "VoteHost" name to promote derivative products without permission.
