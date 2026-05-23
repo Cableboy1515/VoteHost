@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useRef } from "react"
+import { useDisplayTimeZone } from "@/components/TimezoneProvider"
 import { BRAND_NAME } from "@/lib/branding"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -195,6 +196,7 @@ type RestoreDialogProps = {
 }
 
 function RestoreDialog({ open, onOpenChange }: RestoreDialogProps) {
+  const tz = useDisplayTimeZone()
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [parsedHeader, setParsedHeader] = useState<ParsedHeader | null>(null)
   const [fileParseError, setFileParseError] = useState("")
@@ -316,7 +318,7 @@ function RestoreDialog({ open, onOpenChange }: RestoreDialogProps) {
               </div>
               <div className="text-zinc-600">
                 <span className="font-medium">Created:</span>{" "}
-                {new Date(parsedHeader.createdAt).toLocaleString()}
+                {new Date(parsedHeader.createdAt).toLocaleString("en-US", { timeZone: tz })}
               </div>
               <div className="text-zinc-600">
                 <span className="font-medium">Elections:</span> {parsedHeader.counts.elections}

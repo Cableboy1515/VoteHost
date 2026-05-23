@@ -32,6 +32,12 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     if (!rl.ok) return rateLimitResponse(rl.resetAt)
   }
 
+  const election = await db.election.findUnique({ where: { id: electionId }, select: { status: true } })
+  if (!election) return NextResponse.json({ error: "Election not found" }, { status: 404 })
+  if (election.status === "COMPLETED") {
+    return NextResponse.json({ error: "Voter list cannot be modified after an election is closed" }, { status: 409 })
+  }
+
   const body = await req.json().catch(() => null)
   if (!body) return NextResponse.json({ error: "Invalid JSON" }, { status: 400 })
 

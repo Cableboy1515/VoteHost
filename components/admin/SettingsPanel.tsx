@@ -78,22 +78,84 @@ function SecuritySettings() {
   )
 }
 
-function StorageSettings() {
+const COMMON_TIMEZONES = [
+  "UTC",
+  "America/New_York",
+  "America/Chicago",
+  "America/Denver",
+  "America/Phoenix",
+  "America/Los_Angeles",
+  "America/Anchorage",
+  "Pacific/Honolulu",
+  "America/St_Johns",
+  "America/Halifax",
+  "America/Toronto",
+  "America/Winnipeg",
+  "America/Edmonton",
+  "America/Vancouver",
+  "Europe/London",
+  "Europe/Dublin",
+  "Europe/Lisbon",
+  "Europe/Paris",
+  "Europe/Berlin",
+  "Europe/Madrid",
+  "Europe/Rome",
+  "Europe/Amsterdam",
+  "Europe/Stockholm",
+  "Europe/Helsinki",
+  "Europe/Athens",
+  "Europe/Moscow",
+  "Asia/Dubai",
+  "Africa/Johannesburg",
+  "Asia/Kolkata",
+  "Asia/Bangkok",
+  "Asia/Singapore",
+  "Asia/Shanghai",
+  "Asia/Tokyo",
+  "Australia/Perth",
+  "Australia/Adelaide",
+  "Australia/Sydney",
+  "Pacific/Auckland",
+]
+
+function GeneralSettings() {
   const [days, setDays] = useState("30")
+  const [tz, setTz] = useState("UTC")
+  const [otherTz, setOtherTz] = useState("")
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [status, setStatus] = useState<"idle" | "saved" | "error">("idle")
   const [errorMsg, setErrorMsg] = useState("")
 
+  const isOther = !COMMON_TIMEZONES.includes(tz)
+
   useEffect(() => {
     fetch("/api/settings/general")
       .then((r) => r.json())
-      .then((d) => { setDays(d.image_retention_days ?? "30"); setLoading(false) })
+      .then((d) => {
+        setDays(d.image_retention_days ?? "30")
+        const loaded = d.display_time_zone ?? "UTC"
+        if (COMMON_TIMEZONES.includes(loaded)) {
+          setTz(loaded)
+        } else {
+          setTz("__other__")
+          setOtherTz(loaded)
+        }
+        setLoading(false)
+      })
       .catch(() => setLoading(false))
   }, [])
 
+  function handleTzChange(val: string) {
+    setTz(val)
+    if (val !== "__other__") setOtherTz("")
+  }
+
+  const effectiveTz = tz === "__other__" ? otherTz.trim() : tz
+
   async function handleSave(e: React.FormEvent) {
     e.preventDefault()
+    if (!effectiveTz) return
     setSaving(true)
     setStatus("idle")
     setErrorMsg("")
@@ -101,11 +163,15 @@ function StorageSettings() {
       const res = await fetch("/api/settings/general", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ image_retention_days: days }),
+        body: JSON.stringify({ image_retention_days: days, display_time_zone: effectiveTz }),
       })
       const data = await res.json()
       if (res.ok) {
         setStatus("saved")
+        if (tz === "__other__" && otherTz.trim()) {
+          setTz(otherTz.trim())
+          setOtherTz("")
+        }
       } else {
         setStatus("error")
         setErrorMsg(data.error ?? "Failed to save")
@@ -121,17 +187,42 @@ function StorageSettings() {
 
   return (
     <div>
-      <h2 className="text-lg font-semibold mb-1">Storage &amp; Retention</h2>
+      <h2 className="text-lg font-semibold mb-1">General</h2>
       <p className="text-zinc-500 text-sm mb-4">
-        Uploaded images (logos and candidate photos) are stored on this server. After an election
-        closes, the cron job can replace image files with a transparent placeholder to reduce
-        bandwidth from old emails — the image URLs remain valid so no broken-image icons appear in
-        voter inboxes.
+        Configure display settings for this installation.
       </p>
       {loading ? (
         <p className="text-zinc-400 text-sm">Loading…</p>
       ) : (
-        <form onSubmit={handleSave} className="space-y-4">
+        <form onSubmit={handleSave} className="space-y-5">
+          <div className="space-y-1.5">
+            <Label htmlFor="display_time_zone">Display timezone</Label>
+            <select
+              id="display_time_zone"
+              value={isOther ? "__other__" : tz}
+              onChange={(e) => handleTzChange(e.target.value)}
+              className={selectClass}
+            >
+              {COMMON_TIMEZONES.map((z) => (
+                <option key={z} value={z}>{z}</option>
+              ))}
+              <option value="__other__">Other (IANA name)…</option>
+            </select>
+            {(tz === "__other__" || isOther) && (
+              <Input
+                placeholder="e.g. America/Toronto"
+                value={otherTz}
+                onChange={(e) => setOtherTz(e.target.value)}
+                className="bg-white mt-1.5"
+                autoComplete="off"
+              />
+            )}
+            <p className="text-xs text-zinc-400">
+              Controls how dates appear in emails, exports, and the admin interface.
+              The container always stores timestamps in UTC; this is a display-only setting.
+            </p>
+          </div>
+
           <div className="space-y-1.5">
             <Label htmlFor="image_retention_days">Image retention (days after election closes)</Label>
             <div className="flex items-center gap-3">
@@ -151,8 +242,9 @@ function StorageSettings() {
               Images can always be purged immediately from the election Settings page.
             </p>
           </div>
+
           <div className="flex items-center gap-3">
-            <Button type="submit" disabled={saving}>
+            <Button type="submit" disabled={saving || (tz === "__other__" && !otherTz.trim())}>
               {saving ? "Saving…" : "Save"}
             </Button>
             {status === "saved" && <span className="text-sm text-green-600">Saved.</span>}
@@ -529,7 +621,7 @@ export default function SettingsPage({ hasActiveElections }: { hasActiveElection
               <Label htmlFor="smtp_host">SMTP Host</Label>
               <Input
                 id="smtp_host"
-                type="url"
+                type="text"
                 placeholder="smtp.example.com"
                 value={settings.smtp_host}
                 onChange={(e) => set("smtp_host", e.target.value)}
@@ -635,7 +727,7 @@ export default function SettingsPage({ hasActiveElections }: { hasActiveElection
       <SecuritySettings />
 
       <hr className="my-8 border-zinc-200" />
-      <StorageSettings />
+      <GeneralSettings />
 
       <hr className="my-8 border-zinc-200" />
       <BackupRestorePanel hasActiveElections={hasActiveElections} />

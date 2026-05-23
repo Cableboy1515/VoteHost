@@ -8,6 +8,7 @@ import ExportResultsButtons from "@/components/admin/ExportResultsButtons"
 import ElectionTabs from "@/components/admin/ElectionTabs"
 import { GuardLink } from "@/components/admin/UnsavedChangesGuard"
 import type { ElectionStatus } from "@/lib/generated/prisma/client"
+import { formatDateOnlyInTz, getDisplayTimeZone } from "@/lib/timezone"
 
 const STATUS_STYLE: Record<ElectionStatus, React.CSSProperties> = {
   DRAFT: { background: "var(--vh-surface-3)", color: "var(--vh-ink-soft)", borderColor: "var(--vh-line-strong)" },
@@ -20,7 +21,10 @@ export default async function ResultsPage({ params }: { params: Promise<{ id: st
   if (!session) redirect("/login")
 
   const { id } = await params
-  const election = await db.election.findUnique({ where: { id } })
+  const [election, tz] = await Promise.all([
+    db.election.findUnique({ where: { id } }),
+    getDisplayTimeZone(),
+  ])
   if (!election) notFound()
 
   const initialData = await getResultsForElection(id)
@@ -89,7 +93,7 @@ export default async function ResultsPage({ params }: { params: Promise<{ id: st
           style={{ background: "var(--vh-surface-2)", border: "1px solid var(--vh-line-strong)", color: "var(--vh-ink-soft)" }}
         >
           <strong>Note:</strong> This election&rsquo;s ballot was reset on{" "}
-          {new Date(election.ballotResetAt).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}
+          {formatDateOnlyInTz(election.ballotResetAt, tz)}
           {ballotResetByEmail ? ` by ${ballotResetByEmail}` : ""}. Earlier votes were discarded and voters were asked to recast their ballots.
         </div>
       )}
@@ -99,7 +103,7 @@ export default async function ResultsPage({ params }: { params: Promise<{ id: st
           style={{ background: "var(--vh-surface-2)", border: "1px solid var(--vh-line-strong)", color: "var(--vh-ink-soft)" }}
         >
           <strong>Note:</strong> This election was closed early on{" "}
-          {new Date(election.closedAt).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}
+          {formatDateOnlyInTz(election.closedAt, tz)}
           {closedByEmail ? ` by ${closedByEmail}` : ""}.
         </div>
       )}

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { BRAND_NAME } from "@/lib/branding"
 import { PRESETS, PRESET_KEYS, type EmailPreset } from "@/lib/emailProviderPresets"
 import { Button } from "@/components/ui/button"
@@ -17,7 +17,21 @@ const selectClass =
   "h-9 w-full rounded-lg border border-input bg-white px-2.5 text-sm outline-none " +
   "focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
 
-type WizardStep = "welcome" | "credentials" | "identity" | "test" | "done"
+const COMMON_TIMEZONES = [
+  "UTC",
+  "America/New_York", "America/Chicago", "America/Denver", "America/Phoenix",
+  "America/Los_Angeles", "America/Anchorage", "Pacific/Honolulu",
+  "America/St_Johns", "America/Halifax", "America/Toronto",
+  "America/Winnipeg", "America/Edmonton", "America/Vancouver",
+  "Europe/London", "Europe/Dublin", "Europe/Lisbon", "Europe/Paris",
+  "Europe/Berlin", "Europe/Madrid", "Europe/Rome", "Europe/Amsterdam",
+  "Europe/Stockholm", "Europe/Helsinki", "Europe/Athens", "Europe/Moscow",
+  "Asia/Dubai", "Africa/Johannesburg", "Asia/Kolkata", "Asia/Bangkok",
+  "Asia/Singapore", "Asia/Shanghai", "Asia/Tokyo",
+  "Australia/Perth", "Australia/Adelaide", "Australia/Sydney", "Pacific/Auckland",
+]
+
+type WizardStep = "welcome" | "timezone" | "credentials" | "identity" | "test" | "done"
 
 type FormState = {
   preset: EmailPreset | ""
@@ -31,9 +45,10 @@ type FormState = {
   email_from_address: string
 }
 
-const STEP_ORDER: WizardStep[] = ["welcome", "credentials", "identity", "test", "done"]
+const STEP_ORDER: WizardStep[] = ["welcome", "timezone", "credentials", "identity", "test", "done"]
 const STEP_LABELS: Record<WizardStep, string> = {
   welcome: "Welcome",
+  timezone: "Timezone",
   credentials: "Provider",
   identity: "Identity",
   test: "Test",
@@ -42,7 +57,7 @@ const STEP_LABELS: Record<WizardStep, string> = {
 
 function StepIndicator({ current }: { current: WizardStep }) {
   const steps: WizardStep[] = ["credentials", "identity", "test"]
-  if (current === "welcome" || current === "done") return null
+  if (current === "welcome" || current === "timezone" || current === "done") return null
   const currentIdx = steps.indexOf(current)
 
   return (
@@ -110,6 +125,43 @@ export default function EmailSetupWizard({
   const [testError, setTestError] = useState("")
   const [skipping, setSkipping] = useState(false)
 
+  const [tz, setTz] = useState("UTC")
+  const [otherTz, setOtherTz] = useState("")
+  const [savingTz, setSavingTz] = useState(false)
+  const [tzError, setTzError] = useState("")
+
+  useEffect(() => {
+    try {
+      const detected = Intl.DateTimeFormat().resolvedOptions().timeZone
+      if (!detected) return
+      if (COMMON_TIMEZONES.includes(detected)) {
+        setTz(detected)
+      } else {
+        setTz("__other__")
+        setOtherTz(detected)
+      }
+    } catch {}
+  }, [])
+
+  const effectiveTz = tz === "__other__" ? otherTz.trim() : tz
+
+  function tzPreview(timezone: string): string {
+    if (!timezone) return ""
+    try {
+      return new Date().toLocaleString("en-US", {
+        timeZone: timezone,
+        month: "long",
+        day: "numeric",
+        year: "numeric",
+        hour: "numeric",
+        minute: "2-digit",
+        timeZoneName: "short",
+      })
+    } catch {
+      return ""
+    }
+  }
+
   function setField<K extends keyof FormState>(k: K, v: FormState[K]) {
     setForm((f) => ({ ...f, [k]: v }))
   }
@@ -149,6 +201,31 @@ export default function EmailSetupWizard({
     setSaveError("")
     setTestResult("idle")
     setTestError("")
+    setSavingTz(false)
+    setTzError("")
+  }
+
+  async function handleSaveTimezone() {
+    if (!effectiveTz) return
+    setSavingTz(true)
+    setTzError("")
+    try {
+      const res = await fetch("/api/settings/general", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ display_time_zone: effectiveTz }),
+      })
+      if (res.ok) {
+        setStep("credentials")
+      } else {
+        const d = await res.json().catch(() => ({}))
+        setTzError(d.error ?? `Server error ${res.status}`)
+      }
+    } catch (err) {
+      setTzError(String(err))
+    } finally {
+      setSavingTz(false)
+    }
   }
 
   async function handleSaveAndContinue() {
@@ -235,6 +312,7 @@ export default function EmailSetupWizard({
         <DialogHeader>
           <DialogTitle className="text-[17px]">
             {step === "welcome" && "Set up outbound email"}
+            {step === "timezone" && "Your timezone"}
             {step === "credentials" && "Choose your email provider"}
             {step === "identity" && "Sender identity"}
             {step === "test" && "Send a test email"}
@@ -265,6 +343,62 @@ export default function EmailSetupWizard({
             </div>
             <p className="text-[12.5px]" style={{ color: "var(--vh-muted)" }}>
               It only takes a minute. You can also configure this later in Settings.
+            </p>
+          </div>
+        )}
+
+        {/* Step: Timezone */}
+        {step === "timezone" && (
+          <div className="space-y-4">
+            <p className="text-[13.5px] leading-relaxed" style={{ color: "var(--vh-ink-soft)" }}>
+              Choose the timezone for your organization. This controls how election dates appear
+              in emails, exports, and the admin interface.
+            </p>
+            <div className="space-y-1.5">
+              <Label htmlFor="wiz_tz">Timezone</Label>
+              <select
+                id="wiz_tz"
+                value={tz}
+                onChange={(e) => {
+                  setTz(e.target.value)
+                  if (e.target.value !== "__other__") setOtherTz("")
+                  setTzError("")
+                }}
+                className={selectClass}
+              >
+                {COMMON_TIMEZONES.map((z) => (
+                  <option key={z} value={z}>{z}</option>
+                ))}
+                <option value="__other__">Other (IANA name)…</option>
+              </select>
+              {tz === "__other__" && (
+                <Input
+                  placeholder="e.g. America/Toronto"
+                  value={otherTz}
+                  onChange={(e) => { setOtherTz(e.target.value); setTzError("") }}
+                  className="bg-white mt-1.5"
+                  autoComplete="off"
+                  autoCapitalize="none"
+                  spellCheck={false}
+                />
+              )}
+            </div>
+            {effectiveTz && tzPreview(effectiveTz) && (
+              <div
+                className="rounded-[10px] p-3 text-[12.5px]"
+                style={{ background: "var(--vh-surface-2)", border: "1px solid var(--vh-line)" }}
+              >
+                <span style={{ color: "var(--vh-muted)" }}>Now shows as: </span>
+                <span style={{ color: "var(--vh-ink)" }}>{tzPreview(effectiveTz)}</span>
+              </div>
+            )}
+            {tzError && (
+              <p className="text-[12.5px]" style={{ color: "var(--vh-danger, #dc2626)" }}>
+                {tzError}
+              </p>
+            )}
+            <p className="text-[12px]" style={{ color: "var(--vh-muted)" }}>
+              Timestamps are always stored in UTC — this is display-only. You can change it anytime in Settings.
             </p>
           </div>
         )}
@@ -529,7 +663,7 @@ export default function EmailSetupWizard({
         {/* Footer buttons */}
         <div className="flex items-center justify-between pt-2 mt-2" style={{ borderTop: "1px solid var(--vh-line)" }}>
           <div>
-            {step !== "welcome" && step !== "done" && (
+            {step !== "welcome" && step !== "timezone" && step !== "done" && (
               <button
                 onClick={() => {
                   const idx = STEP_ORDER.indexOf(step)
@@ -550,7 +684,7 @@ export default function EmailSetupWizard({
             {step !== "done" && (
               <button
                 onClick={handleSkip}
-                disabled={saving || skipping}
+                disabled={saving || skipping || savingTz}
                 className="text-[13px] px-3 py-1.5 rounded-[8px] transition-colors"
                 style={{ color: "var(--vh-muted)" }}
                 onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = "var(--vh-ink)"; (e.currentTarget as HTMLElement).style.background = "var(--vh-surface-2)" }}
@@ -561,8 +695,17 @@ export default function EmailSetupWizard({
             )}
 
             {step === "welcome" && (
-              <Button onClick={() => setStep("credentials")} size="lg">
+              <Button onClick={() => setStep("timezone")} size="lg">
                 Get started
+              </Button>
+            )}
+            {step === "timezone" && (
+              <Button
+                onClick={handleSaveTimezone}
+                disabled={savingTz || !effectiveTz || (tz === "__other__" && !otherTz.trim())}
+                size="lg"
+              >
+                {savingTz ? "Saving…" : "Confirm"}
               </Button>
             )}
             {step === "credentials" && (

@@ -8,6 +8,7 @@ import ArchiveElectionButton from "@/components/admin/ArchiveElectionButton"
 import DeleteElectionButton from "@/components/admin/DeleteElectionButton"
 import { autoCompleteElections } from "@/lib/autoCompleteElections"
 import type { ElectionStatus } from "@/lib/generated/prisma/client"
+import { formatDateOnlyInTz, getDisplayTimeZone } from "@/lib/timezone"
 
 const STATUS_LABEL: Record<ElectionStatus, string> = {
   DRAFT: "Draft",
@@ -27,11 +28,14 @@ export default async function ArchivePage() {
 
   await autoCompleteElections()
 
-  const elections = await db.election.findMany({
-    where: { archived: true },
-    orderBy: { endsAt: "desc" },
-    include: { _count: { select: { voters: true } } },
-  })
+  const [elections, tz] = await Promise.all([
+    db.election.findMany({
+      where: { archived: true },
+      orderBy: { endsAt: "desc" },
+      include: { _count: { select: { voters: true } } },
+    }),
+    getDisplayTimeZone(),
+  ])
 
   const electionIds = elections.map((e) => e.id)
   const votedCountRows = electionIds.length > 0
@@ -97,7 +101,7 @@ export default async function ArchivePage() {
                     ? Math.round((e.votedCount / e._count.voters) * 100)
                     : 0
                   const closeDate = e.closedAt ?? e.endsAt ?? e.createdAt
-                  const dateStr = closeDate.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
+                  const dateStr = formatDateOnlyInTz(closeDate, tz)
 
                   return (
                     <div

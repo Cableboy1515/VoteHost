@@ -5,9 +5,11 @@ import { useState } from "react"
 export default function ReceiptLookupForm({
   electionId,
   initialCode,
+  timeZone,
 }: {
   electionId: string
   initialCode?: string
+  timeZone: string
 }) {
   const [code, setCode] = useState(initialCode ?? "")
   const [status, setStatus] = useState<"idle" | "loading" | "found" | "not-found" | "error">("idle")
@@ -96,7 +98,7 @@ export default function ReceiptLookupForm({
           ✓ Ballot found — this receipt code is recorded in this election.
           {foundAt && (
             <span style={{ opacity: 0.75 }}>
-              {" "}Recorded {new Date(foundAt).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}.
+              {" "}Recorded {new Date(foundAt).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric", timeZone })}.
             </span>
           )}
         </div>

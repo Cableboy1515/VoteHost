@@ -3,6 +3,7 @@ import { notFound } from "next/navigation"
 import { BrandMark } from "@/components/ui/brand-mark"
 import CopyButton from "@/components/ui/copy-button"
 import ReceiptLookupForm from "./ReceiptLookupForm"
+import { formatDateOnlyInTz, getDisplayTimeZone } from "@/lib/timezone"
 
 export default async function VerifyPage({
   params,
@@ -14,17 +15,20 @@ export default async function VerifyPage({
   const { electionId } = await params
   const { code } = await searchParams
 
-  const election = await db.election.findUnique({
-    where: { id: electionId },
-    select: {
-      id: true,
-      title: true,
-      status: true,
-      tallyHash: true,
-      tallyHashSetAt: true,
-      _count: { select: { voters: true } },
-    },
-  })
+  const [election, tz] = await Promise.all([
+    db.election.findUnique({
+      where: { id: electionId },
+      select: {
+        id: true,
+        title: true,
+        status: true,
+        tallyHash: true,
+        tallyHashSetAt: true,
+        _count: { select: { voters: true } },
+      },
+    }),
+    getDisplayTimeZone(),
+  ])
 
   if (!election) notFound()
 
@@ -81,7 +85,7 @@ export default async function VerifyPage({
             </div>
             {election.tallyHashSetAt && (
               <p className="text-[12px]" style={{ color: "var(--vh-muted)" }}>
-                Sealed {new Date(election.tallyHashSetAt).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}
+                Sealed {formatDateOnlyInTz(election.tallyHashSetAt, tz)}
               </p>
             )}
             <p className="text-[12px] leading-relaxed" style={{ color: "var(--vh-muted)" }}>
@@ -113,7 +117,7 @@ export default async function VerifyPage({
               This does not reveal what you voted for.
             </p>
           </div>
-          <ReceiptLookupForm electionId={electionId} initialCode={code} />
+          <ReceiptLookupForm electionId={electionId} initialCode={code} timeZone={tz} />
         </div>
       </div>
     </div>

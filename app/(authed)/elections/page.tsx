@@ -8,6 +8,7 @@ import type { ElectionStatus } from "@/lib/generated/prisma/client"
 import DeleteElectionButton from "@/components/admin/DeleteElectionButton"
 import ArchiveElectionButton from "@/components/admin/ArchiveElectionButton"
 import { autoCompleteElections } from "@/lib/autoCompleteElections"
+import { formatDateOnlyInTz, getDisplayTimeZone } from "@/lib/timezone"
 
 type FilterKey = "all" | "active" | "draft" | "completed"
 
@@ -54,6 +55,8 @@ export default async function ElectionsListPage({
 
   await autoCompleteElections()
 
+  const tz = await getDisplayTimeZone()
+
   // Viewer-only surface: results for active/completed/closed elections
   if (session.role === "VIEWER") {
     const elections = await db.election.findMany({
@@ -98,8 +101,8 @@ export default async function ElectionsListPage({
                   {e.endsAt && (
                     <div className="text-[12.5px] mt-0.5" style={{ color: "var(--vh-muted)" }}>
                       {e.status === "ACTIVE"
-                        ? `Closes ${e.endsAt.toLocaleDateString()}`
-                        : `Ended ${e.endsAt.toLocaleDateString()}`}
+                        ? `Closes ${formatDateOnlyInTz(e.endsAt, tz)}`
+                        : `Ended ${formatDateOnlyInTz(e.endsAt, tz)}`}
                     </div>
                   )}
                 </div>

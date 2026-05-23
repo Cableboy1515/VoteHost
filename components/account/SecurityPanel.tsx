@@ -1,6 +1,7 @@
 "use client"
 
 import { useState } from "react"
+import { useDisplayTimeZone } from "@/components/TimezoneProvider"
 
 const inputStyle = {
   border: "1px solid var(--vh-line-strong)",
@@ -28,6 +29,7 @@ interface Props {
 }
 
 export default function SecurityPanel({ totpEnabled: initialEnabled, totpEnabledAt, recoveryCodesRemaining: initialRemaining, role }: Props) {
+  const tz = useDisplayTimeZone()
   const [totpEnabled, setTotpEnabled] = useState(initialEnabled)
   const [codesRemaining, setCodesRemaining] = useState(initialRemaining)
 
@@ -127,7 +129,7 @@ export default function SecurityPanel({ totpEnabled: initialEnabled, totpEnabled
             style={{ background: totpEnabled ? "var(--vh-success)" : "var(--vh-muted)" }}
           />
           {totpEnabled
-            ? `Enabled${totpEnabledAt ? ` · since ${new Date(totpEnabledAt).toLocaleDateString()}` : ""}`
+            ? `Enabled${totpEnabledAt ? ` · since ${new Date(totpEnabledAt).toLocaleDateString("en-US", { timeZone: tz })}` : ""}`
             : shouldRecommend ? "Recommended — not yet set up" : "Disabled"}
         </div>
 

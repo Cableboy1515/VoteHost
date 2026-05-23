@@ -1,4 +1,5 @@
 import CloseElectionEarlyButton from "@/components/admin/CloseElectionEarlyButton"
+import { formatDateOnlyInTz, getDisplayTimeZone } from "@/lib/timezone"
 
 interface Props {
   electionId: string
@@ -9,7 +10,7 @@ interface Props {
   endsAt: string | null
 }
 
-export default function FullTurnoutBanner({
+export default async function FullTurnoutBanner({
   electionId,
   electionTitle,
   votedCount,
@@ -19,8 +20,9 @@ export default function FullTurnoutBanner({
 }: Props) {
   if (status !== "ACTIVE" || invitedCount === 0 || votedCount < invitedCount) return null
 
+  const tz = await getDisplayTimeZone()
   const closeNote = endsAt
-    ? `You can close it now, or let it run until ${new Date(endsAt).toLocaleDateString(undefined, { month: "long", day: "numeric", year: "numeric" })}.`
+    ? `You can close it now, or let it run until ${formatDateOnlyInTz(endsAt, tz)}.`
     : `You can close it now, or wait until you close it manually.`
 
   return (

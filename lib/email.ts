@@ -4,6 +4,7 @@ import nodemailer from "nodemailer"
 import { db } from "@/lib/db"
 import { absolutizeUrl } from "@/lib/absolutize-url"
 import { generateVoterToken } from "@/lib/voterToken"
+import { formatDateInTz, getDisplayTimeZone } from "@/lib/timezone"
 
 const ALL_KEYS = [
   "email_provider",
@@ -120,20 +121,6 @@ function escapeHtml(str: string): string {
     .replace(/'/g, "&#39;")
 }
 
-const DISPLAY_TZ: string | undefined = process.env.DISPLAY_TIME_ZONE || undefined
-
-function formatElectionDateTime(input: string | Date): string {
-  const d = typeof input === "string" ? new Date(input) : input
-  return d.toLocaleString("en-US", {
-    month: "long",
-    day: "numeric",
-    year: "numeric",
-    hour: "numeric",
-    minute: "2-digit",
-    timeZone: DISPLAY_TZ,
-    timeZoneName: "short",
-  })
-}
 
 function buildSubject(mode: EmailMode, customSubject: string | null | undefined, electionTitle: string): string {
   if (mode === "invite") {
@@ -209,7 +196,7 @@ function logoRow(url?: string | null): string {
     : ""
 }
 
-function buildInviteHtml(p: Payload): string {
+function buildInviteHtml(p: Payload, tz: string): string {
   const title = escapeHtml(p.electionTitle)
   const name = escapeHtml(p.voterName)
   const link = escapeHtml(p.magicLink)
@@ -219,7 +206,7 @@ function buildInviteHtml(p: Payload): string {
         <table role="presentation" cellpadding="0" cellspacing="0" width="100%"><tr>
           <td style="background:${C.bg};border:1px solid ${C.line};border-radius:10px;padding:14px 18px;">
             <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:11.5px;color:${C.muted};letter-spacing:0.06em;text-transform:uppercase;margin-bottom:5px;">Voting closes</div>
-            <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:16px;font-weight:500;color:${C.ink};">${formatElectionDateTime(p.endsAt)}</div>
+            <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:16px;font-weight:500;color:${C.ink};">${formatDateInTz(p.endsAt, tz)}</div>
           </td>
         </tr></table>
       </td></tr>`
@@ -252,12 +239,12 @@ function buildInviteHtml(p: Payload): string {
   `)
 }
 
-function buildReminderEarlyHtml(p: Payload): string {
+function buildReminderEarlyHtml(p: Payload, tz: string): string {
   const title = escapeHtml(p.electionTitle)
   const name = escapeHtml(p.voterName)
   const link = escapeHtml(p.magicLink)
   const days = p.daysLeft ?? null
-  const closeStr = p.endsAt ? formatElectionDateTime(p.endsAt) : null
+  const closeStr = p.endsAt ? formatDateInTz(p.endsAt, tz) : null
 
   const pct = p.totalVoters && p.totalVoters > 0 && p.votedCount != null
     ? Math.round((p.votedCount / p.totalVoters) * 100)
@@ -313,11 +300,11 @@ function buildReminderEarlyHtml(p: Payload): string {
   `)
 }
 
-function buildReminderFinalHtml(p: Payload): string {
+function buildReminderFinalHtml(p: Payload, tz: string): string {
   const title = escapeHtml(p.electionTitle)
   const name = escapeHtml(p.voterName)
   const link = escapeHtml(p.magicLink)
-  const closeStr = p.endsAt ? formatElectionDateTime(p.endsAt) : null
+  const closeStr = p.endsAt ? formatDateInTz(p.endsAt, tz) : null
 
   return emailWrapper(`
     ${brandRow()}
@@ -350,9 +337,9 @@ function buildReminderFinalHtml(p: Payload): string {
   `)
 }
 
-function buildResultsHtml(p: Payload): string {
+function buildResultsHtml(p: Payload, tz: string): string {
   const title = escapeHtml(p.electionTitle)
-  const closeStr = p.endsAt ? formatElectionDateTime(p.endsAt) : null
+  const closeStr = p.endsAt ? formatDateInTz(p.endsAt, tz) : null
   const r = p.results
 
   const turnoutBlock = r
@@ -417,11 +404,11 @@ function buildResultsHtml(p: Payload): string {
   `)
 }
 
-function buildHtml(payload: Payload, mode: EmailMode): string {
-  if (mode === "reminder-early") return buildReminderEarlyHtml(payload)
-  if (mode === "reminder-final") return buildReminderFinalHtml(payload)
-  if (mode === "results") return buildResultsHtml(payload)
-  return buildInviteHtml(payload)
+function buildHtml(payload: Payload, mode: EmailMode, tz: string): string {
+  if (mode === "reminder-early") return buildReminderEarlyHtml(payload, tz)
+  if (mode === "reminder-final") return buildReminderFinalHtml(payload, tz)
+  if (mode === "results") return buildResultsHtml(payload, tz)
+  return buildInviteHtml(payload, tz)
 }
 
 export type SendClassification = "ok" | "quota" | "transient" | "permanent"
@@ -449,14 +436,14 @@ export function classifySendError(provider: "resend" | "smtp", err: unknown): Se
   return "transient"
 }
 
-async function sendViaResend(config: ResendConfig, payload: Payload, mode: EmailMode): Promise<{ error: string | null; classification: SendClassification }> {
+async function sendViaResend(config: ResendConfig, payload: Payload, mode: EmailMode, tz: string): Promise<{ error: string | null; classification: SendClassification }> {
   try {
     const resend = new Resend(config.apiKey)
     const { error } = await resend.emails.send({
       from: `${config.fromName} <${config.fromAddress}>`,
       to: payload.voterEmail,
       subject: buildSubject(mode, payload.emailSubject, payload.electionTitle),
-      html: buildHtml(payload, mode),
+      html: buildHtml(payload, mode, tz),
     })
     if (error) return { error: String(error), classification: classifySendError("resend", error) }
     return { error: null, classification: "ok" }
@@ -465,7 +452,7 @@ async function sendViaResend(config: ResendConfig, payload: Payload, mode: Email
   }
 }
 
-async function sendViaSmtp(config: SmtpConfig, payload: Payload, mode: EmailMode): Promise<{ error: string | null; classification: SendClassification }> {
+async function sendViaSmtp(config: SmtpConfig, payload: Payload, mode: EmailMode, tz: string): Promise<{ error: string | null; classification: SendClassification }> {
   try {
     const transporter = nodemailer.createTransport({
       host: config.host,
@@ -477,7 +464,7 @@ async function sendViaSmtp(config: SmtpConfig, payload: Payload, mode: EmailMode
       from: `${config.fromName} <${config.fromAddress}>`,
       to: payload.voterEmail,
       subject: buildSubject(mode, payload.emailSubject, payload.electionTitle),
-      html: buildHtml(payload, mode),
+      html: buildHtml(payload, mode, tz),
     })
     return { error: null, classification: "ok" }
   } catch (err) {
@@ -486,9 +473,9 @@ async function sendViaSmtp(config: SmtpConfig, payload: Payload, mode: EmailMode
 }
 
 export async function sendBallotInvitation(payload: Payload, mode: EmailMode = "invite"): Promise<{ error: string | null; classification: SendClassification }> {
-  const config = await getAllEmailConfig()
-  if (config.provider === "smtp") return sendViaSmtp(config, payload, mode)
-  return sendViaResend(config, payload, mode)
+  const [config, tz] = await Promise.all([getAllEmailConfig(), getDisplayTimeZone()])
+  if (config.provider === "smtp") return sendViaSmtp(config, payload, mode, tz)
+  return sendViaResend(config, payload, mode, tz)
 }
 
 export type AdminInvitePayload = {
@@ -525,10 +512,10 @@ function buildAdminInviteHtml(p: AdminInvitePayload): string {
   `)
 }
 
-function buildPasswordResetLinkHtml(recipientEmail: string, resetLink: string, expiresAt: Date): string {
+function buildPasswordResetLinkHtml(recipientEmail: string, resetLink: string, expiresAt: Date, tz: string): string {
   const email = escapeHtml(recipientEmail)
   const link = escapeHtml(resetLink)
-  const expiry = expiresAt.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", timeZone: DISPLAY_TZ, timeZoneName: "short" })
+  const expiry = expiresAt.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", timeZone: tz, timeZoneName: "short" })
   return emailWrapper(`
     ${brandRow()}
     <tr><td style="padding:24px 32px 14px;">
@@ -555,9 +542,9 @@ function buildPasswordResetLinkHtml(recipientEmail: string, resetLink: string, e
   `)
 }
 
-function buildPasswordChangedNoticeHtml(recipientEmail: string, changedAt: Date): string {
+function buildPasswordChangedNoticeHtml(recipientEmail: string, changedAt: Date, tz: string): string {
   const email = escapeHtml(recipientEmail)
-  const when = formatElectionDateTime(changedAt)
+  const when = formatDateInTz(changedAt, tz)
   return emailWrapper(`
     ${brandRow()}
     <tr><td style="padding:24px 32px 14px;">
@@ -572,9 +559,9 @@ function buildPasswordChangedNoticeHtml(recipientEmail: string, changedAt: Date)
   `)
 }
 
-function buildPasswordResetActivityHtml(event: "requested" | "completed", requesterEmail: string, occurredAt: Date): string {
+function buildPasswordResetActivityHtml(event: "requested" | "completed", requesterEmail: string, occurredAt: Date, tz: string): string {
   const email = escapeHtml(requesterEmail)
-  const when = formatElectionDateTime(occurredAt)
+  const when = formatDateInTz(occurredAt, tz)
   const verb = event === "requested" ? "requested" : "completed"
   const usersUrl = escapeHtml(absolutizeUrl("/users"))
   return emailWrapper(`
@@ -639,12 +626,12 @@ export async function sendPasswordResetLink(payload: {
   resetLink: string
   expiresAt: Date
 }): Promise<{ error: string | null }> {
-  const config = await getAllEmailConfig()
+  const [config, tz] = await Promise.all([getAllEmailConfig(), getDisplayTimeZone()])
   return sendRawEmail(
     config,
     payload.recipientEmail,
     `Reset your ${BRAND_NAME} password`,
-    buildPasswordResetLinkHtml(payload.recipientEmail, payload.resetLink, payload.expiresAt),
+    buildPasswordResetLinkHtml(payload.recipientEmail, payload.resetLink, payload.expiresAt, tz),
   )
 }
 
@@ -652,12 +639,12 @@ export async function sendPasswordChangedNotice(payload: {
   recipientEmail: string
   changedAt: Date
 }): Promise<void> {
-  const config = await getAllEmailConfig()
+  const [config, tz] = await Promise.all([getAllEmailConfig(), getDisplayTimeZone()])
   const result = await sendRawEmail(
     config,
     payload.recipientEmail,
     `Your ${BRAND_NAME} password was changed`,
-    buildPasswordChangedNoticeHtml(payload.recipientEmail, payload.changedAt),
+    buildPasswordChangedNoticeHtml(payload.recipientEmail, payload.changedAt, tz),
   )
   if (result.error) console.error("[sendPasswordChangedNotice] failed:", result.error)
 }
@@ -667,11 +654,14 @@ export async function sendPasswordResetActivityToAdmins(payload: {
   requesterEmail: string
   occurredAt: Date
 }): Promise<void> {
-  const config = await getAllEmailConfig()
-  const admins = await db.adminUser.findMany({ where: { role: "ADMIN" }, select: { email: true } })
+  const [config, tz, admins] = await Promise.all([
+    getAllEmailConfig(),
+    getDisplayTimeZone(),
+    db.adminUser.findMany({ where: { role: "ADMIN" }, select: { email: true } }),
+  ])
   if (admins.length === 0) return
   const subject = `Password reset ${payload.event} — ${BRAND_NAME}`
-  const html = buildPasswordResetActivityHtml(payload.event, payload.requesterEmail, payload.occurredAt)
+  const html = buildPasswordResetActivityHtml(payload.event, payload.requesterEmail, payload.occurredAt, tz)
   const results = await Promise.allSettled(admins.map((a) => sendRawEmail(config, a.email, subject, html)))
   let failed = 0
   results.forEach((r) => { if (r.status === "rejected" || r.value.error !== null) failed++ })
@@ -786,9 +776,9 @@ export async function sendBallotResetAdminNotice(electionTitle: string, organize
 
 type StaffElection = { id: string; title: string; endsAt?: Date | null; startsAt?: Date | null }
 
-function buildClosingSoonStaffHtml(election: StaffElection, votedCount: number, totalVoters: number): string {
+function buildClosingSoonStaffHtml(election: StaffElection, votedCount: number, totalVoters: number, tz: string): string {
   const title = escapeHtml(election.title)
-  const closeStr = election.endsAt ? escapeHtml(formatElectionDateTime(election.endsAt.toISOString())) : ""
+  const closeStr = election.endsAt ? escapeHtml(formatDateInTz(election.endsAt.toISOString(), tz)) : ""
   const dashUrl = escapeHtml(absolutizeUrl("/dashboard"))
   const turnoutLine = totalVoters > 0
     ? `<strong style="color:${C.ink};">${votedCount}</strong> of <strong style="color:${C.ink};">${totalVoters}</strong> voters have cast a ballot so far.`
@@ -843,9 +833,9 @@ function buildCompletedStaffHtml(election: StaffElection, votedCount: number, to
   `)
 }
 
-function buildDraftReminderStaffHtml(election: StaffElection): string {
+function buildDraftReminderStaffHtml(election: StaffElection, tz: string): string {
   const title = escapeHtml(election.title)
-  const startStr = election.startsAt ? escapeHtml(formatElectionDateTime(election.startsAt.toISOString())) : ""
+  const startStr = election.startsAt ? escapeHtml(formatDateInTz(election.startsAt.toISOString(), tz)) : ""
   const editUrl = escapeHtml(absolutizeUrl(`/elections/${election.id}`))
   return emailWrapper(`
     ${brandRow()}
@@ -905,8 +895,9 @@ export async function sendElectionClosingSoonStaffNotice(
   votedCount: number,
   totalVoters: number,
 ): Promise<void> {
+  const tz = await getDisplayTimeZone()
   const subject = `Closing in 24h — ${election.title}`
-  const html = buildClosingSoonStaffHtml(election, votedCount, totalVoters)
+  const html = buildClosingSoonStaffHtml(election, votedCount, totalVoters, tz)
   await sendStaffBlast("sendElectionClosingSoonStaffNotice", election.title, recipients, subject, html)
 }
 
@@ -925,16 +916,17 @@ export async function sendDraftReminderStaffNotice(
   election: StaffElection,
   recipients: Array<{ email: string }>,
 ): Promise<void> {
+  const tz = await getDisplayTimeZone()
   const subject = `Reminder: publish "${election.title}" — starts in 24h`
-  const html = buildDraftReminderStaffHtml(election)
+  const html = buildDraftReminderStaffHtml(election, tz)
   await sendStaffBlast("sendDraftReminderStaffNotice", election.title, recipients, subject, html)
 }
 
-function buildFullTurnoutStaffHtml(election: StaffElection, voted: number, invited: number): string {
+function buildFullTurnoutStaffHtml(election: StaffElection, voted: number, invited: number, tz: string): string {
   const title = escapeHtml(election.title)
   const electionUrl = escapeHtml(absolutizeUrl(`/elections/${election.id}`))
   const closeNote = election.endsAt
-    ? `You can close it now to finalize results, or let it run until it closes on ${escapeHtml(formatElectionDateTime(election.endsAt.toISOString()))}.`
+    ? `You can close it now to finalize results, or let it run until it closes on ${escapeHtml(formatDateInTz(election.endsAt.toISOString(), tz))}.`
     : `You can close it now to finalize results, or wait until you close it manually.`
   return emailWrapper(`
     ${brandRow()}
@@ -1019,14 +1011,16 @@ export async function sendFullTurnoutStaffNotice(
   voted: number,
   invited: number,
 ): Promise<void> {
+  const tz = await getDisplayTimeZone()
   const subject = `All voters have voted — ${election.title}`
-  const html = buildFullTurnoutStaffHtml(election, voted, invited)
+  const html = buildFullTurnoutStaffHtml(election, voted, invited, tz)
   await sendStaffBlast("sendFullTurnoutStaffNotice", election.title, recipients, subject, html)
 }
 
 function buildAutoActivateFailedStaffHtml(
   election: StaffElection,
   reason: "no_ballot" | "no_voters" | "past_endsAt",
+  tz: string,
 ): string {
   const title = escapeHtml(election.title)
   const editUrl = escapeHtml(absolutizeUrl(`/elections/${election.id}`))
@@ -1037,7 +1031,7 @@ function buildAutoActivateFailedStaffHtml(
     no_voters: `There are no voters. <a href="${votersUrl}" style="color:${C.accent};">Add at least one voter</a> before the system can open voting.`,
     past_endsAt: `The scheduled close date has already passed. Update it on the <a href="${editUrl}" style="color:${C.accent};">settings page</a>.`,
   }
-  const startStr = election.startsAt ? escapeHtml(formatElectionDateTime(election.startsAt.toISOString())) : "its scheduled start time"
+  const startStr = election.startsAt ? escapeHtml(formatDateInTz(election.startsAt.toISOString(), tz)) : "its scheduled start time"
   return emailWrapper(`
     ${brandRow()}
     <tr><td style="padding:24px 32px 14px;">
@@ -1067,8 +1061,9 @@ export async function sendAutoActivateFailedStaffNotice(
   recipients: Array<{ email: string }>,
   reason: "no_ballot" | "no_voters" | "past_endsAt",
 ): Promise<void> {
+  const tz = await getDisplayTimeZone()
   const subject = `Action required: "${election.title}" failed to auto-start`
-  const html = buildAutoActivateFailedStaffHtml(election, reason)
+  const html = buildAutoActivateFailedStaffHtml(election, reason, tz)
   await sendStaffBlast("sendAutoActivateFailedStaffNotice", election.title, recipients, subject, html)
 }
 
@@ -1184,6 +1179,7 @@ function buildElectionExtendedVoterHtml(
   election: { title: string; emailLogoUrl?: string | null; emailFooter?: string | null },
   newEndsAt: string,
   magicLink: string,
+  tz: string,
 ): string {
   const name = escapeHtml(voter.name)
   const title = escapeHtml(election.title)
@@ -1192,7 +1188,7 @@ function buildElectionExtendedVoterHtml(
     <table role="presentation" cellpadding="0" cellspacing="0" width="100%"><tr>
       <td style="background:${C.bg};border:1px solid ${C.line};border-radius:10px;padding:14px 18px;">
         <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:11.5px;color:${C.muted};letter-spacing:0.06em;text-transform:uppercase;margin-bottom:5px;">New voting deadline</div>
-        <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:16px;font-weight:500;color:${C.ink};">${formatElectionDateTime(newEndsAt)}</div>
+        <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:16px;font-weight:500;color:${C.ink};">${formatDateInTz(newEndsAt, tz)}</div>
       </td>
     </tr></table>
   </td></tr>`
@@ -1223,6 +1219,7 @@ function buildElectionExtendedStaffHtml(
   oldEndsAt: Date,
   newEndsAt: Date,
   extendedByEmail: string,
+  tz: string,
 ): string {
   const title = escapeHtml(election.title)
   const by = escapeHtml(extendedByEmail)
@@ -1238,10 +1235,10 @@ function buildElectionExtendedStaffHtml(
       <table role="presentation" cellpadding="0" cellspacing="0" width="100%">
         <tr><td style="background:${C.bg};border:1px solid ${C.line};border-radius:10px;padding:14px 18px;">
           <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:13px;color:${C.muted};margin-bottom:6px;">
-            <span style="text-decoration:line-through;">${escapeHtml(formatElectionDateTime(oldEndsAt.toISOString()))}</span>
+            <span style="text-decoration:line-through;">${escapeHtml(formatDateInTz(oldEndsAt.toISOString(), tz))}</span>
           </div>
           <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:15px;font-weight:500;color:${C.ink};">
-            ${escapeHtml(formatElectionDateTime(newEndsAt.toISOString()))}
+            ${escapeHtml(formatDateInTz(newEndsAt.toISOString(), tz))}
           </div>
         </td></tr>
       </table>
@@ -1263,10 +1260,13 @@ export async function sendElectionExtendedNoticeToUnvoted(
   electionId: string,
   newEndsAt: Date,
 ): Promise<void> {
-  const election = await db.election.findUnique({
-    where: { id: electionId },
-    select: { title: true, emailLogoUrl: true, emailFooter: true },
-  })
+  const [election, tz] = await Promise.all([
+    db.election.findUnique({
+      where: { id: electionId },
+      select: { title: true, emailLogoUrl: true, emailFooter: true },
+    }),
+    getDisplayTimeZone(),
+  ])
   if (!election) return
 
   const voters = await db.voter.findMany({
@@ -1286,7 +1286,7 @@ export async function sendElectionExtendedNoticeToUnvoted(
       const { token, tokenHash } = generateVoterToken()
       await db.voter.update({ where: { id: voter.id }, data: { tokenHash } })
       const magicLink = `${baseUrl}/vote/${token}`
-      const html = buildElectionExtendedVoterHtml(voter, election, newEndsAt.toISOString(), magicLink)
+      const html = buildElectionExtendedVoterHtml(voter, election, newEndsAt.toISOString(), magicLink, tz)
       const result = await sendRawEmail(config, voter.email, subject, html)
       if (result.error) {
         console.error(`[sendElectionExtendedNoticeToUnvoted] send failed for ${voter.email}:`, result.error)
@@ -1309,7 +1309,8 @@ export async function sendElectionExtendedStaffNotice(
   newEndsAt: Date,
   extendedByEmail: string,
 ): Promise<void> {
+  const tz = await getDisplayTimeZone()
   const subject = `Voting deadline extended — ${election.title}`
-  const html = buildElectionExtendedStaffHtml(election, oldEndsAt, newEndsAt, extendedByEmail)
+  const html = buildElectionExtendedStaffHtml(election, oldEndsAt, newEndsAt, extendedByEmail, tz)
   await sendStaffBlast("sendElectionExtendedStaffNotice", election.title, recipients, subject, html)
 }

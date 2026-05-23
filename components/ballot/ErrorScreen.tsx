@@ -46,13 +46,13 @@ const CONFIGS: Record<string, Config> = {
   },
 }
 
-export default function ErrorScreen({ type, startsAt }: { type: string; startsAt?: string }) {
+export default function ErrorScreen({ type, startsAt, timeZone = "UTC" }: { type: string; startsAt?: string; timeZone?: string }) {
   const cfg = CONFIGS[type] ?? CONFIGS.invalid
   let body = cfg.body
   if (type === "not-open" && startsAt) {
-    const formatted = new Date(startsAt).toLocaleString(undefined, {
+    const formatted = new Date(startsAt).toLocaleString("en-US", {
       weekday: "long", month: "long", day: "numeric", year: "numeric",
-      hour: "numeric", minute: "2-digit",
+      hour: "numeric", minute: "2-digit", timeZone,
     })
     body = `Voting opens ${formatted}. Save this link — it will activate then.`
   }

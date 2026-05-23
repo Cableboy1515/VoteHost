@@ -9,6 +9,7 @@ import { Toaster } from "@/components/ui/sonner"
 import { toast } from "sonner"
 import Papa from "papaparse"
 import ActivateElectionButton from "@/components/admin/ActivateElectionButton"
+import { useDisplayTimeZone } from "@/components/TimezoneProvider"
 
 interface Voter {
   id: string
@@ -60,8 +61,9 @@ function Avatar({ name, size = 32 }: { name: string; size?: number }) {
 }
 
 function StatusChip({ v }: { v: Voter }) {
+  const tz = useDisplayTimeZone()
   const fmtDate = (iso: string) =>
-    new Date(iso).toLocaleDateString(undefined, { month: "short", day: "numeric" })
+    new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: tz })
   if (v.hasVoted) {
     const tip = [v.invitedAt && `Invited ${fmtDate(v.invitedAt)}`, v.votedAt && `Voted ${fmtDate(v.votedAt)}`].filter(Boolean).join(" · ")
     return (
@@ -103,10 +105,10 @@ function isToday(d: Date): boolean {
   return d.getFullYear() === n.getFullYear() && d.getMonth() === n.getMonth() && d.getDate() === n.getDate()
 }
 
-function formatScheduledOpen(iso: string): string {
+function formatScheduledOpen(iso: string, tz: string): string {
   const d = new Date(iso)
-  if (isToday(d)) return `today at ${d.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" })}`
-  return d.toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" })
+  if (isToday(d)) return `today at ${d.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", timeZone: tz })}`
+  return d.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", timeZone: tz })
 }
 
 export default function VoterManager({
@@ -119,6 +121,7 @@ export default function VoterManager({
   initialVoters,
 }: Props) {
   const router = useRouter()
+  const tz = useDisplayTimeZone()
   const [voters, setVoters] = useState<Voter[]>(initialVoters)
   const [name, setName] = useState("")
   const [email, setEmail] = useState("")
@@ -444,6 +447,20 @@ export default function VoterManager({
         ))}
       </div>
 
+      {/* Completed read-only notice */}
+      {electionStatus === "COMPLETED" && (
+        <div
+          className="rounded-[14px] px-[18px] py-3.5 text-[13.5px]"
+          style={{
+            background: "var(--vh-surface-2)",
+            border: "1px solid var(--vh-line-strong)",
+            color: "var(--vh-ink-soft)",
+          }}
+        >
+          This election is completed. The voter list is read-only.
+        </div>
+      )}
+
       {/* Draft activation banners */}
       {electionStatus === "DRAFT" && questionCount === 0 && (
         <div
@@ -518,14 +535,14 @@ export default function VoterManager({
               {electionAutoActivate ? (
                 <>
                   <strong>Voting opens{" "}
-                  {formatScheduledOpen(electionStartsAt!)}.
+                  {formatScheduledOpen(electionStartsAt!, tz)}.
                   </strong>{" "}
                   Invitations will send automatically when the election opens.
                 </>
               ) : (
                 <>
                   <strong>Voting opens{" "}
-                  {formatScheduledOpen(electionStartsAt!)}.
+                  {formatScheduledOpen(electionStartsAt!, tz)}.
                   </strong>{" "}
                   Auto-start is off — you&apos;ll need to activate manually.
                 </>
@@ -630,20 +647,24 @@ export default function VoterManager({
                   {selectionMode ? "Cancel selection" : "Select voters"}
                 </button>
               )}
-              <button
-                onClick={() => setShowAddModal(true)}
-                className="px-3.5 py-1.5 rounded-[8px] text-[13px] font-medium text-white transition-colors"
-                style={{ background: "var(--vh-accent)" }}
-              >
-                + Add voter
-              </button>
-              <button
-                onClick={() => setShowCsvModal(true)}
-                className="px-3.5 py-1.5 rounded-[8px] text-[13px] transition-colors"
-                style={{ border: "1px solid var(--vh-line-strong)", background: "var(--vh-surface)", color: "var(--vh-ink-soft)" }}
-              >
-                Import CSV
-              </button>
+              {electionStatus !== "COMPLETED" && (
+                <>
+                  <button
+                    onClick={() => setShowAddModal(true)}
+                    className="px-3.5 py-1.5 rounded-[8px] text-[13px] font-medium text-white transition-colors"
+                    style={{ background: "var(--vh-accent)" }}
+                  >
+                    + Add voter
+                  </button>
+                  <button
+                    onClick={() => setShowCsvModal(true)}
+                    className="px-3.5 py-1.5 rounded-[8px] text-[13px] transition-colors"
+                    style={{ border: "1px solid var(--vh-line-strong)", background: "var(--vh-surface)", color: "var(--vh-ink-soft)" }}
+                  >
+                    Import CSV
+                  </button>
+                </>
+              )}
               {electionStatus === "ACTIVE" && (
                 <button
                   onClick={handleSendInvites}

@@ -4,6 +4,7 @@ import ExcelJS from "exceljs"
 import { BRAND_NAME } from "@/lib/branding"
 import { requireRole } from "@/lib/auth"
 import { loadExportData, exportFilename } from "@/lib/exportData"
+import { getDisplayTimeZone } from "@/lib/timezone"
 
 const ACCENT = "FF3F66D9"
 const ACCENT_SOFT = "FFEEF2FC"
@@ -22,7 +23,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
   if (!session) return new Response("Forbidden", { status: 403 })
 
   const { id } = await params
-  const data = await loadExportData(id)
+  const [data, tz] = await Promise.all([loadExportData(id), getDisplayTimeZone()])
   if (!data) return new Response("Not found or election not completed", { status: 404 })
 
   const { election, totalVoters, votedCount, turnoutPct, tallyHash, questions, voters } = data
@@ -44,7 +45,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
   ws.getRow(1).height = 28
 
   const closeDate = (election.closedAt ?? election.endsAt ?? election.createdAt)
-    .toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })
+    .toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric", timeZone: tz })
   ws.getCell("A2").value = `Closed: ${closeDate}`
   ws.getCell("A2").font = { name: "Calibri", size: 11, color: { argb: MUTED } }
 
