@@ -109,7 +109,7 @@ export default function CloseElectionEarlyButton({
                 className="mt-0.5 flex-shrink-0"
               />
               <span className="text-sm text-zinc-600">
-                I understand this election will be finalized and cannot be re-opened without using Reopen.
+                I understand this election will be finalized and cannot be re-opened — to run another vote, create a new election.
               </span>
             </label>
           </div>

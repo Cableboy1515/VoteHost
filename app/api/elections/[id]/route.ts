@@ -121,9 +121,11 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     before.completionEmailSentAt == null
 
   if (transitioningToEnd) {
-    updates.completionEmailSentAt = new Date()
-    updates.closedAt = new Date()
+    const now = new Date()
+    updates.completionEmailSentAt = now
+    updates.closedAt = now
     updates.closedById = session.sub
+    updates.endsAt = now.toISOString()
     updates.reopenedAt = null
     updates.reopenedById = null
   }
@@ -176,6 +178,19 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
       { error: "A completed election cannot be reopened. Its tally is sealed. Create a new election instead." },
       { status: 409 }
     )
+  }
+
+  // Lock the voter-facing historical record once completed. Only cosmetic/operational
+  // fields remain editable (archived, autoSendResults, heroColor).
+  if (before.status === "COMPLETED") {
+    const COMPLETED_ALLOWED_KEYS = new Set(["status", "archived", "autoSendResults", "heroColor"])
+    const lockedKeys = Object.keys(parsed.data).filter((k) => !COMPLETED_ALLOWED_KEYS.has(k))
+    if (lockedKeys.length > 0) {
+      return NextResponse.json(
+        { error: "This election is completed — its historical record is locked. To run another vote, create a new election." },
+        { status: 423 }
+      )
+    }
   }
 
   const election = await db.election.update({ where: { id }, data: updates })
