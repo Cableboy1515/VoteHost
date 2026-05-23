@@ -333,12 +333,12 @@ export default function ElectionForm({
           <div
             className="rounded-[10px] px-4 py-3 text-[13px]"
             style={{
-              background: "var(--vh-accent-soft)",
-              color: "var(--vh-accent-strong)",
-              border: "1px solid oklch(0.85 0.05 255)",
+              background: "var(--vh-surface-2)",
+              color: "var(--vh-ink-soft)",
+              border: "1px solid var(--vh-line-strong)",
             }}
           >
-            This election is completed. Its record is locked for posterity. To run another vote, create a new election.
+            This election is completed and its record is locked. To run another vote, create a new election.
           </div>
         )}
         {/* Basics */}
