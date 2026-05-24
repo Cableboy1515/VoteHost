@@ -1,6 +1,6 @@
 import { db } from "@/lib/db"
 import { sendBallotInvitation } from "@/lib/email"
-import { generateVoterToken } from "@/lib/voterToken"
+import { generateVoterToken, appendVoterToken } from "@/lib/voterToken"
 
 export type InviteSendSummary = {
   sent: number
@@ -42,7 +42,7 @@ export async function sendBallotInvitationsToUninvited(
   for (const voter of uninvitedVoters) {
     try {
       const { token, tokenHash } = generateVoterToken()
-      await db.voter.update({ where: { id: voter.id }, data: { tokenHash } })
+      await appendVoterToken(voter.id, tokenHash)
 
       const { error, classification } = await sendBallotInvitation({
         voterName: voter.name,

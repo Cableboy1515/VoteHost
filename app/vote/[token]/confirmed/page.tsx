@@ -2,7 +2,7 @@ import { db } from "@/lib/db"
 import { notFound } from "next/navigation"
 import { BrandMark } from "@/components/ui/brand-mark"
 import CopyButton from "@/components/ui/copy-button"
-import { hashVoterToken } from "@/lib/voterToken"
+import { findVoterIdByToken } from "@/lib/voterToken"
 
 export default async function ConfirmedPage({
   params,
@@ -14,10 +14,10 @@ export default async function ConfirmedPage({
   const { token } = await params
   const { receipt } = await searchParams
 
-  const voter = await db.voter.findUnique({
-    where: { tokenHash: hashVoterToken(token) },
-    include: { election: true },
-  })
+  const voterId = await findVoterIdByToken(token)
+  const voter = voterId
+    ? await db.voter.findUnique({ where: { id: voterId }, include: { election: true } })
+    : null
 
   if (!voter || !voter.hasVoted) notFound()
 

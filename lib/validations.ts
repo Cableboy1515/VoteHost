@@ -144,6 +144,10 @@ export const RequestResetSchema = z.object({
   email: z.string().email(),
 })
 
+export const VoterRecoveryRequestSchema = z.object({
+  email: z.string().email().max(254),
+})
+
 export const ResetPasswordSchema = z.object({
   password: z.string().min(8, "Password must be at least 8 characters"),
 })

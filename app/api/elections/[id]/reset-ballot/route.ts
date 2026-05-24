@@ -66,9 +66,11 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       where: { electionId: id },
       data: { hasVoted: false, votedAt: null, firstReminderSentAt: null, secondReminderSentAt: null },
     })
-    // Rotate token hashes so old magic links cannot be reused
+    // Clear all history and seed one fresh token per reset voter — ballot reset
+    // intentionally invalidates every prior magic link from before the reset.
     for (const v of votersWithNewTokens) {
-      await tx.voter.update({ where: { id: v.id }, data: { tokenHash: v.tokenHash } })
+      await tx.voterTokenHistory.deleteMany({ where: { voterId: v.id } })
+      await tx.voterTokenHistory.create({ data: { voterId: v.id, tokenHash: v.tokenHash } })
     }
     await tx.election.update({
       where: { id },

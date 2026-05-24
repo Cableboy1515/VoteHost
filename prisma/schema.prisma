@@ -112,17 +112,26 @@ model Voter {
   name                 String
   email                String
   hasVoted             Boolean   @default(false)
-  // Token is never stored; only a SHA-256 hash to prevent insider vote impersonation
-  tokenHash            String    @unique
   invitedAt            DateTime?
   votedAt              DateTime?
   firstReminderSentAt  DateTime?
   secondReminderSentAt DateTime?
+  recoveryRequestedAt  DateTime?
 
-  election Election @relation(fields: [electionId], references: [id], onDelete: Cascade)
+  election     Election            @relation(fields: [electionId], references: [id], onDelete: Cascade)
+  tokenHistory VoterTokenHistory[]
 
   @@unique([electionId, email])
-  @@index([tokenHash])
+}
+
+model VoterTokenHistory {
+  id        String   @id @default(cuid())
+  voterId   String
+  voter     Voter    @relation(fields: [voterId], references: [id], onDelete: Cascade)
+  tokenHash String   @unique
+  createdAt DateTime @default(now())
+
+  @@index([voterId])
 }
 
 // Vote has no voterId — anonymity by design.

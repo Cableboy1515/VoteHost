@@ -64,6 +64,8 @@ export default function ErrorScreen({ type, startsAt, timeZone = "UTC" }: { type
       body={body}
       primaryLabel={cfg.primaryLabel}
       primaryHref={cfg.primaryHref}
+      secondaryLinkLabel={type === "invalid" ? "Lost your link? Request a fresh one →" : undefined}
+      secondaryLinkHref={type === "invalid" ? "/vote/recover" : undefined}
     />
   )
 }

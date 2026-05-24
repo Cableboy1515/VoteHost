@@ -2,7 +2,7 @@ import { db } from "@/lib/db"
 import ErrorScreen from "@/components/ballot/ErrorScreen"
 import BallotForm from "@/components/ballot/BallotForm"
 import { canActivate } from "@/lib/canActivate"
-import { hashVoterToken } from "@/lib/voterToken"
+import { findVoterIdByToken } from "@/lib/voterToken"
 import { getDisplayTimeZone } from "@/lib/timezone"
 
 export default async function VotePage({ params }: { params: Promise<{ token: string }> }) {
@@ -10,9 +10,15 @@ export default async function VotePage({ params }: { params: Promise<{ token: st
 
   // Phase 1: lightweight check — skips the questions/options join for invalid or
   // closed-election tokens (the common case for stale magic links in old emails).
-  const [quick, tz] = await Promise.all([
-  db.voter.findUnique({
-    where: { tokenHash: hashVoterToken(token) },
+  const [voterId, tz] = await Promise.all([
+    findVoterIdByToken(token),
+    getDisplayTimeZone(),
+  ])
+
+  if (!voterId) return <ErrorScreen type="invalid" />
+
+  const quick = await db.voter.findUnique({
+    where: { id: voterId },
     select: {
       id: true,
       hasVoted: true,
@@ -27,9 +33,7 @@ export default async function VotePage({ params }: { params: Promise<{ token: st
         },
       },
     },
-  }),
-  getDisplayTimeZone(),
-  ])
+  })
 
   if (!quick) return <ErrorScreen type="invalid" />
   if (quick.hasVoted) return <ErrorScreen type="already-voted" />

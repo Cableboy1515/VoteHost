@@ -1,6 +1,6 @@
 import { db } from "@/lib/db"
 import { sendBallotInvitation } from "@/lib/email"
-import { generateVoterToken } from "@/lib/voterToken"
+import { generateVoterToken, appendVoterToken } from "@/lib/voterToken"
 
 type VoterData = {
   id: string
@@ -33,7 +33,7 @@ export async function sendOneInvite(
   if (election.status !== "ACTIVE") return "election_not_active"
 
   const { token, tokenHash } = generateVoterToken()
-  await db.voter.update({ where: { id: voter.id }, data: { tokenHash } })
+  await appendVoterToken(voter.id, tokenHash)
 
   const { error } = await sendBallotInvitation({
     voterName: voter.name,

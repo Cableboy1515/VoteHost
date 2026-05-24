@@ -3,7 +3,7 @@ import { requireRole } from "@/lib/auth"
 import { db } from "@/lib/db"
 import { sendBallotInvitation } from "@/lib/email"
 import { rateLimit, rateLimitResponse } from "@/lib/rateLimit"
-import { generateVoterToken } from "@/lib/voterToken"
+import { generateVoterToken, appendVoterToken } from "@/lib/voterToken"
 
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const session = await requireRole("ORGANIZER")
@@ -43,7 +43,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   for (const voter of voters) {
     try {
       const { token, tokenHash } = generateVoterToken()
-      await db.voter.update({ where: { id: voter.id }, data: { tokenHash } })
+      await appendVoterToken(voter.id, tokenHash)
 
       const { error } = await sendBallotInvitation({
         voterName: voter.name,

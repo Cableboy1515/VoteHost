@@ -5,7 +5,7 @@ import { rateLimit, rateLimitResponse } from "@/lib/rateLimit"
 import { generateBallotId, generateReceiptCode, computeBallotHash } from "@/lib/verification"
 import { sendBallotReceipt, sendFullTurnoutStaffNotice } from "@/lib/email"
 import { getStaffRecipients } from "@/lib/staffRecipients"
-import { hashVoterToken } from "@/lib/voterToken"
+import { findVoterIdByToken } from "@/lib/voterToken"
 
 export async function POST(req: Request) {
   const ip = req.headers.get("x-forwarded-for")?.split(",")[0].trim() ?? "unknown"
@@ -20,8 +20,11 @@ export async function POST(req: Request) {
 
   const { token, answers } = parsed.data
 
+  const voterId = await findVoterIdByToken(token)
+  if (!voterId) return NextResponse.json({ error: "Invalid voting link" }, { status: 404 })
+
   const voter = await db.voter.findUnique({
-    where: { tokenHash: hashVoterToken(token) },
+    where: { id: voterId },
     include: { election: true },
   })
   if (!voter) return NextResponse.json({ error: "Invalid voting link" }, { status: 404 })
@@ -163,7 +166,7 @@ export async function POST(req: Request) {
   try {
     await db.$transaction(async (tx: Parameters<Parameters<typeof db.$transaction>[0]>[0]) => {
       const updated = await tx.voter.updateMany({
-        where: { tokenHash: hashVoterToken(token), hasVoted: false },
+        where: { id: voterId, hasVoted: false },
         data: { hasVoted: true, votedAt: new Date() },
       })
       if (updated.count === 0) throw new Error("ALREADY_VOTED")

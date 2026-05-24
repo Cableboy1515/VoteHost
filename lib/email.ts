@@ -3,7 +3,7 @@ import { BRAND_NAME } from "@/lib/branding"
 import nodemailer from "nodemailer"
 import { db } from "@/lib/db"
 import { absolutizeUrl } from "@/lib/absolutize-url"
-import { generateVoterToken } from "@/lib/voterToken"
+import { generateVoterToken, appendVoterToken } from "@/lib/voterToken"
 import { formatDateInTz, getDisplayTimeZone } from "@/lib/timezone"
 
 const ALL_KEYS = [
@@ -1284,7 +1284,7 @@ export async function sendElectionExtendedNoticeToUnvoted(
   for (const voter of voters) {
     try {
       const { token, tokenHash } = generateVoterToken()
-      await db.voter.update({ where: { id: voter.id }, data: { tokenHash } })
+      await appendVoterToken(voter.id, tokenHash)
       const magicLink = `${baseUrl}/vote/${token}`
       const html = buildElectionExtendedVoterHtml(voter, election, newEndsAt.toISOString(), magicLink, tz)
       const result = await sendRawEmail(config, voter.email, subject, html)
@@ -1313,4 +1313,73 @@ export async function sendElectionExtendedStaffNotice(
   const subject = `Voting deadline extended — ${election.title}`
   const html = buildElectionExtendedStaffHtml(election, oldEndsAt, newEndsAt, extendedByEmail, tz)
   await sendStaffBlast("sendElectionExtendedStaffNotice", election.title, recipients, subject, html)
+}
+
+// ─── Voter self-service link recovery ────────────────────────────────────────
+
+type RecoveryVoter = { name: string; email: string }
+type RecoveryElection = { title: string; endsAt: Date | null; emailLogoUrl?: string | null; emailFooter?: string | null }
+
+function buildBallotRecoveryHtml(
+  voter: RecoveryVoter,
+  election: RecoveryElection,
+  magicLink: string,
+  tz: string,
+): string {
+  const name = escapeHtml(voter.name)
+  const title = escapeHtml(election.title)
+  const link = escapeHtml(magicLink)
+  const deadlineCallout = election.endsAt
+    ? `<tr><td style="padding:0 32px 20px;">
+        <table role="presentation" cellpadding="0" cellspacing="0" width="100%"><tr>
+          <td style="background:${C.bg};border:1px solid ${C.line};border-radius:10px;padding:14px 18px;">
+            <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:11.5px;color:${C.muted};letter-spacing:0.06em;text-transform:uppercase;margin-bottom:5px;">Voting deadline</div>
+            <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:16px;font-weight:500;color:${C.ink};">${formatDateInTz(election.endsAt.toISOString(), tz)}</div>
+          </td>
+        </tr></table>
+      </td></tr>`
+    : ""
+  return emailWrapper(`
+    ${brandRow()}
+    ${logoRow(election.emailLogoUrl)}
+    <tr><td style="padding:24px 32px 14px;">
+      <h1 style="margin:0 0 12px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:22px;font-weight:600;color:${C.ink};letter-spacing:-0.02em;">Your fresh ballot link</h1>
+      <p style="margin:0 0 14px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:14.5px;color:${C.inkSoft};line-height:1.6;">Hi ${name},</p>
+      <p style="margin:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:14.5px;color:${C.inkSoft};line-height:1.6;">
+        You requested a fresh ballot link for <strong style="color:${C.ink};">${title}</strong>. Here it is.
+      </p>
+    </td></tr>
+    ${deadlineCallout}
+    <tr><td style="padding:0 32px 14px;">
+      <a href="${link}" style="display:inline-block;background:${C.accent};color:#ffffff;text-decoration:none;padding:14px 28px;border-radius:10px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:15px;font-weight:500;">Cast your ballot →</a>
+    </td></tr>
+    <tr><td style="padding:0 32px 20px;">
+      <p style="margin:0 0 4px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:12.5px;color:${C.muted};">Or paste this link into your browser:</p>
+      <div style="font-family:'Courier New',Courier,monospace;font-size:12px;color:${C.accentStrong};word-break:break-all;">${link}</div>
+    </td></tr>
+    <tr><td style="padding:0 32px 20px;">
+      <p style="margin:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:12.5px;color:${C.muted};line-height:1.6;">
+        If you didn't request this, you can safely ignore this email — no action is needed and your previous links still work.
+      </p>
+    </td></tr>
+    ${footerRow(election.emailFooter)}
+  `)
+}
+
+export async function sendBallotRecoveryLink({
+  voter,
+  election,
+  magicLink,
+}: {
+  voter: RecoveryVoter
+  election: RecoveryElection
+  magicLink: string
+}): Promise<void> {
+  const [config, tz] = await Promise.all([getAllEmailConfig(), getDisplayTimeZone()])
+  const subject = `Your ballot link for ${election.title}`
+  const html = buildBallotRecoveryHtml(voter, election, magicLink, tz)
+  const result = await sendRawEmail(config, voter.email, subject, html)
+  if (result.error) {
+    console.error(`[sendBallotRecoveryLink] send failed for ${voter.email}:`, result.error)
+  }
 }

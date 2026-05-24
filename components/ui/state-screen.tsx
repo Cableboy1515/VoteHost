@@ -12,6 +12,8 @@ interface Props {
   primaryLabel?: string
   primaryHref?: string
   secondary?: string
+  secondaryLinkLabel?: string
+  secondaryLinkHref?: string
   className?: string
 }
 
@@ -23,6 +25,8 @@ export function StateScreen({
   primaryLabel,
   primaryHref,
   secondary,
+  secondaryLinkLabel,
+  secondaryLinkHref,
   className,
 }: Props) {
   return (
@@ -59,6 +63,15 @@ export function StateScreen({
 
         {secondary && (
           <p className="mt-4 text-[13px] text-vh-muted">{secondary}</p>
+        )}
+
+        {secondaryLinkLabel && secondaryLinkHref && (
+          <Link
+            href={secondaryLinkHref}
+            className="mt-4 text-[13px] text-vh-muted underline underline-offset-2 hover:text-vh-ink-soft transition-colors"
+          >
+            {secondaryLinkLabel}
+          </Link>
         )}
       </div>
     </div>

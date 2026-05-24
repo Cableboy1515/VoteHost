@@ -2,7 +2,7 @@ import { db } from "@/lib/db"
 import { canActivate } from "@/lib/canActivate"
 import { sendBallotInvitation, sendAutoActivateFailedStaffNotice } from "@/lib/email"
 import { getStaffRecipients } from "@/lib/staffRecipients"
-import { generateVoterToken } from "@/lib/voterToken"
+import { generateVoterToken, appendVoterToken } from "@/lib/voterToken"
 
 export async function autoActivateElections(): Promise<string[]> {
   const now = new Date()
@@ -67,7 +67,7 @@ export async function autoActivateElections(): Promise<string[]> {
       for (const voter of uninvitedVoters) {
         try {
           const { token, tokenHash } = generateVoterToken()
-          await db.voter.update({ where: { id: voter.id }, data: { tokenHash } })
+          await appendVoterToken(voter.id, tokenHash)
 
           const { error } = await sendBallotInvitation({
             voterName: voter.name,

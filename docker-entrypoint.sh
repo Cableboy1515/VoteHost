@@ -35,6 +35,49 @@ async function main() {
 main().catch(err => { console.error('Pre-push migration error:', err); process.exit(1); });
 "
 
+echo "Running pre-push migration: voter token history backfill..."
+node -e "
+const { Client } = require('pg');
+async function main() {
+  const c = new Client({ connectionString: process.env.DATABASE_URL });
+  await c.connect();
+  try {
+    const hasTokenHash = await c.query(
+      \"SELECT 1 FROM information_schema.columns WHERE table_name='Voter' AND column_name='tokenHash' LIMIT 1\"
+    );
+    const hasHistory = await c.query(
+      \"SELECT 1 FROM information_schema.tables WHERE table_name='VoterTokenHistory' LIMIT 1\"
+    );
+    if (hasTokenHash.rowCount > 0 && hasHistory.rowCount === 0) {
+      await c.query(\`
+        CREATE TABLE \"VoterTokenHistory\" (
+          \"id\" TEXT PRIMARY KEY,
+          \"voterId\" TEXT NOT NULL REFERENCES \"Voter\"(\"id\") ON DELETE CASCADE,
+          \"tokenHash\" TEXT NOT NULL UNIQUE,
+          \"createdAt\" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP
+        )
+      \`);
+      await c.query('CREATE INDEX \"VoterTokenHistory_voterId_idx\" ON \"VoterTokenHistory\"(\"voterId\")');
+      await c.query(\`
+        INSERT INTO \"VoterTokenHistory\" (\"id\", \"voterId\", \"tokenHash\", \"createdAt\")
+        SELECT
+          'mig_' || md5(\"id\" || '_' || \"tokenHash\"),
+          \"id\",
+          \"tokenHash\",
+          COALESCE(\"invitedAt\", NOW())
+        FROM \"Voter\"
+        WHERE \"tokenHash\" IS NOT NULL
+      \`);
+      console.log('Voter.tokenHash to VoterTokenHistory backfill complete');
+    }
+  } catch (e) {
+    // Table does not exist yet (fresh install) - safe to ignore
+  }
+  await c.end();
+}
+main().catch(err => { console.error('Pre-push history migration error:', err); process.exit(1); });
+"
+
 echo "Applying database schema..."
 node node_modules/prisma/build/index.js db push --accept-data-loss
 echo "Schema applied."
