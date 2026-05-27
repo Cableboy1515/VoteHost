@@ -43,7 +43,9 @@ export default function SetupAccountPage() {
     })
     setSubmitting(false)
     if (res.ok) {
-      window.location.href = "/"
+      const d = await res.json().catch(() => ({}))
+      const prompt2fa = d.role === "ADMIN" || d.role === "ORGANIZER"
+      window.location.href = prompt2fa ? "/login/enroll?next=/" : "/"
     } else {
       const d = await res.json().catch(() => ({}))
       setError(d.error ?? "Something went wrong")

@@ -56,7 +56,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ token: 
   })
 
   const sessionToken = await createSession(updatedUser)
-  const res = NextResponse.json({ ok: true })
+  const res = NextResponse.json({ ok: true, role: updatedUser.role })
   res.cookies.set(COOKIE, sessionToken, SESSION_COOKIE_OPTIONS)
   return res
 }
