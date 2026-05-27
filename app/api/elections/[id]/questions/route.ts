@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import { getSession, requireRole } from "@/lib/auth"
 import { db } from "@/lib/db"
 import { QuestionSchema, OptionSchema } from "@/lib/validations"
+import { recordActivity } from "@/lib/recordActivity"
 import { z } from "zod"
 
 const BallotSchema = z.array(
@@ -37,6 +38,13 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
   const body = await req.json()
   const parsed = BallotSchema.safeParse(body)
   if (!parsed.success) return NextResponse.json({ error: parsed.error.issues }, { status: 400 })
+
+  // Snapshot before mutation for diff
+  const before = await db.question.findMany({
+    where: { electionId },
+    include: { options: { orderBy: { order: "asc" } } },
+    orderBy: { order: "asc" },
+  })
 
   await db.$transaction(async (tx: Parameters<Parameters<typeof db.$transaction>[0]>[0]) => {
     await tx.question.deleteMany({ where: { electionId } })
@@ -75,5 +83,64 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
     include: { options: { orderBy: { order: "asc" } } },
     orderBy: { order: "asc" },
   })
+
+  // Compute diff for activity log
+  const beforeById = new Map(before.map((q) => [q.id, q]))
+  const bodyIds = new Set(parsed.data.map((q) => q.id).filter(Boolean))
+  const added: string[] = []
+  const removed: string[] = []
+  const edited: Array<{ text: string; optionsAdded?: number; optionsRemoved?: number; optionsEdited?: number }> = []
+
+  for (const q of parsed.data) {
+    if (!q.id || !beforeById.has(q.id)) {
+      added.push(q.text)
+    } else {
+      const prev = beforeById.get(q.id)!
+      const prevOptIds = new Set(prev.options.map((o) => o.id))
+      const newOpts = q.options ?? []
+      const newOptIds = new Set(newOpts.map((o) => o.id).filter(Boolean))
+      const optionsAdded   = newOpts.filter((o) => !o.id || !prevOptIds.has(o.id)).length
+      const optionsRemoved = prev.options.filter((o) => !newOptIds.has(o.id)).length
+      const optionsEdited  = newOpts.filter((o) => {
+        if (!o.id || !prevOptIds.has(o.id)) return false
+        const po = prev.options.find((p) => p.id === o.id)!
+        return po.text !== o.text || (po.bio ?? null) !== (o.bio ?? null) || (po.website ?? null) !== (o.website ?? null)
+      }).length
+
+      const questionFieldsChanged =
+        prev.text !== q.text ||
+        prev.type !== q.type ||
+        (prev.description ?? null) !== (q.description ?? null) ||
+        (prev.required ?? true) !== (q.required ?? true) ||
+        (prev.maxSelections ?? null) !== (q.maxSelections ?? null) ||
+        (prev.randomizeOptions ?? false) !== (q.randomizeOptions ?? false) ||
+        (prev.showOptionAvatars ?? true) !== (q.showOptionAvatars ?? true)
+
+      if (questionFieldsChanged || optionsAdded || optionsRemoved || optionsEdited) {
+        edited.push({
+          text: q.text,
+          ...(optionsAdded   ? { optionsAdded }   : {}),
+          ...(optionsRemoved ? { optionsRemoved } : {}),
+          ...(optionsEdited  ? { optionsEdited }  : {}),
+        })
+      }
+    }
+  }
+
+  for (const q of before) {
+    if (!bodyIds.has(q.id)) removed.push(q.text)
+  }
+
+  if (added.length + removed.length + edited.length > 0) {
+    await recordActivity({
+      session,
+      action: "election.ballot_update",
+      electionId,
+      targetType: "election",
+      targetId: electionId,
+      metadata: { added, removed, edited },
+    })
+  }
+
   return NextResponse.json(questions)
 }

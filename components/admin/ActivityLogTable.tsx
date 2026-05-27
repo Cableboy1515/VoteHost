@@ -97,6 +97,25 @@ function getDetail(log: LogEntry): string | null {
     return parts.join(", ")
   }
 
+  // Ballot structural diff
+  if (action === "election.ballot_update" && meta) {
+    const added   = Array.isArray(meta.added)   ? (meta.added   as string[]) : []
+    const removed = Array.isArray(meta.removed) ? (meta.removed as string[]) : []
+    const editedRaw = Array.isArray(meta.edited) ? (meta.edited as Array<{ text: string; optionsAdded?: number; optionsRemoved?: number; optionsEdited?: number }>) : []
+    const lines: string[] = []
+    if (added.length)   lines.push(`Added: ${added.map((q) => `"${q}"`).join(", ")}`)
+    if (removed.length) lines.push(`Removed: ${removed.map((q) => `"${q}"`).join(", ")}`)
+    for (const e of editedRaw) {
+      const optParts: string[] = []
+      if (e.optionsAdded)   optParts.push(`${e.optionsAdded} added`)
+      if (e.optionsRemoved) optParts.push(`${e.optionsRemoved} removed`)
+      if (e.optionsEdited)  optParts.push(`${e.optionsEdited} edited`)
+      const suffix = optParts.length ? ` (options: ${optParts.join(", ")})` : ""
+      lines.push(`Edited: "${e.text}"${suffix}`)
+    }
+    return lines.length ? lines.join("\n") : null
+  }
+
   // Election/settings diff — new shape
   if (meta?.changes && typeof meta.changes === "object" && !Array.isArray(meta.changes)) {
     const changes = meta.changes as Record<string, { from: unknown; to: unknown }>
