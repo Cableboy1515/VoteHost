@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
+import { useRouter } from "next/navigation"
 import { BRAND_NAME, RELEASES_URL } from "@/lib/branding"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -119,6 +120,7 @@ const COMMON_TIMEZONES = [
 ]
 
 function GeneralSettings() {
+  const router = useRouter()
   const [days, setDays] = useState("30")
   const [tz, setTz] = useState("UTC")
   const [otherTz, setOtherTz] = useState("")
@@ -172,6 +174,7 @@ function GeneralSettings() {
           setTz(otherTz.trim())
           setOtherTz("")
         }
+        router.refresh()
       } else {
         setStatus("error")
         setErrorMsg(data.error ?? "Failed to save")
