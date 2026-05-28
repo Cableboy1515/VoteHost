@@ -8,6 +8,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { Toaster } from "@/components/ui/sonner"
 import { toast } from "sonner"
 import ImageUploadField from "@/components/admin/ImageUploadField"
+import { Tooltip } from "@/components/ui/tooltip"
 
 type QuestionType = "SINGLE_CHOICE" | "MULTIPLE_CHOICE" | "RANKED_CHOICE" | "WRITE_IN"
 
@@ -41,11 +42,11 @@ interface Props {
   initialQuestions: QuestionDraft[]
 }
 
-const TYPES: { value: QuestionType; label: string }[] = [
-  { value: "SINGLE_CHOICE", label: "Single choice" },
-  { value: "MULTIPLE_CHOICE", label: "Multiple" },
-  { value: "RANKED_CHOICE", label: "Preference Ranking" },
-  { value: "WRITE_IN", label: "Write-in" },
+const TYPES: { value: QuestionType; label: string; tooltip: string }[] = [
+  { value: "SINGLE_CHOICE", label: "Single choice", tooltip: "Voter picks exactly one option." },
+  { value: "MULTIPLE_CHOICE", label: "Multiple", tooltip: "Voter can pick up to a chosen maximum." },
+  { value: "RANKED_CHOICE", label: "Preference Ranking", tooltip: "Voter ranks options in order of preference; winner determined by ranked-choice (instant-runoff) tally." },
+  { value: "WRITE_IN", label: "Write-in", tooltip: "Voter types a free-text response instead of choosing from preset options." },
 ]
 
 const inputCls = "w-full text-sm rounded-[10px] px-3 py-2.5 transition-colors"
@@ -295,80 +296,87 @@ export default function BallotBuilder({ electionId, electionStatus, firstVoteAt,
                   {TYPES.map((t) => {
                     const active = q.type === t.value
                     return (
-                      <button
-                        key={t.value}
-                        type="button"
-                        disabled={locked}
-                        onClick={() => {
-                          if (locked) return
-                          updateQuestion(qIndex, {
-                            type: t.value,
-                            maxSelections: t.value === "MULTIPLE_CHOICE" ? q.maxSelections : undefined,
-                            options: t.value === "WRITE_IN" ? [] : q.options.length ? q.options : [{ text: "", order: 0 }, { text: "", order: 1 }],
-                          })
-                        }}
-                        className="px-2.5 py-1.5 rounded-[8px] text-[12.5px] transition-colors"
-                        style={{
-                          border: `1px solid ${active ? "var(--vh-accent)" : "var(--vh-line-strong)"}`,
-                          background: active ? "var(--vh-accent-soft)" : "var(--vh-surface)",
-                          color: active ? "var(--vh-accent-strong)" : "var(--vh-ink-soft)",
-                          fontWeight: active ? 500 : 400,
-                          cursor: locked ? "not-allowed" : "pointer",
-                          opacity: locked ? 0.6 : 1,
-                        }}
-                      >
-                        {t.label}
-                      </button>
+                      <Tooltip key={t.value} content={t.tooltip}>
+                        <button
+                          type="button"
+                          disabled={locked}
+                          onClick={() => {
+                            if (locked) return
+                            updateQuestion(qIndex, {
+                              type: t.value,
+                              maxSelections: t.value === "MULTIPLE_CHOICE" ? q.maxSelections : undefined,
+                              options: t.value === "WRITE_IN" ? [] : q.options.length ? q.options : [{ text: "", order: 0 }, { text: "", order: 1 }],
+                            })
+                          }}
+                          className="px-2.5 py-1.5 rounded-[8px] text-[12.5px] transition-colors"
+                          style={{
+                            border: `1px solid ${active ? "var(--vh-accent)" : "var(--vh-line-strong)"}`,
+                            background: active ? "var(--vh-accent-soft)" : "var(--vh-surface)",
+                            color: active ? "var(--vh-accent-strong)" : "var(--vh-ink-soft)",
+                            fontWeight: active ? 500 : 400,
+                            cursor: locked ? "not-allowed" : "pointer",
+                            opacity: locked ? 0.6 : 1,
+                          }}
+                        >
+                          {t.label}
+                        </button>
+                      </Tooltip>
                     )
                   })}
                 </div>
                 <div className="flex gap-1.5 flex-wrap items-center">
-                  <button
-                    type="button"
-                    disabled={locked}
-                    onClick={() => !locked && updateQuestion(qIndex, { required: !q.required })}
-                    className="px-2.5 py-1.5 rounded-[8px] text-[12.5px] transition-colors"
-                    style={{
-                      border: `1px solid ${q.required ? "var(--vh-accent)" : "var(--vh-line-strong)"}`,
-                      background: q.required ? "var(--vh-accent)" : "var(--vh-surface)",
-                      color: q.required ? "white" : "var(--vh-ink-soft)",
-                      cursor: locked ? "not-allowed" : "pointer",
-                    }}
-                  >
-                    {q.required ? "Required" : "Optional"}
-                  </button>
+                  <Tooltip content="Required questions must be answered before the ballot can be submitted.">
+                    <button
+                      type="button"
+                      disabled={locked}
+                      onClick={() => !locked && updateQuestion(qIndex, { required: !q.required })}
+                      className="px-2.5 py-1.5 rounded-[8px] text-[12.5px] transition-colors"
+                      style={{
+                        border: `1px solid ${q.required ? "var(--vh-accent)" : "var(--vh-line-strong)"}`,
+                        background: q.required ? "var(--vh-accent)" : "var(--vh-surface)",
+                        color: q.required ? "white" : "var(--vh-ink-soft)",
+                        cursor: locked ? "not-allowed" : "pointer",
+                      }}
+                    >
+                      {q.required ? "Required" : "Optional"}
+                    </button>
+                  </Tooltip>
                   {(q.type === "SINGLE_CHOICE" || q.type === "MULTIPLE_CHOICE") && (
                     <>
-                      <button
-                        type="button"
-                        disabled={locked}
-                        onClick={() => !locked && updateQuestion(qIndex, { randomizeOptions: !q.randomizeOptions })}
-                        className="px-2.5 py-1.5 rounded-[8px] text-[12.5px] transition-colors"
-                        style={{
-                          border: `1px solid ${q.randomizeOptions ? "var(--vh-accent)" : "var(--vh-line-strong)"}`,
-                          background: q.randomizeOptions ? "var(--vh-accent)" : "var(--vh-surface)",
-                          color: q.randomizeOptions ? "white" : "var(--vh-ink-soft)",
-                          cursor: locked ? "not-allowed" : "pointer",
-                          opacity: locked ? 0.6 : 1,
-                        }}
-                      >
-                        Randomize order
-                      </button>
-                      <button
-                        type="button"
-                        disabled={locked}
-                        onClick={() => !locked && updateQuestion(qIndex, { showOptionAvatars: !(q.showOptionAvatars ?? true) })}
-                        className="px-2.5 py-1.5 rounded-[8px] text-[12.5px] transition-colors"
-                        style={{
-                          border: `1px solid ${(q.showOptionAvatars ?? true) ? "var(--vh-accent)" : "var(--vh-line-strong)"}`,
-                          background: (q.showOptionAvatars ?? true) ? "var(--vh-accent)" : "var(--vh-surface)",
-                          color: (q.showOptionAvatars ?? true) ? "white" : "var(--vh-ink-soft)",
-                          cursor: locked ? "not-allowed" : "pointer",
-                          opacity: locked ? 0.6 : 1,
-                        }}
-                      >
-                        Show avatars
-                      </button>
+                      <Tooltip content="Each voter sees the options in a different random order to reduce position bias.">
+                        <button
+                          type="button"
+                          disabled={locked}
+                          onClick={() => !locked && updateQuestion(qIndex, { randomizeOptions: !q.randomizeOptions })}
+                          className="px-2.5 py-1.5 rounded-[8px] text-[12.5px] transition-colors"
+                          style={{
+                            border: `1px solid ${q.randomizeOptions ? "var(--vh-accent)" : "var(--vh-line-strong)"}`,
+                            background: q.randomizeOptions ? "var(--vh-accent)" : "var(--vh-surface)",
+                            color: q.randomizeOptions ? "white" : "var(--vh-ink-soft)",
+                            cursor: locked ? "not-allowed" : "pointer",
+                            opacity: locked ? 0.6 : 1,
+                          }}
+                        >
+                          Randomize order
+                        </button>
+                      </Tooltip>
+                      <Tooltip content="Display each option's uploaded photo on the voter ballot.">
+                        <button
+                          type="button"
+                          disabled={locked}
+                          onClick={() => !locked && updateQuestion(qIndex, { showOptionAvatars: !(q.showOptionAvatars ?? true) })}
+                          className="px-2.5 py-1.5 rounded-[8px] text-[12.5px] transition-colors"
+                          style={{
+                            border: `1px solid ${(q.showOptionAvatars ?? true) ? "var(--vh-accent)" : "var(--vh-line-strong)"}`,
+                            background: (q.showOptionAvatars ?? true) ? "var(--vh-accent)" : "var(--vh-surface)",
+                            color: (q.showOptionAvatars ?? true) ? "white" : "var(--vh-ink-soft)",
+                            cursor: locked ? "not-allowed" : "pointer",
+                            opacity: locked ? 0.6 : 1,
+                          }}
+                        >
+                          Show option photos
+                        </button>
+                      </Tooltip>
                     </>
                   )}
                 </div>
@@ -404,29 +412,33 @@ export default function BallotBuilder({ electionId, electionStatus, firstVoteAt,
                             onFocus={onFocusIn}
                             onBlur={onFocusOut}
                           />
-                          <button
-                            type="button"
-                            onClick={() => toggleDetails(detailKey)}
-                            disabled={locked}
-                            className="flex items-center gap-0.5 text-[13px] font-semibold px-2 py-1 rounded-[7px] transition-colors"
-                            style={{ color: "var(--vh-muted)", background: "transparent" }}
-                          >
-                            Details
-                            {detailOpen ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => removeOption(qIndex, oIndex)}
-                            disabled={locked || q.options.length <= 2}
-                            className="text-[16px] px-1.5 transition-colors"
-                            style={{
-                              color: "var(--vh-muted)",
-                              opacity: q.options.length <= 2 ? 0.35 : 1,
-                              cursor: q.options.length <= 2 ? "not-allowed" : "pointer",
-                            }}
-                          >
-                            ×
-                          </button>
+                          <Tooltip content="Add a description, photo, or website link for this option.">
+                            <button
+                              type="button"
+                              onClick={() => toggleDetails(detailKey)}
+                              disabled={locked}
+                              className="flex items-center gap-0.5 text-[13px] font-semibold px-2 py-1 rounded-[7px] transition-colors"
+                              style={{ color: "var(--vh-muted)", background: "transparent" }}
+                            >
+                              Details
+                              {detailOpen ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
+                            </button>
+                          </Tooltip>
+                          <Tooltip content="Remove this option">
+                            <button
+                              type="button"
+                              onClick={() => removeOption(qIndex, oIndex)}
+                              disabled={locked || q.options.length <= 2}
+                              className="text-[16px] px-1.5 transition-colors"
+                              style={{
+                                color: "var(--vh-muted)",
+                                opacity: q.options.length <= 2 ? 0.35 : 1,
+                                cursor: q.options.length <= 2 ? "not-allowed" : "pointer",
+                              }}
+                            >
+                              ×
+                            </button>
+                          </Tooltip>
                         </div>
 
                         {detailOpen && (
@@ -518,39 +530,45 @@ export default function BallotBuilder({ electionId, electionStatus, firstVoteAt,
 
             {/* Move / delete controls */}
             <div className="flex flex-col gap-0.5 pt-0.5">
-              <button
-                type="button"
-                onClick={() => moveQuestion(qIndex, -1)}
-                disabled={locked || qIndex === 0}
-                className="w-10 h-10 sm:w-9 sm:h-9 flex items-center justify-center rounded-[7px] text-lg font-bold transition-colors disabled:opacity-30"
-                style={{ color: "var(--vh-muted)", background: "transparent" }}
-                onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = "var(--vh-surface-2)" }}
-                onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "transparent" }}
-              >
-                ↑
-              </button>
-              <button
-                type="button"
-                onClick={() => moveQuestion(qIndex, 1)}
-                disabled={locked || qIndex === questions.length - 1}
-                className="w-10 h-10 sm:w-9 sm:h-9 flex items-center justify-center rounded-[7px] text-lg font-bold transition-colors disabled:opacity-30"
-                style={{ color: "var(--vh-muted)", background: "transparent" }}
-                onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = "var(--vh-surface-2)" }}
-                onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "transparent" }}
-              >
-                ↓
-              </button>
-              <button
-                type="button"
-                onClick={() => removeQuestion(qIndex)}
-                disabled={locked}
-                className="w-10 h-10 sm:w-9 sm:h-9 flex items-center justify-center rounded-[7px] text-lg font-bold transition-colors disabled:opacity-30"
-                style={{ color: "var(--vh-danger)", background: "transparent" }}
-                onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = "var(--vh-danger-soft)" }}
-                onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "transparent" }}
-              >
-                ×
-              </button>
+              <Tooltip content="Move question up">
+                <button
+                  type="button"
+                  onClick={() => moveQuestion(qIndex, -1)}
+                  disabled={locked || qIndex === 0}
+                  className="w-10 h-10 sm:w-9 sm:h-9 flex items-center justify-center rounded-[7px] text-lg font-bold transition-colors disabled:opacity-30"
+                  style={{ color: "var(--vh-muted)", background: "transparent" }}
+                  onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = "var(--vh-surface-2)" }}
+                  onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "transparent" }}
+                >
+                  ↑
+                </button>
+              </Tooltip>
+              <Tooltip content="Move question down">
+                <button
+                  type="button"
+                  onClick={() => moveQuestion(qIndex, 1)}
+                  disabled={locked || qIndex === questions.length - 1}
+                  className="w-10 h-10 sm:w-9 sm:h-9 flex items-center justify-center rounded-[7px] text-lg font-bold transition-colors disabled:opacity-30"
+                  style={{ color: "var(--vh-muted)", background: "transparent" }}
+                  onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = "var(--vh-surface-2)" }}
+                  onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "transparent" }}
+                >
+                  ↓
+                </button>
+              </Tooltip>
+              <Tooltip content="Delete this question">
+                <button
+                  type="button"
+                  onClick={() => removeQuestion(qIndex)}
+                  disabled={locked}
+                  className="w-10 h-10 sm:w-9 sm:h-9 flex items-center justify-center rounded-[7px] text-lg font-bold transition-colors disabled:opacity-30"
+                  style={{ color: "var(--vh-danger)", background: "transparent" }}
+                  onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = "var(--vh-danger-soft)" }}
+                  onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "transparent" }}
+                >
+                  ×
+                </button>
+              </Tooltip>
             </div>
           </div>
         </div>
