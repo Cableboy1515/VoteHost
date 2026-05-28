@@ -3,6 +3,7 @@ import { canActivate } from "@/lib/canActivate"
 import { sendBallotInvitation, sendAutoActivateFailedStaffNotice } from "@/lib/email"
 import { getStaffRecipients } from "@/lib/staffRecipients"
 import { generateVoterToken, appendVoterToken } from "@/lib/voterToken"
+import { recordActivity } from "@/lib/recordActivity"
 
 export async function autoActivateElections(): Promise<string[]> {
   const now = new Date()
@@ -42,6 +43,15 @@ export async function autoActivateElections(): Promise<string[]> {
             where: { id: election.id },
             data: { autoActivateFailedNoticeSentAt: now },
           })
+          await recordActivity({
+            system: true,
+            action: "election.auto_activate_failed",
+            electionId: election.id,
+            targetType: "election",
+            targetId: election.id,
+            targetLabel: election.title,
+            metadata: { reason: check.reason },
+          })
         } catch (err) {
           console.error(`[autoActivateElections] failed-notice error for ${election.id}:`, err)
         }
@@ -54,15 +64,28 @@ export async function autoActivateElections(): Promise<string[]> {
         where: { id: election.id },
         data: {
           status: "ACTIVE",
-          activatedAt: election.startsAt, // stamp the scheduled time, not now
-          activatedById: null,            // null = auto-activated by system
+          activatedAt: election.startsAt,
+          activatedById: null,
         },
+      })
+
+      await recordActivity({
+        system: true,
+        action: "election.auto_activate",
+        electionId: election.id,
+        targetType: "election",
+        targetId: election.id,
+        targetLabel: election.title,
+        metadata: { questionCount: election._count.questions, voterCount: election._count.voters },
       })
 
       const uninvitedVoters = await db.voter.findMany({
         where: { electionId: election.id, invitedAt: null },
         select: { id: true, name: true, email: true },
       })
+
+      let inviteSent = 0
+      let inviteFailed = 0
 
       for (const voter of uninvitedVoters) {
         try {
@@ -82,12 +105,27 @@ export async function autoActivateElections(): Promise<string[]> {
           })
           if (!error) {
             await db.voter.update({ where: { id: voter.id }, data: { invitedAt: now } })
+            inviteSent++
           } else {
             console.error(`[autoActivateElections] invite failed for voter ${voter.id}: ${error}`)
+            inviteFailed++
           }
         } catch (err) {
           console.error(`[autoActivateElections] invite threw for voter ${voter.id}:`, err)
+          inviteFailed++
         }
+      }
+
+      if (uninvitedVoters.length > 0) {
+        await recordActivity({
+          system: true,
+          action: "election.auto_invite_batch",
+          electionId: election.id,
+          targetType: "election",
+          targetId: election.id,
+          targetLabel: election.title,
+          metadata: { sent: inviteSent, failed: inviteFailed },
+        })
       }
 
       activated.push(election.id)

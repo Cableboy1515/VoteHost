@@ -6,6 +6,7 @@ import { generateBallotId, generateReceiptCode, computeBallotHash } from "@/lib/
 import { sendBallotReceipt, sendFullTurnoutStaffNotice } from "@/lib/email"
 import { getStaffRecipients } from "@/lib/staffRecipients"
 import { findVoterIdByToken } from "@/lib/voterToken"
+import { recordActivity } from "@/lib/recordActivity"
 
 export async function POST(req: Request) {
   const ip = req.headers.get("x-forwarded-for")?.split(",")[0].trim() ?? "unknown"
@@ -212,6 +213,14 @@ export async function POST(req: Request) {
         invited.length,
         invited.length,
       )
+      recordActivity({
+        system: true,
+        action: "election.full_turnout_notice",
+        electionId: voter.electionId,
+        targetType: "election",
+        targetId: voter.electionId,
+        targetLabel: voter.election.title,
+      }).catch(() => {})
     } catch {
       await db.election.updateMany({
         where: { id: voter.electionId },

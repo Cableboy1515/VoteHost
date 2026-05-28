@@ -3,6 +3,7 @@ import { requireRole } from "@/lib/auth"
 import { db } from "@/lib/db"
 import { rateLimit, rateLimitResponse } from "@/lib/rateLimit"
 import { sendElectionResultsEmail } from "@/lib/sendElectionResultsEmail"
+import { recordActivity } from "@/lib/recordActivity"
 
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const session = await requireRole("ORGANIZER")
@@ -42,6 +43,16 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   }
 
   const { sentCount, failedCount } = await sendElectionResultsEmail(electionId)
+
+  await recordActivity({
+    session,
+    action: "election.results_email_sent",
+    electionId,
+    targetType: "election",
+    targetId: electionId,
+    targetLabel: election.title,
+    metadata: { sentCount, failedCount },
+  })
 
   return NextResponse.json({ sent: sentCount, failed: failedCount })
 }

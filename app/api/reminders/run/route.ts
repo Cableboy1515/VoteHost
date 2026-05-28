@@ -7,11 +7,13 @@ import {
   sendDraftReminderStaffNotice,
   sendFullTurnoutStaffNotice,
 } from "@/lib/email"
+import { recordVoterSendResult } from "@/lib/recordVoterSendResult"
 import { getStaffRecipients } from "@/lib/staffRecipients"
 import { purgeElectionImages } from "@/lib/imageRetention"
 import { autoCompleteElections } from "@/lib/autoCompleteElections"
 import { autoActivateElections } from "@/lib/autoActivateElections"
 import { generateVoterToken, appendVoterToken } from "@/lib/voterToken"
+import { recordActivity } from "@/lib/recordActivity"
 
 // Guards for sweeps that should run at most once per hour despite 1-minute cron frequency.
 let lastHeavySweepAt = 0
@@ -68,6 +70,14 @@ export async function POST(req: Request) {
           where: { id: election.id },
           data: { endsSoonNoticeSentAt: now },
         })
+        await recordActivity({
+          system: true,
+          action: "election.closing_soon_notice",
+          electionId: election.id,
+          targetType: "election",
+          targetId: election.id,
+          targetLabel: election.title,
+        })
       } catch (err) {
         errors.push(`closing-soon ${election.id}: ${String(err)}`)
       }
@@ -94,11 +104,16 @@ export async function POST(req: Request) {
         (sendingFinal ? v.secondReminderSentAt == null : v.firstReminderSentAt == null)
     )
 
+    if (eligible.length === 0) continue
+
+    let electionSent = 0
+    let electionFailed = 0
+
     for (const voter of eligible) {
       const { token, tokenHash } = generateVoterToken()
       await appendVoterToken(voter.id, tokenHash)
 
-      const { error } = await sendBallotInvitation(
+      const result = await sendBallotInvitation(
         {
           voterName: voter.name,
           voterEmail: voter.email,
@@ -112,12 +127,17 @@ export async function POST(req: Request) {
           daysLeft,
           totalVoters,
           votedCount,
+          voterId: voter.id,
+          electionId: election.id,
         },
         mode
       )
 
-      if (error) {
-        errors.push(`${voter.email}: ${error}`)
+      await recordVoterSendResult(voter.id, result).catch(() => {})
+
+      if (result.error) {
+        errors.push(`${voter.email}: ${result.error}`)
+        electionFailed++
         continue
       }
 
@@ -127,7 +147,18 @@ export async function POST(req: Request) {
 
       await db.voter.update({ where: { id: voter.id }, data: updateData })
       totalSent++
+      electionSent++
     }
+
+    await recordActivity({
+      system: true,
+      action: sendingFinal ? "election.final_reminder_batch" : "election.first_reminder_batch",
+      electionId: election.id,
+      targetType: "election",
+      targetId: election.id,
+      targetLabel: election.title,
+      metadata: { sent: electionSent, failed: electionFailed, eligibleCount: eligible.length },
+    })
   }
 
   // ── Staff completion sweep (covers auto-complete + any manual close that didn't fire inline) ──
@@ -152,6 +183,14 @@ export async function POST(req: Request) {
       await db.election.update({
         where: { id: election.id },
         data: { completionEmailSentAt: now },
+      })
+      await recordActivity({
+        system: true,
+        action: "election.completion_notice",
+        electionId: election.id,
+        targetType: "election",
+        targetId: election.id,
+        targetLabel: election.title,
       })
       completionsSent++
     } catch (err) {
@@ -179,6 +218,14 @@ export async function POST(req: Request) {
       await db.election.update({
         where: { id: election.id },
         data: { startReminderSentAt: now },
+      })
+      await recordActivity({
+        system: true,
+        action: "election.starting_soon_notice",
+        electionId: election.id,
+        targetType: "election",
+        targetId: election.id,
+        targetLabel: election.title,
       })
       draftRemindersSent++
     } catch (err) {
@@ -211,6 +258,14 @@ export async function POST(req: Request) {
         await db.election.update({
           where: { id: election.id },
           data: { fullTurnoutNoticeSentAt: now },
+        })
+        await recordActivity({
+          system: true,
+          action: "election.full_turnout_notice",
+          electionId: election.id,
+          targetType: "election",
+          targetId: election.id,
+          targetLabel: election.title,
         })
         fullTurnoutNoticesSent++
       } catch (err) {

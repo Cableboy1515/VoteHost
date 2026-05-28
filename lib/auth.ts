@@ -38,6 +38,7 @@ export type SessionPayload = {
 }
 
 const ROLE_ORDER: Record<AdminRole, number> = {
+  SYSTEM: -1,
   VIEWER: 0,
   ORGANIZER: 1,
   ADMIN: 2,

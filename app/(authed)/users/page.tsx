@@ -29,7 +29,7 @@ export default async function UsersPage() {
   const users = rawUsers.map((u) => ({
     id: u.id,
     email: u.email,
-    role: u.role,
+    role: u.role as "ADMIN" | "ORGANIZER" | "VIEWER",
     createdAt: u.createdAt.toISOString(),
     invitationExpiresAt: u.invitationExpiresAt?.toISOString() ?? null,
     invitedAt: u.invitedAt?.toISOString() ?? null,

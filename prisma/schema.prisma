@@ -178,6 +178,7 @@ enum AdminRole {
   ADMIN
   ORGANIZER
   VIEWER
+  SYSTEM
 }
 
 model AdminUser {

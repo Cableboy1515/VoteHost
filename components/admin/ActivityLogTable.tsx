@@ -34,6 +34,7 @@ const ROLE_COLORS: Record<string, string> = {
   ADMIN: "var(--vh-danger)",
   ORGANIZER: "var(--vh-accent)",
   VIEWER: "var(--vh-muted)",
+  SYSTEM: "var(--vh-muted)",
 }
 
 function formatRelative(dateStr: string): string {
@@ -172,6 +173,38 @@ function getDetail(log: LogEntry): string | null {
     return null
   }
 
+  // System automated events
+  if (action === "election.auto_complete" && meta) {
+    const parts = [`${n(meta.voteCount)} votes`]
+    if (typeof meta.tallyHash === "string") parts.push(`hash: ${meta.tallyHash.slice(0, 12)}…`)
+    return parts.join(", ")
+  }
+  if (action === "election.auto_activate" && meta) {
+    return `${n(meta.questionCount)} question${n(meta.questionCount) !== 1 ? "s" : ""}, ${n(meta.voterCount)} voter${n(meta.voterCount) !== 1 ? "s" : ""}`
+  }
+  if (action === "election.auto_activate_failed" && meta) {
+    return typeof meta.reason === "string" ? meta.reason : null
+  }
+  if ((action === "election.auto_invite_batch" ||
+       action === "election.first_reminder_batch" ||
+       action === "election.final_reminder_batch") && meta) {
+    const parts = [`${n(meta.sent)} sent`]
+    if (n(meta.failed) > 0) parts.push(`${n(meta.failed)} failed`)
+    if (typeof meta.eligibleCount === "number" && meta.eligibleCount !== meta.sent) {
+      parts.push(`of ${n(meta.eligibleCount)} eligible`)
+    }
+    return parts.join(", ")
+  }
+  if ((action === "election.results_email_auto_sent" ||
+       action === "election.results_email_sent") && meta) {
+    const parts = [`${n(meta.sentCount)} sent`]
+    if (n(meta.failedCount) > 0) parts.push(`${n(meta.failedCount)} failed`)
+    return parts.join(", ")
+  }
+  if (action === "election.images_purged" && meta && n(meta.purgedCount) > 0) {
+    return `${n(meta.purgedCount)} image${n(meta.purgedCount) !== 1 ? "s" : ""} purged`
+  }
+
   // Everything else — the Action label says it all
   return null
 }
@@ -291,9 +324,11 @@ export default function ActivityLogTable({ apiUrl, scope }: Props) {
                       {formatRelative(log.createdAt)}
                     </td>
                     <td className="px-4 py-3 text-[12.5px]">
-                      <div style={{ color: "var(--vh-ink)" }}>{log.actorEmail}</div>
+                      <div style={{ color: "var(--vh-ink)" }}>
+                        {log.actorRole === "SYSTEM" ? "VoteHost (system)" : log.actorEmail}
+                      </div>
                       <div className="text-[11px] mt-0.5" style={{ color: ROLE_COLORS[log.actorRole] ?? "var(--vh-muted)" }}>
-                        {log.actorRole.toLowerCase()}
+                        {log.actorRole === "SYSTEM" ? "system" : log.actorRole.toLowerCase()}
                       </div>
                     </td>
                     <td className="px-4 py-3 text-[13px] font-medium" style={{ color: "var(--vh-ink)" }}>
@@ -329,9 +364,9 @@ export default function ActivityLogTable({ apiUrl, scope }: Props) {
                     </span>
                   </div>
                   <div className="text-[12px] mt-1" style={{ color: "var(--vh-muted)" }}>
-                    {log.actorEmail}{" "}
+                    {log.actorRole === "SYSTEM" ? "VoteHost (system)" : log.actorEmail}{" "}
                     <span style={{ color: ROLE_COLORS[log.actorRole] ?? "var(--vh-muted)" }}>
-                      ({log.actorRole.toLowerCase()})
+                      ({log.actorRole === "SYSTEM" ? "system" : log.actorRole.toLowerCase()})
                     </span>
                   </div>
                   {detail && (

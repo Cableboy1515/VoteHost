@@ -21,6 +21,19 @@ export type ActivityAction =
   | "election.ballot_update"
   | "election.ballot_reset"
   | "election.delete"
+  | "election.auto_activate"
+  | "election.auto_activate_failed"
+  | "election.auto_invite_batch"
+  | "election.auto_complete"
+  | "election.first_reminder_batch"
+  | "election.final_reminder_batch"
+  | "election.closing_soon_notice"
+  | "election.starting_soon_notice"
+  | "election.full_turnout_notice"
+  | "election.completion_notice"
+  | "election.results_email_auto_sent"
+  | "election.results_email_sent"
+  | "election.images_purged"
   | "user.invite"
   | "user.role_change"
   | "user.delete"
@@ -32,8 +45,11 @@ export type ActivityAction =
   | "admin.backup_download"
   | "admin.restore"
 
-export async function recordActivity(input: {
-  session: Pick<SessionPayload, "sub" | "email" | "role">
+type ActivityActor =
+  | { session: Pick<SessionPayload, "sub" | "email" | "role"> }
+  | { system: true }
+
+export async function recordActivity(input: ActivityActor & {
   action: ActivityAction
   electionId?: string | null
   targetType: "voter" | "election" | "user" | "settings" | "system"
@@ -41,12 +57,13 @@ export async function recordActivity(input: {
   targetLabel?: string | null
   metadata?: Record<string, unknown>
 }): Promise<void> {
+  const actor = "system" in input
+    ? { actorId: null, actorEmail: "system@votehost.local", actorRole: "SYSTEM" as const }
+    : { actorId: input.session.sub, actorEmail: input.session.email, actorRole: input.session.role }
   try {
     await db.activityLog.create({
       data: {
-        actorId: input.session.sub,
-        actorEmail: input.session.email,
-        actorRole: input.session.role,
+        ...actor,
         electionId: input.electionId ?? null,
         action: input.action,
         targetType: input.targetType,

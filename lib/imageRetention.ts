@@ -1,6 +1,7 @@
 import { writeFile } from "node:fs/promises"
 import { join, basename } from "node:path"
 import { db } from "@/lib/db"
+import { recordActivity } from "@/lib/recordActivity"
 
 const UPLOADS_DIR = join(process.cwd(), "public", "uploads")
 
@@ -33,6 +34,7 @@ export async function purgeElectionImages(electionId: string): Promise<void> {
   const election = await db.election.findUnique({
     where: { id: electionId },
     select: {
+      title: true,
       imagesPurgedAt: true,
       emailLogoUrl: true,
       questions: { select: { options: { select: { photoUrl: true } } } },
@@ -54,5 +56,15 @@ export async function purgeElectionImages(electionId: string): Promise<void> {
   await db.election.update({
     where: { id: electionId },
     data: { imagesPurgedAt: new Date() },
+  })
+
+  await recordActivity({
+    system: true,
+    action: "election.images_purged",
+    electionId,
+    targetType: "election",
+    targetId: electionId,
+    targetLabel: election.title,
+    metadata: { purgedCount: urls.length },
   })
 }
