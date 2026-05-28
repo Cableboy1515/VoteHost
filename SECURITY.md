@@ -33,9 +33,12 @@ Only the latest release is supported with security fixes.
 
 ## Reporting a vulnerability
 
-Please **do not** open a public GitHub issue for security vulnerabilities.
+Please **do not** open a public GitHub issue for security vulnerabilities. Instead, use GitHub's private vulnerability reporting:
 
-Email: **[redacted]**
+1. Go to the [Security tab](https://github.com/Cableboy1515/VoteHost/security/advisories/new) and submit a new advisory, or
+2. Click **Report a vulnerability** under the **Security** tab of the repository.
+
+The report stays private until a fix is published.
 
 Include:
 - A description of the vulnerability and its impact
