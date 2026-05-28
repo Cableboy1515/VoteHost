@@ -211,25 +211,13 @@ export function HeroColorPicker({
           </div>
         ) : (
           <div style={{ width: 180 }}>
-            {/* Back link */}
-            <button
-              type="button"
-              onClick={cancelWheel}
-              className="text-[12px] mb-3 flex items-center gap-1 transition-colors"
-              style={{ color: "var(--vh-muted)", background: "none", border: "none", padding: 0, cursor: "pointer" }}
-              onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = "var(--vh-ink)" }}
-              onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = "var(--vh-muted)" }}
-            >
-              ← Back
-            </button>
-
             {/* Saturation picker */}
             <div
               style={{ opacity: pending ? 0.6 : 1, pointerEvents: pending ? "none" : "auto" }}
             >
               <Saturation
                 hsva={hsva}
-                style={{ width: "100%", height: 100, borderRadius: 6 }}
+                style={{ width: "100%", height: 80, borderRadius: 6 }}
                 onChange={(newColor) => {
                   latestHsvaRef.current = newColor
                   setHsva(newColor)
