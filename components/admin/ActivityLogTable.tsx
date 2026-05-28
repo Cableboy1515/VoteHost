@@ -20,7 +20,7 @@ type FilterOption = { key: ActionCategory | "all"; label: string }
 
 const SYSTEM_FILTERS: FilterOption[] = [
   { key: "all",      label: "All" },
-  { key: "settings", label: "Settings" },
+  { key: "settings", label: "System Settings" },
 ]
 
 const ELECTION_FILTERS: FilterOption[] = [

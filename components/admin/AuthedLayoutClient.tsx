@@ -19,7 +19,7 @@ const ALL_NAV = {
   elections: { label: "Elections", href: "/elections",          icon: Vote,            match: (p: string) => p.startsWith("/elections") },
   archive:   { label: "Archive",   href: "/archive",            icon: Archive,         match: (p: string) => p.startsWith("/archive") },
   users:     { label: "Users",     href: "/users",              icon: Users,           match: (p: string) => p.startsWith("/users") },
-  settings:  { label: "Settings",  href: "/settings",           icon: Settings,        match: (p: string) => p.startsWith("/settings") },
+  settings:  { label: "System Settings",  href: "/settings",     icon: Settings,        match: (p: string) => p.startsWith("/settings") },
   activity:  { label: "Activity",  href: "/dashboard/activity", icon: ClipboardList,   match: (p: string) => p.startsWith("/dashboard/activity") },
 } satisfies Record<string, NavItem>
 

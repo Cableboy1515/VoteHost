@@ -7,7 +7,7 @@
 | `DATABASE_URL` | PostgreSQL connection string |
 | `NEXTAUTH_SECRET` | JWT signing secret — generate with `openssl rand -hex 32` |
 | `NEXTAUTH_URL` | Full public URL of the app (e.g. `https://vote.example.com`) |
-| `RESEND_API_KEY` | Optional; can be configured via admin Settings panel instead |
+| `RESEND_API_KEY` | Optional; can be configured via admin System Settings panel instead |
 | `CRON_SECRET` | Shared secret for the reminder cron endpoint — generate with `openssl rand -hex 32` |
 
 **The app will refuse to start if `NEXTAUTH_SECRET` is missing.**
@@ -56,7 +56,7 @@ After an election closes, old emails (invites, reminders, results) may continue 
 
 **Automatic sweep (cron-driven):** the existing hourly cron at `/api/reminders/run` also scans for closed elections whose `endsAt` is older than the configured retention period. For each, it overwrites the image files on disk with a 1×1 transparent GIF (~70 bytes). The image URLs remain valid — voters see a blank area instead of a broken-image icon — and cache headers ensure even those 70 bytes are only transferred once per client.
 
-**Configure retention:** go to **Settings → Storage & Retention** in the admin panel. Default is 30 days. Set blank to disable the automatic sweep.
+**Configure retention:** go to **System Settings → Storage & Retention** in the admin panel. Default is 30 days. Set blank to disable the automatic sweep.
 
 **Purge immediately:** on any closed election's Settings page, an "Uploaded images" card with a **Purge images** button lets you tombstone images on demand without waiting for the cron. The button is disabled and replaced by a "purged on …" timestamp once done.
 

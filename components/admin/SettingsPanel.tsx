@@ -527,7 +527,7 @@ export default function SettingsPage({ hasActiveElections }: { hasActiveElection
   if (loadError) {
     return (
       <div className="p-4 sm:p-8">
-        <h1 className="text-2xl font-bold mb-2">Settings</h1>
+        <h1 className="text-2xl font-bold mb-2">System Settings</h1>
         <p className="text-red-600 text-sm">Failed to load settings: {loadError}</p>
       </div>
     )
@@ -535,7 +535,7 @@ export default function SettingsPage({ hasActiveElections }: { hasActiveElection
 
   return (
     <div className="p-4 sm:p-8 max-w-xl">
-      <h1 className="text-2xl font-bold mb-1">Settings</h1>
+      <h1 className="text-2xl font-bold mb-1">System Settings</h1>
       <p className="text-zinc-500 text-sm mb-8">
         Configure email delivery, security, storage, and backups for this {BRAND_NAME} install.
       </p>

@@ -654,7 +654,7 @@ export default function EmailSetupWizard({
               </p>
               <p className="text-[13px] mt-1" style={{ color: "var(--vh-ink-soft)" }}>
                 Voters will now receive ballot invitations and reminders.
-                You can change these settings anytime in the Settings page.
+                You can change these settings anytime in the System Settings page.
               </p>
             </div>
           </div>

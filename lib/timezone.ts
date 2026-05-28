@@ -2,7 +2,7 @@ import { db } from "@/lib/db"
 
 export const SETTING_KEY = "display_time_zone"
 
-// Neutral default — admins can set their region via Settings → General.
+// Neutral default — admins can set their region via System Settings → General.
 // The DISPLAY_TIME_ZONE env var acts as a first-boot override if set.
 const FALLBACK_TZ = "UTC"
 

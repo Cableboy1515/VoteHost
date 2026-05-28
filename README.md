@@ -263,7 +263,7 @@ Leave the tunnel profiles unused. The app is at `http://127.0.0.1:3000` on the h
 
 ## Email setup
 
-VoteHost Elections sends email for ballot invitations, reminders, and results announcements. Configure email in the admin panel under **Settings** after your first login.
+VoteHost Elections sends email for ballot invitations, reminders, and results announcements. Configure email in the admin panel under **System Settings** after your first login.
 
 ### SMTP (recommended for most self-hosters)
 
@@ -276,14 +276,14 @@ Any standard SMTP provider works. Tested options:
 | Microsoft 365 / Outlook | `smtp.office365.com` | 587 | Varies | Use your full email as username; may require [enabling Authenticated SMTP](https://learn.microsoft.com/en-us/exchange/clients-and-mobile-in-exchange-online/authenticated-client-smtp-submission) in your tenant |
 | Yahoo Mail | `smtp.mail.yahoo.com` | 465 | Varies | Requires an [App Password](https://login.yahoo.com/account/security) with 2-step verification enabled |
 
-In the admin panel: **Settings → Email → SMTP settings**. Enter the host, port, username, and password. Use the "Send test email" button to confirm delivery before your first election.
+In the admin panel: **System Settings → Email → SMTP settings**. Enter the host, port, username, and password. Use the "Send test email" button to confirm delivery before your first election.
 
 ### Resend
 
 If you prefer an API-based approach:
 
 1. Create an account at [resend.com](https://resend.com) and generate an API key
-2. In the admin panel: **Settings → Email → Resend API key**
+2. In the admin panel: **System Settings → Email → Resend API key**
 
 The Resend free tier allows 100 emails/day and 3,000/month — sufficient for small elections. For elections with more than 100 voters, use SMTP or a paid Resend plan.
 
@@ -296,7 +296,7 @@ After setup and email configuration, run through these before your first electio
 1. **Proxy guard** — open an incognito window and navigate to `/dashboard`. You must be redirected to `/login`.
 2. **API guard** — `curl -X GET https://your-domain.com/api/users` must return `403`.
 3. **Secure cookie** — log in, open browser DevTools → Application → Cookies → confirm `vh_session` has `Secure` and `HttpOnly` set.
-4. **Email test** — Settings → Email → Send test email. Confirm it arrives.
+4. **Email test** — System Settings → Email → Send test email. Confirm it arrives.
 5. **Cron test** — confirm the reminder endpoint responds:
    ```bash
    source .env
@@ -315,7 +315,7 @@ Election logos and candidate photos are uploaded through the admin panel and sto
 
 - Avatars are resized to 256×256 px JPEG in the browser before upload; logos are scaled to max 1120 px wide.
 - Uploaded images are served with a one-year `Cache-Control: immutable` header. After the first load, browsers and email-client caches (Gmail, Outlook) serve them locally.
-- After an election closes, the hourly cron automatically replaces image files with a 1×1 transparent GIF once the configured retention period has passed (default: 30 days). The URLs stay valid — old emails show a blank area rather than a broken-image icon. Change the retention period under **Settings → Storage & Retention**.
+- After an election closes, the hourly cron automatically replaces image files with a 1×1 transparent GIF once the configured retention period has passed (default: 30 days). The URLs stay valid — old emails show a blank area rather than a broken-image icon. Change the retention period under **System Settings → Storage & Retention**.
 
 ---
 
