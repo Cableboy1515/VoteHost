@@ -19,6 +19,21 @@ export const HERO_COLOR_KEYS = HERO_COLORS.map((c) => c.key) as [string, ...stri
 
 export const DEFAULT_HERO_COLOR_KEY = "blue"
 
+function darkenHex(hex: string, factor = 0.82): string {
+  const r = Math.round(parseInt(hex.slice(1, 3), 16) * factor)
+  const g = Math.round(parseInt(hex.slice(3, 5), 16) * factor)
+  const b = Math.round(parseInt(hex.slice(5, 7), 16) * factor)
+  return `#${r.toString(16).padStart(2, "0")}${g.toString(16).padStart(2, "0")}${b.toString(16).padStart(2, "0")}`
+}
+
+export function isCustomHex(key: string | null | undefined): key is string {
+  return typeof key === "string" && /^#[0-9a-fA-F]{6}$/i.test(key)
+}
+
 export function getHeroColor(key: string | null | undefined): HeroColor {
-  return HERO_COLORS.find((c) => c.key === key) ?? HERO_COLORS[0]
+  if (!key) return HERO_COLORS[0]
+  const preset = HERO_COLORS.find((c) => c.key === key)
+  if (preset) return preset
+  if (isCustomHex(key)) return { key, label: "Custom", base: key, strong: darkenHex(key) }
+  return HERO_COLORS[0]
 }

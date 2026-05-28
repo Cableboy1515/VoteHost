@@ -49,6 +49,7 @@ function SecuritySettings() {
 
   return (
     <div>
+      <h2 className="text-lg font-semibold mb-1">Administrator Notifications</h2>
       <p className="text-zinc-500 text-sm mb-4">
         When enabled, all administrators will receive an email whenever a password reset is requested
         or completed by any user. Useful as an audit signal for security-conscious installations. Off by default.
@@ -194,9 +195,6 @@ function GeneralSettings({ hasActiveElections }: { hasActiveElections: boolean }
 
   return (
     <div>
-      <p className="text-zinc-500 text-sm mb-4">
-        Configure display settings for this installation.
-      </p>
       {loading ? (
         <p className="text-zinc-400 text-sm">Loading…</p>
       ) : (
@@ -530,10 +528,6 @@ function EmailSettingsTab() {
 
   return (
     <div>
-      <p className="text-zinc-500 text-sm mb-4">
-        Configure the email provider used to send voting invitations.
-      </p>
-
       <form onSubmit={handleSave} className="space-y-5">
 
         {/* Provider preset selector */}
@@ -742,9 +736,9 @@ function EmailSettingsTab() {
 // ─── Tab definitions ──────────────────────────────────────────────────────────
 
 const TABS = [
-  { key: "security", label: "Security" },
   { key: "general",  label: "General" },
   { key: "email",    label: "Email" },
+  { key: "security", label: "Security" },
   { key: "activity", label: "Activity" },
 ] as const
 
@@ -753,7 +747,7 @@ type Tab = typeof TABS[number]["key"]
 // ─── Page shell ───────────────────────────────────────────────────────────────
 
 export default function SettingsPage({ hasActiveElections }: { hasActiveElections: boolean }) {
-  const [tab, setTab] = useState<Tab>("security")
+  const [tab, setTab] = useState<Tab>("general")
 
   return (
     <div className="p-4 sm:p-8 max-w-3xl">

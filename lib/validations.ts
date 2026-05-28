@@ -45,7 +45,10 @@ export const ElectionBaseSchema = z.object({
   firstReminderDays: z.number().int().positive().nullish(),
   autoActivate: z.boolean().optional(),
   autoSendResults: z.boolean().optional(),
-  heroColor: z.enum(HERO_COLOR_KEYS as [string, ...string[]]).nullable().optional(),
+  heroColor: z.union([
+    z.enum(HERO_COLOR_KEYS as [string, ...string[]]),
+    z.string().regex(/^#[0-9a-fA-F]{6}$/i),
+  ]).nullable().optional(),
 })
 
 export const ElectionSchema = ElectionBaseSchema.refine(

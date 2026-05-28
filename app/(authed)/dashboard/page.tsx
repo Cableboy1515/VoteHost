@@ -49,6 +49,7 @@ function ActiveCard({ e, variant }: { e: ElectionCard; variant: "hero" | "tile" 
   const color = getHeroColor(e.heroColor)
   return (
     <div
+      data-hero-color-overlay-target=""
       className="relative rounded-[18px] text-white overflow-hidden"
       style={{
         background: `linear-gradient(135deg, ${color.base} 0%, ${color.strong} 100%)`,

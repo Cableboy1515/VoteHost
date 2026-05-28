@@ -260,7 +260,7 @@ export default function ActivityLogTable({ apiUrl, scope }: Props) {
   return (
     <div>
       {/* Filter chips */}
-      <div className="flex gap-1 mb-4 flex-wrap">
+      {scope !== "system" && <div className="flex gap-1 mb-4 flex-wrap">
         {FILTERS.map((f) => {
           const active = filter === f.key
           return (
@@ -280,7 +280,7 @@ export default function ActivityLogTable({ apiUrl, scope }: Props) {
             </button>
           )
         })}
-      </div>
+      </div>}
 
       {filtered.length === 0 ? (
         <div
