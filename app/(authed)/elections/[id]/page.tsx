@@ -126,7 +126,7 @@ export default async function EditElectionPage({ params }: { params: Promise<{ i
           {canDiscard && (
             <DiscardBallotButton electionId={id} electionTitle={election.title} votedCount={election._count.voters} />
           )}
-          <DeleteElectionButton id={id} title={election.title} />
+          <DeleteElectionButton id={id} title={election.title} role={session.role} archived={election.archived} />
         </div>
       </div>
     </div>

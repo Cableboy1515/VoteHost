@@ -5,7 +5,6 @@ import { redirect } from "next/navigation"
 import { db } from "@/lib/db"
 import { requireRole } from "@/lib/auth"
 import type { ElectionStatus } from "@/lib/generated/prisma/client"
-import DeleteElectionButton from "@/components/admin/DeleteElectionButton"
 import ArchiveElectionButton from "@/components/admin/ArchiveElectionButton"
 import { autoCompleteElections } from "@/lib/autoCompleteElections"
 import { formatDateOnlyInTz, getDisplayTimeZone } from "@/lib/timezone"
@@ -264,7 +263,6 @@ export default async function ElectionsListPage({
                   Results
                 </Link>
                 <ArchiveElectionButton id={e.id} archived={false} electionStatus={e.status} />
-                <DeleteElectionButton id={e.id} title={e.title} />
               </div>
             </div>
           ))}

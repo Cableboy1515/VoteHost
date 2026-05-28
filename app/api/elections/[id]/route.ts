@@ -371,7 +371,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
 }
 
 export async function DELETE(_req: Request, { params }: { params: Promise<{ id: string }> }) {
-  const session = await requireRole("ORGANIZER")
+  const session = await requireRole("ADMIN")
   if (!session) return NextResponse.json({ error: "Forbidden" }, { status: 403 })
 
   const { id } = await params
@@ -380,35 +380,41 @@ export async function DELETE(_req: Request, { params }: { params: Promise<{ id: 
   const election = await db.election.findUnique({
     where: { id },
     select: {
+      title: true,
+      archived: true,
       emailLogoDeleteUrl: true,
       questions: { select: { options: { select: { photoDeleteUrl: true } } } },
     },
   })
 
-  const electionForLog = await db.election.findUnique({ where: { id }, select: { title: true } })
+  if (!election) return NextResponse.json({ error: "Not found" }, { status: 404 })
+
+  if (!election.archived) {
+    return NextResponse.json(
+      { error: "Election must be archived before it can be deleted." },
+      { status: 409 }
+    )
+  }
+
   await db.election.delete({ where: { id } })
 
-  if (electionForLog) {
-    await recordActivity({
-      session,
-      action: "election.delete",
-      electionId: null,
-      targetType: "election",
-      targetId: id,
-      targetLabel: electionForLog.title,
-    })
-  }
+  await recordActivity({
+    session,
+    action: "election.delete",
+    electionId: null,
+    targetType: "election",
+    targetId: id,
+    targetLabel: election.title,
+  })
 
-  if (election) {
-    const deleteUrls: string[] = []
-    if (election.emailLogoDeleteUrl) deleteUrls.push(election.emailLogoDeleteUrl)
-    for (const q of election.questions) {
-      for (const o of q.options) {
-        if (o.photoDeleteUrl) deleteUrls.push(o.photoDeleteUrl)
-      }
+  const deleteUrls: string[] = []
+  if (election.emailLogoDeleteUrl) deleteUrls.push(election.emailLogoDeleteUrl)
+  for (const q of election.questions) {
+    for (const o of q.options) {
+      if (o.photoDeleteUrl) deleteUrls.push(o.photoDeleteUrl)
     }
-    await Promise.allSettled(deleteUrls.map(unlinkUpload))
   }
+  await Promise.allSettled(deleteUrls.map(unlinkUpload))
 
   return new NextResponse(null, { status: 204 })
 }

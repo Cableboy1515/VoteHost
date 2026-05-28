@@ -12,11 +12,20 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 
-export default function DeleteElectionButton({ id, title }: { id: string; title: string }) {
+interface Props {
+  id: string
+  title: string
+  role: string
+  archived: boolean
+}
+
+export default function DeleteElectionButton({ id, title, role, archived }: Props) {
   const router = useRouter()
   const [stage, setStage] = useState<"closed" | "warn" | "confirm">("closed")
   const [checked, setChecked] = useState(false)
   const [deleting, setDeleting] = useState(false)
+
+  if (role !== "ADMIN" || !archived) return null
 
   function openWarn() { setStage("warn") }
   function goConfirm() { setChecked(false); setStage("confirm") }
@@ -51,7 +60,7 @@ export default function DeleteElectionButton({ id, title }: { id: string; title:
             <DialogTitle>Delete &ldquo;{title}&rdquo;?</DialogTitle>
           </DialogHeader>
           <p className="text-sm text-zinc-500 py-2">
-            All voters, ballot responses, and results will be permanently deleted. This cannot be undone.
+            This election has been archived. Deletion is permanent — all voters, ballot responses, results, and audit records will be destroyed and cannot be recovered.
           </p>
           <DialogFooter>
             <DialogClose render={<Button variant="outline" />}>Cancel</DialogClose>
