@@ -172,6 +172,7 @@ export default function ElectionForm({
   const [error, setError] = useState("")
   const [confirmActivateOpen, setConfirmActivateOpen] = useState(false)
   const [confirmActivating, setConfirmActivating] = useState(false)
+  const [pastStartConfirmOpen, setPastStartConfirmOpen] = useState(false)
 
   const previewHtml = buildPreviewHtml({ electionTitle: title, emailLogoUrl, emailMessage, emailFooter })
 
@@ -199,14 +200,14 @@ export default function ElectionForm({
   const isDirty = () => snapshot() !== baseline.current
   const skipResetOnNextClose = useRef(false)
 
-  async function save(): Promise<string | false> {
+  async function save(overrideStatus?: string): Promise<string | false> {
     setSaving(true)
     setError("")
 
     const payload = {
       title,
       description: description || undefined,
-      status,
+      status: overrideStatus ?? status,
       startsAt: startsAt
         ? (startsAtAllDay
             ? new Date(`${dateOnly(startsAt)}T00:00:00`).toISOString()
@@ -278,6 +279,16 @@ export default function ElectionForm({
       setConfirmActivateOpen(true)
       return
     }
+    if (
+      initialValues?.status === "DRAFT" &&
+      status === "DRAFT" &&
+      autoActivate &&
+      effectiveStartsAtMoment != null &&
+      !isStartsAtFuture
+    ) {
+      setPastStartConfirmOpen(true)
+      return
+    }
     const id = await save()
     if (!id) return
     router.push(`/elections/${id}/ballot`)
@@ -300,6 +311,15 @@ export default function ElectionForm({
     const id = await save()
     setConfirmActivating(false)
     setConfirmActivateOpen(false)
+    if (!id) return
+    router.push(`/elections/${id}/ballot`)
+  }
+
+  async function handleConfirmPastStart() {
+    setConfirmActivating(true)
+    const id = await save("ACTIVE")
+    setConfirmActivating(false)
+    setPastStartConfirmOpen(false)
     if (!id) return
     router.push(`/elections/${id}/ballot`)
   }
@@ -808,6 +828,15 @@ export default function ElectionForm({
         electionTitle={title}
         uninvitedCount={uninvitedCount}
         onConfirm={handleConfirmActivate}
+        confirming={confirmActivating}
+      />
+
+      <ActivationConfirmDialog
+        open={pastStartConfirmOpen}
+        onOpenChange={setPastStartConfirmOpen}
+        electionTitle={title}
+        uninvitedCount={uninvitedCount}
+        onConfirm={handleConfirmPastStart}
         confirming={confirmActivating}
       />
     </div>
