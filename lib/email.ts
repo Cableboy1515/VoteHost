@@ -817,7 +817,7 @@ export async function sendBallotResetAdminNotice(electionTitle: string, organize
 
 // ─── Staff lifecycle notifications (closing-soon, completed, draft-reminder) ────
 
-type StaffElection = { id: string; title: string; endsAt?: Date | null; startsAt?: Date | null }
+type StaffElection = { id: string; title: string; endsAt?: Date | null; startsAt?: Date | null; autoActivate?: boolean }
 
 function buildClosingSoonStaffHtml(election: StaffElection, votedCount: number, totalVoters: number, tz: string): string {
   const title = escapeHtml(election.title)
@@ -880,13 +880,22 @@ function buildDraftReminderStaffHtml(election: StaffElection, tz: string): strin
   const title = escapeHtml(election.title)
   const startStr = election.startsAt ? escapeHtml(formatDateInTz(election.startsAt.toISOString(), tz)) : ""
   const editUrl = escapeHtml(absolutizeUrl(`/elections/${election.id}`))
+  const autoActivate = election.autoActivate !== false // default true if omitted
+  const heading = autoActivate
+    ? `Election will start automatically in 24 hours`
+    : `Election scheduled to start in 24 hours`
+  const body = autoActivate
+    ? `<strong style="color:${C.ink};">${title}</strong> is scheduled to open ${startStr ? `on ${startStr}` : "soon"}.
+        The system will activate it automatically at that time and send voting invitations to all voters.
+        Open the election to review it, or cancel auto-start if you&rsquo;re not ready.`
+    : `<strong style="color:${C.ink};">${title}</strong> is scheduled to start ${startStr ? `on ${startStr}` : "soon"}, but it is still in <strong style="color:${C.ink};">DRAFT</strong>.
+        Voters will not receive invitations until you publish it.`
   return emailWrapper(`
     ${brandRow()}
     <tr><td style="padding:24px 32px 14px;">
-      <h1 style="margin:0 0 14px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:22px;font-weight:600;color:${C.ink};letter-spacing:-0.02em;">Election scheduled to start in 24 hours</h1>
+      <h1 style="margin:0 0 14px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:22px;font-weight:600;color:${C.ink};letter-spacing:-0.02em;">${heading}</h1>
       <p style="margin:0 0 14px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:14.5px;color:${C.inkSoft};line-height:1.6;">
-        <strong style="color:${C.ink};">${title}</strong> is scheduled to start ${startStr ? `on ${startStr}` : "soon"}, but it is still in <strong style="color:${C.ink};">DRAFT</strong>.
-        Voters will not receive invitations until you publish it.
+        ${body}
       </p>
     </td></tr>
     <tr><td style="padding:0 32px 14px;">
@@ -960,7 +969,10 @@ export async function sendDraftReminderStaffNotice(
   recipients: Array<{ email: string }>,
 ): Promise<void> {
   const tz = await getDisplayTimeZone()
-  const subject = `Reminder: publish "${election.title}" — starts in 24h`
+  const autoActivate = election.autoActivate !== false
+  const subject = autoActivate
+    ? `Heads up: "${election.title}" will auto-start in 24h`
+    : `Reminder: publish "${election.title}" — starts in 24h`
   const html = buildDraftReminderStaffHtml(election, tz)
   await sendStaffBlast("sendDraftReminderStaffNotice", election.title, recipients, subject, html)
 }

@@ -207,12 +207,12 @@ export async function POST(req: Request) {
       startsAt: { not: null, gt: now, lte: draftCutoff },
       startReminderSentAt: null,
     },
-    select: { id: true, title: true, startsAt: true },
+    select: { id: true, title: true, startsAt: true, autoActivate: true },
   })
   for (const election of draftsStartingSoon) {
     try {
       await sendDraftReminderStaffNotice(
-        { id: election.id, title: election.title, startsAt: election.startsAt },
+        { id: election.id, title: election.title, startsAt: election.startsAt, autoActivate: election.autoActivate },
         staffRecipients,
       )
       await db.election.update({
