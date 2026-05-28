@@ -7,7 +7,10 @@ import { requireRole } from "@/lib/auth"
 import { DashboardEmpty } from "@/components/admin/DashboardEmpty"
 import { autoCompleteElections } from "@/lib/autoCompleteElections"
 import { HeroColorPicker } from "@/components/admin/HeroColorPicker"
+import { DismissHeroButton } from "@/components/admin/DismissHeroButton"
 import { getHeroColor } from "@/lib/heroColors"
+
+const GRACE_MS = 48 * 60 * 60 * 1000
 
 function formatTimeLeft(endsAt: Date): string {
   const ms = endsAt.getTime() - Date.now()
@@ -19,18 +22,30 @@ function formatTimeLeft(endsAt: Date): string {
   return "< 1h left"
 }
 
-type ActiveElection = {
+function formatTimeAgo(endedAt: Date): string {
+  const ms = Date.now() - endedAt.getTime()
+  const h = Math.floor(ms / 3_600_000)
+  const d = Math.floor(h / 24)
+  if (d >= 1) return `${d}d ago`
+  if (h >= 1) return `${h}h ago`
+  return "< 1h ago"
+}
+
+type ElectionCard = {
   id: string
   title: string
   endsAt: Date | null
+  endedAt: Date | null
   votedCount: number
   totalVoters: number
   participation: number
   heroColor: string | null
+  state: "active" | "completed"
 }
 
-function ActiveCard({ e, variant }: { e: ActiveElection; variant: "hero" | "tile" }) {
+function ActiveCard({ e, variant }: { e: ElectionCard; variant: "hero" | "tile" }) {
   const isHero = variant === "hero"
+  const isCompleted = e.state === "completed"
   const color = getHeroColor(e.heroColor)
   return (
     <div
@@ -41,6 +56,7 @@ function ActiveCard({ e, variant }: { e: ActiveElection; variant: "hero" | "tile
         padding: isHero ? 28 : 22,
       }}
     >
+      {/* Decorative circle */}
       <div
         className="absolute pointer-events-none"
         style={{
@@ -50,15 +66,32 @@ function ActiveCard({ e, variant }: { e: ActiveElection; variant: "hero" | "tile
           background: "rgba(255,255,255,0.06)",
         }}
       />
+      {/* Calming overlay for completed state */}
+      {isCompleted && (
+        <div
+          className="absolute inset-0 pointer-events-none rounded-[18px]"
+          style={{ background: "rgba(0,0,0,0.18)" }}
+        />
+      )}
       <div className="relative">
-        <div className="flex items-center gap-2 mb-3">
-          <span
-            className="w-2 h-2 rounded-full"
-            style={{ background: "oklch(0.85 0.18 145)", animation: "vhPulse 1.6s ease-in-out infinite" }}
-          />
-          <span className="text-[11.5px] tracking-widest opacity-85 uppercase">
-            Election in progress
-          </span>
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center gap-2">
+            {isCompleted ? (
+              <span
+                className="w-2 h-2 rounded-full"
+                style={{ background: "rgba(255,255,255,0.70)" }}
+              />
+            ) : (
+              <span
+                className="w-2 h-2 rounded-full"
+                style={{ background: "oklch(0.85 0.18 145)", animation: "vhPulse 1.6s ease-in-out infinite" }}
+              />
+            )}
+            <span className="text-[11.5px] tracking-widest opacity-85 uppercase">
+              {isCompleted ? "Completed" : "Election in progress"}
+            </span>
+          </div>
+          {isCompleted && <DismissHeroButton electionId={e.id} />}
         </div>
         <h2
           className={`font-semibold mb-4 break-words leading-tight ${isHero ? "text-[22px] sm:text-[28px] md:text-[34px] lg:text-[40px]" : "text-[18px] sm:text-[20px] lg:text-[22px]"}`}
@@ -79,20 +112,32 @@ function ActiveCard({ e, variant }: { e: ActiveElection; variant: "hero" | "tile
               {e.votedCount} of {e.totalVoters} voted
             </div>
           </div>
-          {e.endsAt && (
+          {isCompleted && e.endedAt ? (
             <div>
               <div
                 className="font-medium leading-none"
                 style={{ fontSize: isHero ? 28 : 21 }}
               >
-                {formatTimeLeft(e.endsAt)}
+                {formatTimeAgo(e.endedAt)}
               </div>
-              <div className="text-[12.5px] opacity-80 mt-1">until close</div>
+              <div className="text-[12.5px] opacity-80 mt-1">ago</div>
             </div>
+          ) : (
+            e.endsAt && (
+              <div>
+                <div
+                  className="font-medium leading-none"
+                  style={{ fontSize: isHero ? 28 : 21 }}
+                >
+                  {formatTimeLeft(e.endsAt)}
+                </div>
+                <div className="text-[12.5px] opacity-80 mt-1">until close</div>
+              </div>
+            )
           )}
         </div>
         <div className={`flex justify-end gap-2 ${isHero ? "mt-5" : "mt-4"}`}>
-          <HeroColorPicker electionId={e.id} currentColor={e.heroColor} />
+          {!isCompleted && <HeroColorPicker electionId={e.id} currentColor={e.heroColor} />}
           <Link
             href={`/elections/${e.id}/voters`}
             className="inline-flex items-center justify-center px-3.5 py-1.5 rounded-[10px] text-[13px] transition-colors bg-[rgba(255,255,255,0.12)] hover:bg-[rgba(255,255,255,0.20)]"
@@ -105,7 +150,7 @@ function ActiveCard({ e, variant }: { e: ActiveElection; variant: "hero" | "tile
             className="inline-flex items-center justify-center px-3.5 py-1.5 rounded-[10px] text-[13px] font-semibold transition-colors hover:opacity-90"
             style={{ background: "white", color: color.strong }}
           >
-            View live results →
+            {isCompleted ? "View final results →" : "View live results →"}
           </Link>
         </div>
         {e.totalVoters > 0 && (
@@ -115,7 +160,11 @@ function ActiveCard({ e, variant }: { e: ActiveElection; variant: "hero" | "tile
           >
             <div
               className="h-full rounded-full"
-              style={{ width: `${e.participation}%`, background: "white", transition: "width 240ms ease" }}
+              style={{
+                width: `${e.participation}%`,
+                background: "white",
+                transition: isCompleted ? "none" : "width 240ms ease",
+              }}
             />
           </div>
         )}
@@ -129,6 +178,8 @@ export default async function DashboardPage() {
   if (!session) redirect("/elections")
 
   await autoCompleteElections()
+
+  const now = Date.now()
 
   const elections = await db.election.findMany({
     where: { archived: false },
@@ -151,30 +202,61 @@ export default async function DashboardPage() {
     votedCount: votedByElection.get(e.id) ?? 0,
   }))
 
-  const activeElections: ActiveElection[] = electionsWithStats
-    .filter((e) => e.status === "ACTIVE")
-    .map((e) => ({
-      id: e.id,
-      title: e.title,
-      endsAt: e.endsAt,
-      votedCount: e.votedCount,
-      totalVoters: e._count.voters,
-      participation: e._count.voters > 0 ? Math.round((e.votedCount / e._count.voters) * 100) : 0,
-      heroColor: e.heroColor,
-    }))
+  const heroElections: ElectionCard[] = electionsWithStats
+    .flatMap<ElectionCard>((e) => {
+      if (e.status === "ACTIVE") {
+        return [{
+          id: e.id,
+          title: e.title,
+          endsAt: e.endsAt,
+          endedAt: null,
+          votedCount: e.votedCount,
+          totalVoters: e._count.voters,
+          participation: e._count.voters > 0 ? Math.round((e.votedCount / e._count.voters) * 100) : 0,
+          heroColor: e.heroColor,
+          state: "active" as const,
+        }]
+      }
+      if (e.status === "COMPLETED" && !e.dashboardDismissedAt) {
+        const endedAt = e.closedAt ?? e.endsAt
+        if (endedAt && now - endedAt.getTime() <= GRACE_MS) {
+          return [{
+            id: e.id,
+            title: e.title,
+            endsAt: e.endsAt,
+            endedAt,
+            votedCount: e.votedCount,
+            totalVoters: e._count.voters,
+            participation: e._count.voters > 0 ? Math.round((e.votedCount / e._count.voters) * 100) : 0,
+            heroColor: e.heroColor,
+            state: "completed" as const,
+          }]
+        }
+      }
+      return []
+    })
     .sort((a, b) => {
-      if (!a.endsAt) return 1
-      if (!b.endsAt) return -1
-      return a.endsAt.getTime() - b.endsAt.getTime()
+      if (a.state === "active" && b.state !== "active") return -1
+      if (a.state !== "active" && b.state === "active") return 1
+      if (a.state === "active" && b.state === "active") {
+        if (!a.endsAt) return 1
+        if (!b.endsAt) return -1
+        return a.endsAt.getTime() - b.endsAt.getTime()
+      }
+      // both completed — most recent first
+      const aEnded = a.endedAt?.getTime() ?? 0
+      const bEnded = b.endedAt?.getTime() ?? 0
+      return bEnded - aEnded
     })
 
+  const activeCount = heroElections.filter((e) => e.state === "active").length
   const totalVoters = electionsWithStats.reduce((sum, e) => sum + e._count.voters, 0)
   const totalVoted = electionsWithStats.reduce((sum, e) => sum + e.votedCount, 0)
   const draftCount = electionsWithStats.filter((e) => e.status === "DRAFT").length
 
   const hasContent = elections.length > 0
-  const variant: "hero" | "tile" = activeElections.length === 1 ? "hero" : "tile"
-  const gridCols = activeElections.length === 1 ? "grid-cols-1" : "grid-cols-1 md:grid-cols-2"
+  const variant: "hero" | "tile" = heroElections.length === 1 ? "hero" : "tile"
+  const gridCols = heroElections.length === 1 ? "grid-cols-1" : "grid-cols-1 md:grid-cols-2"
 
   return (
     <div className="p-4 sm:p-8 max-w-[1100px]">
@@ -182,8 +264,8 @@ export default async function DashboardPage() {
         <div>
           <h1 className="text-[28px] font-semibold mb-1">Dashboard</h1>
           <p className="text-[14.5px]" style={{ color: "var(--vh-muted)" }}>
-            {activeElections.length > 0
-              ? `${activeElections.length} active election${activeElections.length !== 1 ? "s" : ""} · ${totalVoted} vote${totalVoted !== 1 ? "s" : ""} cast`
+            {activeCount > 0
+              ? `${activeCount} active election${activeCount !== 1 ? "s" : ""} · ${totalVoted} vote${totalVoted !== 1 ? "s" : ""} cast`
               : `${elections.length} election${elections.length !== 1 ? "s" : ""} total`}
           </p>
         </div>
@@ -199,15 +281,15 @@ export default async function DashboardPage() {
         <DashboardEmpty />
       ) : (
         <>
-          {activeElections.length > 0 && (
+          {heroElections.length > 0 && (
             <div className={`grid gap-4 mb-5 ${gridCols}`}>
-              {activeElections.map((e) => (
+              {heroElections.map((e) => (
                 <ActiveCard key={e.id} e={e} variant={variant} />
               ))}
             </div>
           )}
 
-          {activeElections.length === 0 && (
+          {heroElections.length === 0 && (
             <div
               className="bg-vh-surface rounded-[14px] px-5 py-8 mb-5 text-center"
               style={{ border: "1px solid var(--vh-line)" }}

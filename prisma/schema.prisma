@@ -60,15 +60,17 @@ model Election {
   autoActivateFailedNoticeSentAt DateTime?
   autoSendResults                Boolean   @default(false)
 
-  heroColor String?
+  heroColor              String?
+  dashboardDismissedAt   DateTime?
 
   tallyHash      String?
   tallyHashSetAt DateTime?
 
-  questions Question[]
-  voters    Voter[]
-  votes     Vote[]
-  receipts  BallotReceipt[]
+  questions    Question[]
+  voters       Voter[]
+  votes        Vote[]
+  receipts     BallotReceipt[]
+  activityLogs ActivityLog[]
 }
 
 model Question {
@@ -117,11 +119,17 @@ model Voter {
   firstReminderSentAt  DateTime?
   secondReminderSentAt DateTime?
   recoveryRequestedAt  DateTime?
+  lastSendStatus       String?
+  lastSendErrorCode    String?
+  lastSendErrorMessage String?
+  lastSendAttemptAt    DateTime?
+  lastSendProvider     String?
 
   election     Election            @relation(fields: [electionId], references: [id], onDelete: Cascade)
   tokenHistory VoterTokenHistory[]
 
   @@unique([electionId, email])
+  @@index([electionId, lastSendStatus])
 }
 
 model VoterTokenHistory {
@@ -200,4 +208,26 @@ model Setting {
   key       String   @id
   value     String
   updatedAt DateTime @updatedAt
+}
+
+model ActivityLog {
+  id          String    @id @default(cuid())
+  createdAt   DateTime  @default(now())
+
+  actorId     String?
+  actorEmail  String
+  actorRole   AdminRole
+
+  electionId  String?
+  election    Election? @relation(fields: [electionId], references: [id], onDelete: Cascade)
+
+  action      String
+  targetType  String
+  targetId    String?
+  targetLabel String?
+  metadata    Json?
+
+  @@index([electionId, createdAt(sort: Desc)])
+  @@index([actorId, createdAt(sort: Desc)])
+  @@index([createdAt(sort: Desc)])
 }
