@@ -7,6 +7,9 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import BackupRestorePanel from "@/components/admin/BackupRestorePanel"
+import ActivityLogTable from "@/components/admin/ActivityLogTable"
+
+// ─── Security tab ────────────────────────────────────────────────────────────
 
 function SecuritySettings() {
   const [notifyAdmins, setNotifyAdmins] = useState(false)
@@ -46,7 +49,6 @@ function SecuritySettings() {
 
   return (
     <div>
-      <h2 className="text-lg font-semibold mb-1">Security</h2>
       <p className="text-zinc-500 text-sm mb-4">
         When enabled, all administrators will receive an email whenever a password reset is requested
         or completed by any user. Useful as an audit signal for security-conscious installations. Off by default.
@@ -78,6 +80,8 @@ function SecuritySettings() {
     </div>
   )
 }
+
+// ─── General tab ─────────────────────────────────────────────────────────────
 
 const COMMON_TIMEZONES = [
   "UTC",
@@ -119,7 +123,7 @@ const COMMON_TIMEZONES = [
   "Pacific/Auckland",
 ]
 
-function GeneralSettings() {
+function GeneralSettings({ hasActiveElections }: { hasActiveElections: boolean }) {
   const router = useRouter()
   const [days, setDays] = useState("30")
   const [tz, setTz] = useState("UTC")
@@ -190,7 +194,6 @@ function GeneralSettings() {
 
   return (
     <div>
-      <h2 className="text-lg font-semibold mb-1">General</h2>
       <p className="text-zinc-500 text-sm mb-4">
         Configure display settings for this installation.
       </p>
@@ -255,9 +258,14 @@ function GeneralSettings() {
           </div>
         </form>
       )}
+
+      <hr className="my-8 border-zinc-200" />
+      <BackupRestorePanel hasActiveElections={hasActiveElections} />
     </div>
   )
 }
+
+// ─── Email tab ────────────────────────────────────────────────────────────────
 
 type EmailPreset = "smtp" | "resend" | "gmail" | "icloud" | "outlook" | "yahoo"
 
@@ -414,7 +422,7 @@ const PRESETS: Record<EmailPreset, PresetConfig> = {
   },
 }
 
-export default function SettingsPage({ hasActiveElections }: { hasActiveElections: boolean }) {
+function EmailSettingsTab() {
   const [settings, setSettings] = useState<EmailSettings>(DEFAULT_SETTINGS)
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState("")
@@ -516,31 +524,12 @@ export default function SettingsPage({ hasActiveElections }: { hasActiveElection
     }
   }
 
-  if (loading) {
-    return (
-      <div className="p-4 sm:p-8">
-        <p className="text-zinc-500 text-sm">Loading settings…</p>
-      </div>
-    )
-  }
+  if (loading) return <p className="text-zinc-400 text-sm">Loading…</p>
 
-  if (loadError) {
-    return (
-      <div className="p-4 sm:p-8">
-        <h1 className="text-2xl font-bold mb-2">System Settings</h1>
-        <p className="text-red-600 text-sm">Failed to load settings: {loadError}</p>
-      </div>
-    )
-  }
+  if (loadError) return <p className="text-red-600 text-sm">Failed to load settings: {loadError}</p>
 
   return (
-    <div className="p-4 sm:p-8 max-w-xl">
-      <h1 className="text-2xl font-bold mb-1">System Settings</h1>
-      <p className="text-zinc-500 text-sm mb-8">
-        Configure email delivery, security, storage, and backups for this {BRAND_NAME} install.
-      </p>
-
-      <h2 className="text-lg font-semibold mb-1">Email Settings</h2>
+    <div>
       <p className="text-zinc-500 text-sm mb-4">
         Configure the email provider used to send voting invitations.
       </p>
@@ -746,15 +735,68 @@ export default function SettingsPage({ hasActiveElections }: { hasActiveElection
       {testStatus === "error" && (
         <p className="text-sm text-red-600 mt-3">Failed: {testError}</p>
       )}
+    </div>
+  )
+}
 
-      <hr className="my-8 border-zinc-200" />
-      <SecuritySettings />
+// ─── Tab definitions ──────────────────────────────────────────────────────────
 
-      <hr className="my-8 border-zinc-200" />
-      <GeneralSettings />
+const TABS = [
+  { key: "security", label: "Security" },
+  { key: "general",  label: "General" },
+  { key: "email",    label: "Email" },
+  { key: "activity", label: "Activity" },
+] as const
 
-      <hr className="my-8 border-zinc-200" />
-      <BackupRestorePanel hasActiveElections={hasActiveElections} />
+type Tab = typeof TABS[number]["key"]
+
+// ─── Page shell ───────────────────────────────────────────────────────────────
+
+export default function SettingsPage({ hasActiveElections }: { hasActiveElections: boolean }) {
+  const [tab, setTab] = useState<Tab>("security")
+
+  return (
+    <div className="p-4 sm:p-8 max-w-3xl">
+      <h1 className="text-2xl font-bold mb-1">System Settings</h1>
+      <p className="text-zinc-500 text-sm mb-5">
+        Configure email delivery, security, storage, and backups for this {BRAND_NAME} install.
+      </p>
+
+      {/* Tab strip */}
+      <div className="flex gap-1.5 mb-8 flex-wrap">
+        {TABS.map((t) => {
+          const active = tab === t.key
+          return (
+            <button
+              key={t.key}
+              type="button"
+              onClick={() => setTab(t.key)}
+              className="px-3 sm:px-4 py-2 rounded-[10px] text-[13px] font-medium transition-colors"
+              style={
+                active
+                  ? { background: "var(--vh-accent)", color: "white", border: "1px solid var(--vh-accent)" }
+                  : { background: "var(--vh-surface)", color: "var(--vh-ink-soft)", border: "1px solid var(--vh-line-strong)" }
+              }
+              onMouseEnter={active ? undefined : (e) => { (e.currentTarget as HTMLElement).style.background = "var(--vh-surface-2)"; (e.currentTarget as HTMLElement).style.color = "var(--vh-ink)" }}
+              onMouseLeave={active ? undefined : (e) => { (e.currentTarget as HTMLElement).style.background = "var(--vh-surface)"; (e.currentTarget as HTMLElement).style.color = "var(--vh-ink-soft)" }}
+            >
+              {t.label}
+            </button>
+          )
+        })}
+      </div>
+
+      {tab === "security" && <SecuritySettings />}
+      {tab === "general"  && <GeneralSettings hasActiveElections={hasActiveElections} />}
+      {tab === "email"    && <EmailSettingsTab />}
+      {tab === "activity" && (
+        <div>
+          <p className="text-[14px] mb-5" style={{ color: "var(--vh-muted)" }}>
+            Audit log of system-wide admin actions — settings changes, user management, 2FA, and backups.
+          </p>
+          <ActivityLogTable apiUrl="/api/activity" scope="system" />
+        </div>
+      )}
 
       <p className="text-center text-xs text-zinc-400 mt-12">
         {BRAND_NAME} v{process.env.NEXT_PUBLIC_APP_VERSION}
