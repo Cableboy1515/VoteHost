@@ -462,7 +462,7 @@ console.log(`\nBallot receipt check:`)
 console.log(`  Unique ballots in votes: ${uniqueBallots}`)
 console.log(`  Receipts in ledger:      ${receiptCount}`)
 console.log(`  Counts match:            ${uniqueBallots === receiptCount ? "YES ✓" : "NO ✗"}`)
-console.log(`  All ballots have a receipt: ${receiptMismatches === 0 ? "YES ✓" : `NO ✗ — ${receiptMismatches} missing"}`)
+console.log(`  All ballots have a receipt: ${receiptMismatches === 0 ? "YES ✓" : `NO ✗ — ${receiptMismatches} missing`}`)
 ```
 
 > **Node.js version note:** `Map.groupBy` requires Node.js 21+. On older versions, replace it with:
