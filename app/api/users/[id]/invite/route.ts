@@ -5,6 +5,7 @@ import { csrfCheck } from "@/lib/csrf"
 import { generateInvitationToken } from "@/lib/invitations"
 import { sendAdminInvite } from "@/lib/email"
 import { absolutizeUrl } from "@/lib/absolutize-url"
+import { recordActivity } from "@/lib/recordActivity"
 
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const csrf = csrfCheck(req)
@@ -34,6 +35,15 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
 
   const setupLink = absolutizeUrl(`/setup-account/${raw}`)
   await sendAdminInvite({ recipientEmail: user.email, setupLink })
+
+  await recordActivity({
+    session,
+    action: "user.invite",
+    targetType: "user",
+    targetId: id,
+    targetLabel: user.email,
+    metadata: { resend: true },
+  })
 
   return NextResponse.json({ ok: true })
 }

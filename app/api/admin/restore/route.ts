@@ -13,6 +13,7 @@ import { unpackHeader } from "@/lib/backup/format"
 import { decryptZip } from "@/lib/backup/crypto"
 import { restoreDatabase } from "@/lib/backup/restoreData"
 import type { BackupData } from "@/lib/backup/dumpData"
+import { recordActivity } from "@/lib/recordActivity"
 
 export async function POST(req: Request) {
   const csrf = csrfCheck(req)
@@ -144,6 +145,12 @@ export async function POST(req: Request) {
 
   try {
     const counts = await restoreDatabase(header.type, data, header.schemaVersion)
+    await recordActivity({
+      session,
+      action: "admin.restore",
+      targetType: "system",
+      metadata: { type: header.type, counts, skippedFiles },
+    })
     return NextResponse.json({ ok: true, type: header.type, counts, skippedFiles })
   } catch (err) {
     const e = err as Error & { code?: string }

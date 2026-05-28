@@ -10,6 +10,7 @@ import { canActivate, CANNOT_ACTIVATE_MESSAGES } from "@/lib/canActivate"
 import { sendBallotInvitationsToUninvited } from "@/lib/sendBallotInvitationsToUninvited"
 import { computeTallyHash } from "@/lib/verification"
 import { sendElectionResultsEmail } from "@/lib/sendElectionResultsEmail"
+import { recordActivity } from "@/lib/recordActivity"
 
 const UPLOADS_DIR = join(process.cwd(), "public", "uploads")
 
@@ -295,6 +296,77 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     }
   }
 
+  // Determine which activity action this PATCH represented
+  if (transitioningToActive) {
+    await recordActivity({
+      session,
+      action: "election.activate",
+      electionId: id,
+      targetType: "election",
+      targetId: id,
+      targetLabel: election.title,
+    })
+  } else if (transitioningToEnd) {
+    await recordActivity({
+      session,
+      action: "election.close",
+      electionId: id,
+      targetType: "election",
+      targetId: id,
+      targetLabel: election.title,
+    })
+  } else if (parsed.data.archived === true && !before.archived) {
+    await recordActivity({
+      session,
+      action: "election.archive",
+      electionId: id,
+      targetType: "election",
+      targetId: id,
+      targetLabel: election.title,
+    })
+  } else if (parsed.data.archived === false && before.archived) {
+    await recordActivity({
+      session,
+      action: "election.unarchive",
+      electionId: id,
+      targetType: "election",
+      targetId: id,
+      targetLabel: election.title,
+    })
+  } else {
+    const LONG_TEXT = new Set(["description", "emailMessage", "emailFooter"])
+    const DATE_KEYS  = new Set(["startsAt", "endsAt"])
+    const changes: Record<string, { from: unknown; to: unknown }> = {}
+    for (const k of Object.keys(parsed.data)) {
+      const fromVal = (before as Record<string, unknown>)[k]
+      const toVal   = (parsed.data as Record<string, unknown>)[k]
+      if (DATE_KEYS.has(k)) {
+        if (!dateMeaningfullyChanged(fromVal as Date | null, toVal as string | null | undefined)) continue
+        changes[k] = {
+          from: fromVal instanceof Date ? fromVal.toISOString() : null,
+          to: toVal ?? null,
+        }
+      } else if (LONG_TEXT.has(k)) {
+        if ((toVal ?? null) === (fromVal ?? null)) continue
+        changes[k] = { from: "(updated)", to: "(updated)" }
+      } else {
+        if ((toVal ?? null) === (fromVal ?? null)) continue
+        changes[k] = { from: fromVal ?? null, to: toVal ?? null }
+      }
+    }
+    if (Object.keys(changes).length > 0) {
+      await recordActivity({
+        session,
+        action: "election.update",
+        electionId: id,
+        targetType: "election",
+        targetId: id,
+        targetLabel: election.title,
+        metadata: { changes },
+      })
+    }
+  }
+
   return NextResponse.json({ ...election, ...(inviteSummary ?? {}) })
 }
 
@@ -313,7 +385,19 @@ export async function DELETE(_req: Request, { params }: { params: Promise<{ id: 
     },
   })
 
+  const electionForLog = await db.election.findUnique({ where: { id }, select: { title: true } })
   await db.election.delete({ where: { id } })
+
+  if (electionForLog) {
+    await recordActivity({
+      session,
+      action: "election.delete",
+      electionId: null,
+      targetType: "election",
+      targetId: id,
+      targetLabel: electionForLog.title,
+    })
+  }
 
   if (election) {
     const deleteUrls: string[] = []

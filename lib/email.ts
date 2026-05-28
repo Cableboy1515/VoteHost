@@ -110,6 +110,10 @@ export type Payload = {
     turnoutPct: number
     questions: ResultsQuestion[]
   } | null
+  /** Voter DB id — used to route async Resend webhook events back to the correct row */
+  voterId?: string | null
+  /** Election DB id — used alongside voterId for webhook routing */
+  electionId?: string | null
 }
 
 function escapeHtml(str: string): string {
@@ -413,6 +417,14 @@ function buildHtml(payload: Payload, mode: EmailMode, tz: string): string {
 
 export type SendClassification = "ok" | "quota" | "transient" | "permanent"
 
+export type SendResult = {
+  error: string | null
+  classification: SendClassification
+  responseCode: string | null
+  responseText: string | null
+  provider: "smtp" | "resend"
+}
+
 export function classifySendError(provider: "resend" | "smtp", err: unknown): SendClassification {
   if (provider === "resend") {
     const e = err as { name?: string; statusCode?: number; message?: string }
@@ -436,7 +448,10 @@ export function classifySendError(provider: "resend" | "smtp", err: unknown): Se
   return "transient"
 }
 
-async function sendViaResend(config: ResendConfig, payload: Payload, mode: EmailMode, tz: string): Promise<{ error: string | null; classification: SendClassification }> {
+async function sendViaResend(config: ResendConfig, payload: Payload, mode: EmailMode, tz: string): Promise<SendResult> {
+  const tags: Array<{ name: string; value: string }> = []
+  if (payload.voterId) tags.push({ name: "voterId", value: payload.voterId })
+  if (payload.electionId) tags.push({ name: "electionId", value: payload.electionId })
   try {
     const resend = new Resend(config.apiKey)
     const { error } = await resend.emails.send({
@@ -444,15 +459,32 @@ async function sendViaResend(config: ResendConfig, payload: Payload, mode: Email
       to: payload.voterEmail,
       subject: buildSubject(mode, payload.emailSubject, payload.electionTitle),
       html: buildHtml(payload, mode, tz),
+      ...(tags.length > 0 ? { tags } : {}),
     })
-    if (error) return { error: String(error), classification: classifySendError("resend", error) }
-    return { error: null, classification: "ok" }
+    if (error) {
+      const e = error as { statusCode?: number; name?: string; message?: string }
+      return {
+        error: String(error),
+        classification: classifySendError("resend", error),
+        responseCode: e.statusCode != null ? String(e.statusCode) : null,
+        responseText: (e.message ?? e.name ?? String(error)).slice(0, 500),
+        provider: "resend",
+      }
+    }
+    return { error: null, classification: "ok", responseCode: null, responseText: null, provider: "resend" }
   } catch (err) {
-    return { error: String(err), classification: classifySendError("resend", err) }
+    const e = err as { statusCode?: number; name?: string; message?: string }
+    return {
+      error: String(err),
+      classification: classifySendError("resend", err),
+      responseCode: e.statusCode != null ? String(e.statusCode) : null,
+      responseText: (e.message ?? e.name ?? String(err)).slice(0, 500),
+      provider: "resend",
+    }
   }
 }
 
-async function sendViaSmtp(config: SmtpConfig, payload: Payload, mode: EmailMode, tz: string): Promise<{ error: string | null; classification: SendClassification }> {
+async function sendViaSmtp(config: SmtpConfig, payload: Payload, mode: EmailMode, tz: string): Promise<SendResult> {
   try {
     const transporter = nodemailer.createTransport({
       host: config.host,
@@ -460,19 +492,30 @@ async function sendViaSmtp(config: SmtpConfig, payload: Payload, mode: EmailMode
       secure: config.secure,
       auth: { user: config.user, pass: config.pass },
     })
+    const headers: Record<string, string> = {}
+    if (payload.voterId) headers["X-VoteHost-Voter-Id"] = payload.voterId
+    if (payload.electionId) headers["X-VoteHost-Election-Id"] = payload.electionId
     await transporter.sendMail({
       from: `${config.fromName} <${config.fromAddress}>`,
       to: payload.voterEmail,
       subject: buildSubject(mode, payload.emailSubject, payload.electionTitle),
       html: buildHtml(payload, mode, tz),
+      headers,
     })
-    return { error: null, classification: "ok" }
+    return { error: null, classification: "ok", responseCode: null, responseText: null, provider: "smtp" }
   } catch (err) {
-    return { error: String(err), classification: classifySendError("smtp", err) }
+    const e = err as { responseCode?: number; response?: string; message?: string }
+    return {
+      error: String(err),
+      classification: classifySendError("smtp", err),
+      responseCode: e.responseCode != null ? String(e.responseCode) : null,
+      responseText: (e.response ?? e.message ?? String(err)).slice(0, 500),
+      provider: "smtp",
+    }
   }
 }
 
-export async function sendBallotInvitation(payload: Payload, mode: EmailMode = "invite"): Promise<{ error: string | null; classification: SendClassification }> {
+export async function sendBallotInvitation(payload: Payload, mode: EmailMode = "invite"): Promise<SendResult> {
   const [config, tz] = await Promise.all([getAllEmailConfig(), getDisplayTimeZone()])
   if (config.provider === "smtp") return sendViaSmtp(config, payload, mode, tz)
   return sendViaResend(config, payload, mode, tz)

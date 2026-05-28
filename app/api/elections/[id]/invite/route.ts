@@ -2,8 +2,10 @@ import { NextResponse } from "next/server"
 import { requireRole } from "@/lib/auth"
 import { db } from "@/lib/db"
 import { sendBallotInvitation } from "@/lib/email"
+import { recordVoterSendResult } from "@/lib/recordVoterSendResult"
 import { rateLimit, rateLimitResponse } from "@/lib/rateLimit"
 import { generateVoterToken, appendVoterToken } from "@/lib/voterToken"
+import { recordActivity } from "@/lib/recordActivity"
 
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const session = await requireRole("ORGANIZER")
@@ -45,7 +47,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       const { token, tokenHash } = generateVoterToken()
       await appendVoterToken(voter.id, tokenHash)
 
-      const { error } = await sendBallotInvitation({
+      const result = await sendBallotInvitation({
         voterName: voter.name,
         voterEmail: voter.email,
         electionTitle: election.title,
@@ -55,13 +57,26 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
         emailLogoUrl: election.emailLogoUrl,
         emailFooter: election.emailFooter,
         endsAt: election.endsAt?.toISOString(),
+        voterId: voter.id,
+        electionId,
       })
-      if (error) { failed++; continue }
+      await recordVoterSendResult(voter.id, result).catch(() => {})
+      if (result.error) { failed++; continue }
       await db.voter.update({ where: { id: voter.id }, data: { invitedAt: new Date() } })
       sent++
     } catch {
       failed++
     }
+  }
+
+  if (sent > 0 || failed > 0) {
+    await recordActivity({
+      session,
+      action: "voter.bulk_invite",
+      electionId,
+      targetType: "voter",
+      metadata: { sent, failed },
+    })
   }
 
   return NextResponse.json({ sent, failed })

@@ -19,6 +19,10 @@ interface Voter {
   hasVoted: boolean
   invitedAt: string | null
   votedAt: string | null
+  lastSendStatus: string | null
+  lastSendErrorCode: string | null
+  lastSendErrorMessage: string | null
+  lastSendAttemptAt: string | null
 }
 
 interface Props {
@@ -39,7 +43,18 @@ interface CSVRow {
 }
 
 type SortKey = "name" | "email" | "invited" | "voted"
-type FilterKey = "all" | "not-invited" | "invited" | "voted"
+type FilterKey = "all" | "not-invited" | "invited" | "voted" | "failed"
+
+const SEND_FAILURE_STATUSES = new Set(["permanent", "bounced", "transient", "quota", "complained"])
+
+function isFailedStatus(status: string | null): boolean {
+  return !!status && SEND_FAILURE_STATUSES.has(status)
+}
+
+function truncateText(str: string | null, max: number): string {
+  if (!str) return ""
+  return str.length > max ? str.slice(0, max) + "…" : str
+}
 
 function Avatar({ name, size = 32 }: { name: string; size?: number }) {
   const parts = name.trim().split(/\s+/)
@@ -75,6 +90,39 @@ function StatusChip({ v }: { v: Voter }) {
       >
         <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: "oklch(0.55 0.13 155)" }} />
         Voted
+      </span>
+    )
+  }
+  if (v.lastSendStatus === "bounced" || v.lastSendStatus === "permanent") {
+    return (
+      <span
+        className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11.5px] font-medium border"
+        style={{ background: "var(--vh-danger-soft)", color: "var(--vh-danger)", borderColor: "oklch(0.88 0.06 25)" }}
+      >
+        <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: "var(--vh-danger)" }} />
+        Bounced
+      </span>
+    )
+  }
+  if (v.lastSendStatus === "quota" || v.lastSendStatus === "complained") {
+    return (
+      <span
+        className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11.5px] font-medium border"
+        style={{ background: "var(--vh-warn-soft)", color: "var(--vh-warn-text)", borderColor: "oklch(0.88 0.07 75)" }}
+      >
+        <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: "var(--vh-warn)" }} />
+        Rate-limited
+      </span>
+    )
+  }
+  if (v.lastSendStatus === "transient") {
+    return (
+      <span
+        className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11.5px] font-medium border"
+        style={{ background: "var(--vh-danger-soft)", color: "var(--vh-danger)", borderColor: "oklch(0.88 0.06 25)" }}
+      >
+        <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: "var(--vh-danger)" }} />
+        Error
       </span>
     )
   }
@@ -156,6 +204,7 @@ export default function VoterManager({
       if (filter === "voted") return v.hasVoted
       if (filter === "invited") return !!v.invitedAt && !v.hasVoted
       if (filter === "not-invited") return !v.invitedAt
+      if (filter === "failed") return isFailedStatus(v.lastSendStatus)
       return true
     })
     .filter((v) => {
@@ -446,6 +495,7 @@ export default function VoterManager({
   const draftCanActivate = questionCount > 0 && voters.length > 0
   const voted = voters.filter((v) => v.hasVoted).length
   const invited = voters.filter((v) => v.invitedAt).length
+  const failed = voters.filter((v) => isFailedStatus(v.lastSendStatus)).length
   // A past (or present) startsAt is the same shape as "no start date" from the banner's perspective:
   // the election is ready to activate manually rather than waiting for a scheduled auto-start.
   const isPastStarts = !!electionStartsAt && new Date(electionStartsAt) <= new Date()
@@ -464,6 +514,7 @@ export default function VoterManager({
     { key: "not-invited", label: "Not invited" },
     { key: "invited", label: "Invited" },
     { key: "voted", label: "Voted" },
+    { key: "failed", label: "Errors" },
   ]
 
   return (
@@ -477,6 +528,7 @@ export default function VoterManager({
           { label: "Invited", value: invited, dot: "var(--vh-accent)" },
           { label: "Voted", value: voted, dot: "var(--vh-success)" },
           { label: "Not invited", value: uninvited, dot: uninvited > 0 ? "var(--vh-warn)" : null },
+          ...(failed > 0 ? [{ label: "Errors", value: failed, dot: "var(--vh-danger)" }] : []),
         ].map((tile) => (
           <div
             key={tile.label}
@@ -844,13 +896,22 @@ export default function VoterManager({
                       >
                         {v.email}
                       </p>
+                      {isFailedStatus(v.lastSendStatus) && (
+                        <p
+                          className="text-[11px] truncate mt-0.5"
+                          title={v.lastSendErrorMessage ?? undefined}
+                          style={{ color: "var(--vh-danger)" }}
+                        >
+                          {v.lastSendErrorCode ? `${v.lastSendErrorCode} · ` : ""}{truncateText(v.lastSendErrorMessage, 60)}
+                        </p>
+                      )}
                     </div>
                   </div>
                   <div className="flex-shrink-0 flex flex-col items-end gap-1.5">
                     <StatusChip v={v} />
                     {!selectionMode && (
                       <div className="flex gap-1">
-                        {v.invitedAt && !v.hasVoted && canDelete && canInvite && (
+                        {(v.invitedAt || isFailedStatus(v.lastSendStatus)) && !v.hasVoted && canDelete && canInvite && (
                           <button
                             disabled={resending.has(v.id)}
                             onClick={() => handleResend(v)}
@@ -915,15 +976,26 @@ export default function VoterManager({
                     <Avatar name={v.name} size={32} />
                     <span className="font-medium truncate">{v.name}</span>
                   </div>
-                  <div
-                    className="truncate text-[13px]"
-                    style={{ color: "var(--vh-muted)", fontFamily: "var(--vh-font-mono, monospace)" }}
-                  >
-                    {v.email}
+                  <div className="min-w-0">
+                    <div
+                      className="truncate text-[13px]"
+                      style={{ color: "var(--vh-muted)", fontFamily: "var(--vh-font-mono, monospace)" }}
+                    >
+                      {v.email}
+                    </div>
+                    {isFailedStatus(v.lastSendStatus) && (
+                      <div
+                        className="text-[11.5px] mt-0.5 truncate"
+                        title={v.lastSendErrorMessage ?? undefined}
+                        style={{ color: "var(--vh-danger)" }}
+                      >
+                        {v.lastSendErrorCode ? `${v.lastSendErrorCode} · ` : ""}{truncateText(v.lastSendErrorMessage, 80)}
+                      </div>
+                    )}
                   </div>
                   <StatusChip v={v} />
                   <div className="flex gap-1 justify-end">
-                    {!selectionMode && v.invitedAt && !v.hasVoted && canDelete && canInvite && (
+                    {!selectionMode && (v.invitedAt || isFailedStatus(v.lastSendStatus)) && !v.hasVoted && canDelete && canInvite && (
                       <button
                         disabled={resending.has(v.id)}
                         onClick={() => handleResend(v)}

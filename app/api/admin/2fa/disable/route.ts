@@ -3,6 +3,7 @@ import { getSession } from "@/lib/auth"
 import { verifyTotpCode, decryptTotpSecret } from "@/lib/totp"
 import { db } from "@/lib/db"
 import { csrfCheck } from "@/lib/csrf"
+import { recordActivity } from "@/lib/recordActivity"
 
 // POST /api/admin/2fa/disable
 // Disables TOTP for the authenticated user after verifying the current code.
@@ -38,6 +39,14 @@ export async function POST(req: Request) {
       totpEnabledAt: null,
       recoveryCodeHashes: [],
     },
+  })
+
+  await recordActivity({
+    session,
+    action: "twofa.disable",
+    targetType: "user",
+    targetId: session.sub,
+    targetLabel: session.email,
   })
 
   return NextResponse.json({ ok: true })

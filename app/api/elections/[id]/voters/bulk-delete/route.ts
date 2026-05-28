@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import { requireRole } from "@/lib/auth"
 import { db } from "@/lib/db"
 import { rateLimit, rateLimitResponse } from "@/lib/rateLimit"
+import { recordActivity } from "@/lib/recordActivity"
 
 export async function POST(
   req: Request,
@@ -46,6 +47,13 @@ export async function POST(
 
   if (toDelete.length > 0) {
     await db.voter.deleteMany({ where: { id: { in: toDelete } } })
+    await recordActivity({
+      session,
+      action: "voter.bulk_delete",
+      electionId,
+      targetType: "voter",
+      metadata: { count: toDelete.length, skippedVoted, skippedNotFound },
+    })
   }
 
   return NextResponse.json({ deleted: toDelete.length, skippedVoted, skippedNotFound })

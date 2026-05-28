@@ -4,10 +4,11 @@ import { usePathname } from "next/navigation"
 import { GuardLink } from "@/components/admin/UnsavedChangesGuard"
 
 const TABS = [
-  { label: "Settings", path: "" },
-  { label: "Ballot", path: "/ballot" },
-  { label: "Voters", path: "/voters" },
-  { label: "Results", path: "/results" },
+  { label: "Settings",  path: "" },
+  { label: "Ballot",    path: "/ballot" },
+  { label: "Voters",    path: "/voters" },
+  { label: "Results",   path: "/results" },
+  { label: "Activity",  path: "/activity" },
 ] as const
 
 export default function ElectionTabs({ electionId }: { electionId: string }) {

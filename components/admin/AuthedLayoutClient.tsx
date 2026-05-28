@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react"
 import { usePathname, useRouter } from "next/navigation"
 import { BrandMark } from "@/components/ui/brand-mark"
-import { LayoutDashboard, Vote, Archive, Users, Settings, Plus, Menu, X } from "lucide-react"
+import { LayoutDashboard, Vote, Archive, Users, Settings, Plus, Menu, X, ClipboardList } from "lucide-react"
 import { UnsavedChangesProvider, GuardLink } from "@/components/admin/UnsavedChangesGuard"
 import OnboardingProvider from "@/components/admin/OnboardingProvider"
 
@@ -15,17 +15,18 @@ type NavItem = {
 }
 
 const ALL_NAV = {
-  dashboard: { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard, match: (p: string) => p === "/dashboard" },
-  elections: { label: "Elections", href: "/elections", icon: Vote, match: (p: string) => p.startsWith("/elections") },
-  archive:   { label: "Archive",   href: "/archive",   icon: Archive,         match: (p: string) => p.startsWith("/archive") },
-  users:     { label: "Users",     href: "/users",     icon: Users,           match: (p: string) => p.startsWith("/users") },
-  settings:  { label: "Settings",  href: "/settings",  icon: Settings,        match: (p: string) => p.startsWith("/settings") },
+  dashboard: { label: "Dashboard", href: "/dashboard",          icon: LayoutDashboard, match: (p: string) => p === "/dashboard" },
+  elections: { label: "Elections", href: "/elections",          icon: Vote,            match: (p: string) => p.startsWith("/elections") },
+  archive:   { label: "Archive",   href: "/archive",            icon: Archive,         match: (p: string) => p.startsWith("/archive") },
+  users:     { label: "Users",     href: "/users",              icon: Users,           match: (p: string) => p.startsWith("/users") },
+  settings:  { label: "Settings",  href: "/settings",           icon: Settings,        match: (p: string) => p.startsWith("/settings") },
+  activity:  { label: "Activity",  href: "/dashboard/activity", icon: ClipboardList,   match: (p: string) => p.startsWith("/dashboard/activity") },
 } satisfies Record<string, NavItem>
 
 const NAV_BY_ROLE: Record<string, NavItem[]> = {
   VIEWER:    [ALL_NAV.elections],
   ORGANIZER: [ALL_NAV.dashboard, ALL_NAV.elections, ALL_NAV.archive],
-  ADMIN:     [ALL_NAV.dashboard, ALL_NAV.elections, ALL_NAV.archive, ALL_NAV.users, ALL_NAV.settings],
+  ADMIN:     [ALL_NAV.dashboard, ALL_NAV.elections, ALL_NAV.archive, ALL_NAV.users, ALL_NAV.settings, ALL_NAV.activity],
 }
 
 export default function AuthedLayoutClient({ children }: { children: React.ReactNode }) {

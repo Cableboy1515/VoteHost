@@ -5,6 +5,7 @@ import { requireRole } from "@/lib/auth"
 import { db } from "@/lib/db"
 import { sendBallotInvitationsToUninvited } from "@/lib/sendBallotInvitationsToUninvited"
 import { startProgress, recordSent, recordFailed, finishProgress, getProgress } from "@/lib/activationProgress"
+import { recordActivity } from "@/lib/recordActivity"
 
 export async function POST(_req: Request, { params }: { params: Promise<{ id: string }> }) {
   const session = await requireRole("ORGANIZER")
@@ -38,7 +39,18 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
       onSent: () => recordSent(electionId),
       onFailed: () => recordFailed(electionId),
     })
-      .then((r) => finishProgress(electionId, r))
+      .then((r) => {
+        finishProgress(electionId, r)
+        if (r.sent > 0 || r.failed > 0) {
+          recordActivity({
+            session,
+            action: "voter.bulk_invite",
+            electionId,
+            targetType: "voter",
+            metadata: { sent: r.sent, failed: r.failed, stopped: r.stopped },
+          }).catch(() => {})
+        }
+      })
       .catch((err) => finishProgress(electionId, { sent: 0, failed: total, stopped: true, lastError: String(err) }))
   )
 

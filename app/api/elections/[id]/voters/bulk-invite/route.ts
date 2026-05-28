@@ -3,6 +3,7 @@ import { requireRole } from "@/lib/auth"
 import { db } from "@/lib/db"
 import { rateLimit } from "@/lib/rateLimit"
 import { sendOneInvite } from "@/lib/voterInvite"
+import { recordActivity } from "@/lib/recordActivity"
 
 export async function POST(
   req: Request,
@@ -94,6 +95,16 @@ export async function POST(
       case "election_not_active": skippedRateLimited++; break
       case "failed":           failed++;              break
     }
+  }
+
+  if (sent > 0 || failed > 0) {
+    await recordActivity({
+      session,
+      action: "voter.bulk_invite",
+      electionId,
+      targetType: "voter",
+      metadata: { targetCount: voterIds.length, sent, failed, skippedRateLimited, skippedAlreadyVoted, skippedNotInvited },
+    })
   }
 
   return NextResponse.json({ sent, skippedRateLimited, skippedAlreadyVoted, skippedNotInvited, failed, skippedNotFound })

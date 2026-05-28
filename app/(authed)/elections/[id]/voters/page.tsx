@@ -47,6 +47,10 @@ export default async function VotersPage({ params }: { params: Promise<{ id: str
           hasVoted: v.hasVoted,
           invitedAt: v.invitedAt?.toISOString() ?? null,
           votedAt: v.votedAt?.toISOString() ?? null,
+          lastSendStatus: v.lastSendStatus ?? null,
+          lastSendErrorCode: v.lastSendErrorCode ?? null,
+          lastSendErrorMessage: v.lastSendErrorMessage ?? null,
+          lastSendAttemptAt: v.lastSendAttemptAt?.toISOString() ?? null,
         }))}
       />
     </div>

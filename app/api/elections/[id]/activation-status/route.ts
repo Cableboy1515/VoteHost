@@ -11,12 +11,22 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
 
   const { id: electionId } = await params
 
-  const [total, invited] = await Promise.all([
-    db.voter.count({ where: { electionId } }),
-    db.voter.count({ where: { electionId, invitedAt: { not: null } } }),
-  ])
-
   const progress = getProgress(electionId)
+
+  // While a send batch is active (or has just finished), report progress relative to
+  // THAT batch — not the election-wide voter count. Otherwise the bar reads
+  // "Sent 1 of 2" because the already-invited voter pre-counts toward "invited".
+  let total: number
+  let invited: number
+  if (progress) {
+    total = progress.total
+    invited = progress.sent
+  } else {
+    ;[total, invited] = await Promise.all([
+      db.voter.count({ where: { electionId } }),
+      db.voter.count({ where: { electionId, invitedAt: { not: null } } }),
+    ])
+  }
 
   return NextResponse.json(
     {

@@ -3,12 +3,14 @@ import { BRAND_NAME } from "@/lib/branding"
 import { requireRole } from "@/lib/auth"
 import { db } from "@/lib/db"
 import { csrfCheck } from "@/lib/csrf"
+import { recordActivity } from "@/lib/recordActivity"
 
-const SECRET_KEYS = ["resend_api_key", "smtp_pass"] as const
+const SECRET_KEYS = ["resend_api_key", "smtp_pass", "resend_webhook_secret"] as const
 const EMAIL_KEYS = [
   "email_provider",
   "email_preset",
   "resend_api_key",
+  "resend_webhook_secret",
   "email_from_address",
   "email_from_name",
   "smtp_host",
@@ -30,16 +32,17 @@ export async function GET() {
     for (const row of rows) s[row.key] = row.value
 
     return NextResponse.json({
-      email_provider:     s.email_provider     ?? "resend",
-      email_preset:       s.email_preset       ?? (s.email_provider === "smtp" ? "smtp" : "resend"),
-      resend_api_key:     s.resend_api_key     ? SENTINEL : "",
-      email_from_address: s.email_from_address ?? "",
-      email_from_name:    s.email_from_name    ?? BRAND_NAME,
-      smtp_host:          s.smtp_host          ?? "",
-      smtp_port:          s.smtp_port          ?? "587",
-      smtp_user:          s.smtp_user          ?? "",
-      smtp_pass:          s.smtp_pass          ? SENTINEL : "",
-      smtp_secure:        s.smtp_secure        ?? "false",
+      email_provider:          s.email_provider     ?? "resend",
+      email_preset:            s.email_preset       ?? (s.email_provider === "smtp" ? "smtp" : "resend"),
+      resend_api_key:          s.resend_api_key     ? SENTINEL : "",
+      resend_webhook_secret:   s.resend_webhook_secret ? SENTINEL : "",
+      email_from_address:      s.email_from_address ?? "",
+      email_from_name:         s.email_from_name    ?? BRAND_NAME,
+      smtp_host:               s.smtp_host          ?? "",
+      smtp_port:               s.smtp_port          ?? "587",
+      smtp_user:               s.smtp_user          ?? "",
+      smtp_pass:               s.smtp_pass          ? SENTINEL : "",
+      smtp_secure:             s.smtp_secure        ?? "false",
     })
   } catch (err) {
     console.error("[settings/email GET]", err)
@@ -57,6 +60,11 @@ export async function PUT(req: Request) {
   const body = await req.json().catch(() => ({}))
 
   try {
+    // Read current values so we can log a before/after diff (secrets are always redacted)
+    const existingRows = await db.setting.findMany({ where: { key: { in: [...EMAIL_KEYS] } } })
+    const existing: Record<string, string> = {}
+    for (const r of existingRows) existing[r.key] = r.value
+
     const upsert = (key: string, value: string | undefined, existingKey: string) => {
       // If client sends SENTINEL back for a secret field, retain the existing DB value
       if ((SECRET_KEYS as readonly string[]).includes(existingKey) && value === SENTINEL) return Promise.resolve()
@@ -65,18 +73,35 @@ export async function PUT(req: Request) {
     }
 
     await Promise.all([
-      upsert("email_provider",     body.email_provider     ?? "resend",  "email_provider"),
-      upsert("email_preset",       body.email_preset       ?? "resend",  "email_preset"),
-      upsert("resend_api_key",     body.resend_api_key,                  "resend_api_key"),
-      upsert("email_from_address", body.email_from_address ?? "",        "email_from_address"),
-      upsert("email_from_name",    body.email_from_name    ?? BRAND_NAME, "email_from_name"),
-      upsert("smtp_host",          body.smtp_host          ?? "",        "smtp_host"),
-      upsert("smtp_port",          body.smtp_port          ?? "587",     "smtp_port"),
-      upsert("smtp_user",          body.smtp_user          ?? "",        "smtp_user"),
-      upsert("smtp_pass",          body.smtp_pass,                       "smtp_pass"),
-      upsert("smtp_secure",        body.smtp_secure        ?? "false",   "smtp_secure"),
+      upsert("email_provider",        body.email_provider        ?? "resend",   "email_provider"),
+      upsert("email_preset",          body.email_preset          ?? "resend",   "email_preset"),
+      upsert("resend_api_key",        body.resend_api_key,                       "resend_api_key"),
+      upsert("resend_webhook_secret", body.resend_webhook_secret,                "resend_webhook_secret"),
+      upsert("email_from_address",    body.email_from_address    ?? "",          "email_from_address"),
+      upsert("email_from_name",       body.email_from_name       ?? BRAND_NAME,  "email_from_name"),
+      upsert("smtp_host",             body.smtp_host             ?? "",          "smtp_host"),
+      upsert("smtp_port",             body.smtp_port             ?? "587",       "smtp_port"),
+      upsert("smtp_user",             body.smtp_user             ?? "",          "smtp_user"),
+      upsert("smtp_pass",             body.smtp_pass,                            "smtp_pass"),
+      upsert("smtp_secure",           body.smtp_secure           ?? "false",     "smtp_secure"),
     ])
 
+    const submittedKeys = Object.keys(body).filter((k) => [...EMAIL_KEYS].includes(k as typeof EMAIL_KEYS[number]))
+    const changes: Record<string, { from: unknown; to: unknown }> = {}
+    for (const k of submittedKeys) {
+      const isSecret = (SECRET_KEYS as readonly string[]).includes(k)
+      changes[k] = {
+        from: isSecret ? "***" : (existing[k] ?? null),
+        to:   isSecret ? "***" : (body[k] ?? null),
+      }
+    }
+
+    await recordActivity({
+      session,
+      action: "settings.email_update",
+      targetType: "settings",
+      metadata: { changes },
+    })
     return NextResponse.json({ ok: true })
   } catch (err) {
     console.error("[settings/email PUT]", err)

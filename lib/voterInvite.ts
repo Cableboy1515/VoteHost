@@ -1,5 +1,6 @@
 import { db } from "@/lib/db"
 import { sendBallotInvitation } from "@/lib/email"
+import { recordVoterSendResult } from "@/lib/recordVoterSendResult"
 import { generateVoterToken, appendVoterToken } from "@/lib/voterToken"
 
 type VoterData = {
@@ -8,6 +9,7 @@ type VoterData = {
   email: string
   invitedAt: Date | null
   hasVoted: boolean
+  lastSendStatus?: string | null
 }
 
 type ElectionData = {
@@ -29,13 +31,14 @@ export async function sendOneInvite(
   baseUrl: string
 ): Promise<InviteOneStatus> {
   if (voter.hasVoted) return "voted"
-  if (!voter.invitedAt) return "not_invited"
+  // Allow retry if a previous send failed (lastSendStatus set) even without invitedAt
+  if (!voter.invitedAt && !voter.lastSendStatus) return "not_invited"
   if (election.status !== "ACTIVE") return "election_not_active"
 
   const { token, tokenHash } = generateVoterToken()
   await appendVoterToken(voter.id, tokenHash)
 
-  const { error } = await sendBallotInvitation({
+  const result = await sendBallotInvitation({
     voterName: voter.name,
     voterEmail: voter.email,
     electionTitle: election.title,
@@ -45,10 +48,16 @@ export async function sendOneInvite(
     emailLogoUrl: election.emailLogoUrl,
     emailFooter: election.emailFooter,
     endsAt: election.endsAt?.toISOString(),
+    voterId: voter.id,
+    electionId: election.id,
   })
 
-  if (error) return "failed"
+  await recordVoterSendResult(voter.id, result).catch(() => {})
 
-  await db.voter.update({ where: { id: voter.id }, data: { invitedAt: new Date() } })
+  if (result.error) return "failed"
+
+  if (!voter.invitedAt) {
+    await db.voter.update({ where: { id: voter.id }, data: { invitedAt: new Date() } })
+  }
   return "sent"
 }

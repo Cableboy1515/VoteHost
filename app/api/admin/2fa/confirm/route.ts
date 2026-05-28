@@ -3,6 +3,7 @@ import { getSession, verifyChallengeToken, createSession, COOKIE, SESSION_COOKIE
 import { verifyTotpCode, encryptTotpSecret, generateRecoveryCodes } from "@/lib/totp"
 import { db } from "@/lib/db"
 import { csrfCheck } from "@/lib/csrf"
+import { recordActivity } from "@/lib/recordActivity"
 
 // POST /api/admin/2fa/confirm
 // Confirms TOTP enrollment by verifying the first code, then persists the encrypted secret
@@ -48,6 +49,14 @@ export async function POST(req: Request) {
       recoveryCodeHashes: hashes,
     },
     select: { id: true, email: true, role: true, tokenVersion: true },
+  })
+
+  await recordActivity({
+    session: { sub: user.id, email: user.email, role: user.role },
+    action: "twofa.enable",
+    targetType: "user",
+    targetId: user.id,
+    targetLabel: user.email,
   })
 
   const res = NextResponse.json({ ok: true, recoveryCodes: codes })

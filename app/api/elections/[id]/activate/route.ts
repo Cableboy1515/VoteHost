@@ -4,6 +4,7 @@ import { db } from "@/lib/db"
 import { canActivate, CANNOT_ACTIVATE_MESSAGES } from "@/lib/canActivate"
 import { sendBallotInvitationsToUninvited } from "@/lib/sendBallotInvitationsToUninvited"
 import { startProgress, recordSent, recordFailed, finishProgress } from "@/lib/activationProgress"
+import { recordActivity } from "@/lib/recordActivity"
 
 export async function POST(_req: Request, { params }: { params: Promise<{ id: string }> }) {
   const session = await requireRole("ORGANIZER")
@@ -40,6 +41,14 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
       startsAt: now,
       startReminderSentAt: null,
     },
+  })
+
+  await recordActivity({
+    session,
+    action: "election.activate",
+    electionId,
+    targetType: "election",
+    targetId: electionId,
   })
 
   const total = await db.voter.count({ where: { electionId, invitedAt: null } })

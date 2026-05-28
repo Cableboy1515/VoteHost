@@ -8,6 +8,7 @@ import { csrfCheck } from "@/lib/csrf"
 import { generateInvitationToken } from "@/lib/invitations"
 import { sendAdminInvite } from "@/lib/email"
 import { absolutizeUrl } from "@/lib/absolutize-url"
+import { recordActivity } from "@/lib/recordActivity"
 
 export async function GET() {
   const session = await requireRole("ADMIN")
@@ -131,6 +132,15 @@ export async function POST(req: Request) {
 
   const setupLink = absolutizeUrl(`/setup-account/${raw}`)
   await sendAdminInvite({ recipientEmail: email, setupLink })
+
+  await recordActivity({
+    session,
+    action: "user.invite",
+    targetType: "user",
+    targetId: user.id,
+    targetLabel: email,
+    metadata: { role },
+  })
 
   return NextResponse.json({ ...user, hasPassword: false }, { status: 201 })
 }

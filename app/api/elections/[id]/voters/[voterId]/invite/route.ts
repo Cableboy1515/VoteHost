@@ -3,6 +3,7 @@ import { requireRole } from "@/lib/auth"
 import { db } from "@/lib/db"
 import { rateLimit, rateLimitResponse } from "@/lib/rateLimit"
 import { sendOneInvite } from "@/lib/voterInvite"
+import { recordActivity } from "@/lib/recordActivity"
 
 export async function POST(
   _req: Request,
@@ -21,7 +22,7 @@ export async function POST(
 
   const voter = await db.voter.findUnique({
     where: { id: voterId },
-    select: { id: true, electionId: true, name: true, email: true, invitedAt: true, hasVoted: true, election: true },
+    select: { id: true, electionId: true, name: true, email: true, invitedAt: true, hasVoted: true, lastSendStatus: true, election: true },
   })
 
   if (!voter || voter.electionId !== electionId) {
@@ -33,6 +34,14 @@ export async function POST(
 
   switch (status) {
     case "sent":
+      await recordActivity({
+        session,
+        action: "voter.invite_resent",
+        electionId,
+        targetType: "voter",
+        targetId: voterId,
+        targetLabel: `${voter.name} <${voter.email}>`,
+      })
       return NextResponse.json({ ok: true })
     case "voted":
       return NextResponse.json({ error: "Voter has already voted" }, { status: 409 })

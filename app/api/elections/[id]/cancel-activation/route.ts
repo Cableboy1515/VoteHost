@@ -4,6 +4,7 @@ import { db } from "@/lib/db"
 import { csrfCheck } from "@/lib/csrf"
 import { rateLimit, rateLimitResponse } from "@/lib/rateLimit"
 import { sendActivationCancelledVoterNotices, sendActivationCancelledAdminNotice } from "@/lib/email"
+import { recordActivity } from "@/lib/recordActivity"
 
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const csrf = csrfCheck(req)
@@ -91,6 +92,16 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   sendActivationCancelledAdminNotice(election.title, session.email, invitedVoters.length).catch((err) =>
     console.error("[cancel-activation] admin notification threw:", err)
   )
+
+  await recordActivity({
+    session,
+    action: "election.cancel_activation",
+    electionId: id,
+    targetType: "election",
+    targetId: id,
+    targetLabel: election.title,
+    metadata: { votersNotified: invitedVoters.length },
+  })
 
   return NextResponse.json({ ok: true, votersNotified: invitedVoters.length })
 }

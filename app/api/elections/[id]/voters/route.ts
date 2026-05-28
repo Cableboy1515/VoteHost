@@ -4,6 +4,7 @@ import { db } from "@/lib/db"
 import { VotersSchema } from "@/lib/validations"
 import { csrfCheck } from "@/lib/csrf"
 import { rateLimit, rateLimitResponse } from "@/lib/rateLimit"
+import { recordActivity } from "@/lib/recordActivity"
 
 export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
   const session = await getSession()
@@ -58,8 +59,36 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     })
   }
 
+  const skipped = parsed.data.length - result.count
+  if (result.count > 0) {
+    const isCsv = Array.isArray(body)
+    if (isCsv) {
+      await recordActivity({
+        session,
+        action: "voter.csv_import",
+        electionId,
+        targetType: "voter",
+        metadata: {
+          created: result.count,
+          skipped,
+          sampleEmails: parsed.data.slice(0, 5).map((v) => v.email),
+        },
+      })
+    } else {
+      const v = parsed.data[0]
+      await recordActivity({
+        session,
+        action: "voter.add",
+        electionId,
+        targetType: "voter",
+        targetLabel: `${v.name} <${v.email}>`,
+        metadata: { name: v.name, email: v.email },
+      })
+    }
+  }
+
   return NextResponse.json(
-    { created: result.count, skipped: parsed.data.length - result.count },
+    { created: result.count, skipped },
     { status: 201 }
   )
 }

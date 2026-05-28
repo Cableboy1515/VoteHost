@@ -1,5 +1,6 @@
 import { db } from "@/lib/db"
 import { sendBallotInvitation } from "@/lib/email"
+import { recordVoterSendResult } from "@/lib/recordVoterSendResult"
 import { generateVoterToken, appendVoterToken } from "@/lib/voterToken"
 
 export type InviteSendSummary = {
@@ -44,7 +45,7 @@ export async function sendBallotInvitationsToUninvited(
       const { token, tokenHash } = generateVoterToken()
       await appendVoterToken(voter.id, tokenHash)
 
-      const { error, classification } = await sendBallotInvitation({
+      const result = await sendBallotInvitation({
         voterName: voter.name,
         voterEmail: voter.email,
         electionTitle: election.title,
@@ -54,16 +55,21 @@ export async function sendBallotInvitationsToUninvited(
         emailLogoUrl: election.emailLogoUrl,
         emailFooter: election.emailFooter,
         endsAt: election.endsAt?.toISOString(),
+        voterId: voter.id,
+        electionId,
       })
+      const { error, classification } = result
 
       if (classification === "quota") {
         console.error("[sendBallotInvitationsToUninvited] quota reached at", voter.email, error)
+        await recordVoterSendResult(voter.id, result).catch(() => {})
         callbacks?.onFailed?.()
         return { sent, failed: failed + 1, stopped: true, stopReason: "quota", lastError: error ?? undefined, failedAt: voter.email }
       }
 
       if (error) {
         console.error("[sendBallotInvitationsToUninvited] send failed for", voter.email, error)
+        await recordVoterSendResult(voter.id, result).catch(() => {})
         failed++
         callbacks?.onFailed?.()
         if (classification === "transient") {
@@ -78,7 +84,10 @@ export async function sendBallotInvitationsToUninvited(
         continue
       }
 
-      await db.voter.update({ where: { id: voter.id }, data: { invitedAt: now } })
+      await Promise.all([
+        db.voter.update({ where: { id: voter.id }, data: { invitedAt: now } }),
+        recordVoterSendResult(voter.id, result).catch(() => {}),
+      ])
       sent++
       consecutiveFails = 0
       callbacks?.onSent?.()

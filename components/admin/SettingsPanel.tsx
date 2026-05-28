@@ -265,6 +265,7 @@ type EmailSettings = {
   email_provider: "resend" | "smtp"
   email_preset: EmailPreset
   resend_api_key: string
+  resend_webhook_secret: string
   email_from_address: string
   email_from_name: string
   smtp_host: string
@@ -278,6 +279,7 @@ const DEFAULT_SETTINGS: EmailSettings = {
   email_provider: "smtp",
   email_preset: "smtp",
   resend_api_key: "",
+  resend_webhook_secret: "",
   email_from_address: "",
   email_from_name: BRAND_NAME,
   smtp_host: "",
@@ -603,17 +605,36 @@ export default function SettingsPage({ hasActiveElections }: { hasActiveElection
 
         {/* Resend-only */}
         {settings.email_preset === "resend" && (
-          <div className="space-y-1.5">
-            <Label htmlFor="resend_api_key">Resend API Key</Label>
-            <Input
-              id="resend_api_key"
-              type="password"
-              placeholder="re_••••••••••••••••••••••"
-              value={settings.resend_api_key}
-              onChange={(e) => set("resend_api_key", e.target.value)}
-              autoComplete="off"
-              className="bg-white"
-            />
+          <div className="space-y-4">
+            <div className="space-y-1.5">
+              <Label htmlFor="resend_api_key">Resend API Key</Label>
+              <Input
+                id="resend_api_key"
+                type="password"
+                placeholder="re_••••••••••••••••••••••"
+                value={settings.resend_api_key}
+                onChange={(e) => set("resend_api_key", e.target.value)}
+                autoComplete="off"
+                className="bg-white"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="resend_webhook_secret">Webhook Signing Secret <span className="text-xs font-normal text-zinc-400">(optional)</span></Label>
+              <Input
+                id="resend_webhook_secret"
+                type="password"
+                placeholder="whsec_••••••••••••••••••••••"
+                value={settings.resend_webhook_secret}
+                onChange={(e) => set("resend_webhook_secret", e.target.value)}
+                autoComplete="off"
+                className="bg-white"
+              />
+              <p className="text-xs text-zinc-400">
+                Enables real-time bounce tracking via Resend webhooks. In your Resend dashboard, add a webhook pointing to{" "}
+                <code className="text-zinc-600">/api/email/webhook</code>{" "}
+                and paste the signing secret here. Leave blank to disable.
+              </p>
+            </div>
           </div>
         )}
 

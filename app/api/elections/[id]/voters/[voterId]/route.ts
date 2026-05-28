@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { requireRole } from "@/lib/auth"
 import { db } from "@/lib/db"
+import { recordActivity } from "@/lib/recordActivity"
 
 export async function DELETE(
   _req: Request,
@@ -31,5 +32,13 @@ export async function DELETE(
   }
 
   await db.voter.delete({ where: { id: voterId } })
+  await recordActivity({
+    session,
+    action: "voter.delete",
+    electionId,
+    targetType: "voter",
+    targetId: voterId,
+    targetLabel: `${voter.name} <${voter.email}>`,
+  })
   return NextResponse.json({ ok: true })
 }

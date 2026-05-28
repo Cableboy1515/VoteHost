@@ -3,6 +3,7 @@ import { requireRole } from "@/lib/auth"
 import { db } from "@/lib/db"
 import { csrfCheck } from "@/lib/csrf"
 import { getDisplayTimeZone, invalidateTimezoneCache, isValidTimeZone, SETTING_KEY as TZ_SETTING_KEY } from "@/lib/timezone"
+import { recordActivity } from "@/lib/recordActivity"
 
 export async function GET() {
   const session = await requireRole("ADMIN")
@@ -60,6 +61,26 @@ export async function PUT(req: Request) {
     return NextResponse.json({ error: "No valid fields provided" }, { status: 400 })
   }
 
+  const [beforeRetention, beforeTz] = await Promise.all([
+    "image_retention_days" in body
+      ? db.setting.findUnique({ where: { key: "image_retention_days" } }).then((r) => r?.value ?? "30")
+      : Promise.resolve(null),
+    "display_time_zone" in body ? getDisplayTimeZone() : Promise.resolve(null),
+  ])
+
   await Promise.all(updates)
+
+  const changes: Record<string, { from: unknown; to: unknown }> = {}
+  if ("image_retention_days" in body && beforeRetention !== null)
+    changes.image_retention_days = { from: beforeRetention, to: String(body.image_retention_days ?? "30") }
+  if ("display_time_zone" in body && beforeTz !== null)
+    changes.display_time_zone = { from: beforeTz, to: body.display_time_zone }
+
+  await recordActivity({
+    session,
+    action: "settings.general_update",
+    targetType: "settings",
+    metadata: { changes },
+  })
   return NextResponse.json({ ok: true })
 }

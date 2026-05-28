@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import { getSession, requireRole } from "@/lib/auth"
 import { db } from "@/lib/db"
 import { ElectionSchema } from "@/lib/validations"
+import { recordActivity } from "@/lib/recordActivity"
 
 export async function GET() {
   const session = await getSession()
@@ -39,5 +40,13 @@ export async function POST(req: Request) {
   if (!parsed.success) return NextResponse.json({ error: parsed.error.issues }, { status: 400 })
 
   const election = await db.election.create({ data: parsed.data })
+  await recordActivity({
+    session,
+    action: "election.create",
+    electionId: election.id,
+    targetType: "election",
+    targetId: election.id,
+    targetLabel: election.title,
+  })
   return NextResponse.json(election, { status: 201 })
 }

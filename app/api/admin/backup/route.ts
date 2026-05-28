@@ -10,6 +10,7 @@ import { dumpDatabase } from "@/lib/backup/dumpData"
 import { packHeader, type BackupHeader, type BackupType } from "@/lib/backup/format"
 import { encryptZip, generateSalt, generateIV } from "@/lib/backup/crypto"
 import { createHash } from "node:crypto"
+import { recordActivity } from "@/lib/recordActivity"
 
 async function buildZip(dataJson: string, manifestJson: string, uploadFiles: { name: string; buf: Buffer }[]): Promise<Buffer> {
   // @types/archiver@7 doesn't include v8's named class exports; remove cast when @types/archiver@8 ships
@@ -130,6 +131,13 @@ export async function POST(req: Request) {
 
   const dateStr = new Date().toISOString().slice(0, 10)
   const filename = `votehost-${type}-${dateStr}.vhbak`
+
+  await recordActivity({
+    session,
+    action: "admin.backup_download",
+    targetType: "system",
+    metadata: { type, filename, counts },
+  })
 
   return new Response(vhbak as unknown as BodyInit, {
     headers: {

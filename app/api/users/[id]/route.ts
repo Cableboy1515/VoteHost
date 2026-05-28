@@ -3,6 +3,7 @@ import { requireRole } from "@/lib/auth"
 import { db } from "@/lib/db"
 import { UpdateUserSchema } from "@/lib/validations"
 import { csrfCheck } from "@/lib/csrf"
+import { recordActivity } from "@/lib/recordActivity"
 
 export async function PATCH(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const csrf = csrfCheck(req)
@@ -20,6 +21,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     return NextResponse.json({ error: "Cannot change your own role" }, { status: 400 })
   }
 
+  const before = await db.adminUser.findUnique({ where: { id }, select: { email: true, role: true } })
   const user = await db.adminUser.update({
     where: { id },
     data: {
@@ -27,6 +29,14 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
       tokenVersion: { increment: 1 },
     },
     select: { id: true, email: true, role: true, createdAt: true, invitationExpiresAt: true, passwordResetRequestedAt: true, passwordHash: true },
+  })
+  await recordActivity({
+    session,
+    action: "user.role_change",
+    targetType: "user",
+    targetId: id,
+    targetLabel: user.email,
+    metadata: { from: before?.role, to: user.role },
   })
   return NextResponse.json({ ...user, hasPassword: user.passwordHash !== null, passwordHash: undefined })
 }
@@ -43,6 +53,14 @@ export async function DELETE(_req: Request, { params }: { params: Promise<{ id: 
     return NextResponse.json({ error: "Cannot delete your own account" }, { status: 400 })
   }
 
+  const deletedUser = await db.adminUser.findUnique({ where: { id }, select: { email: true } })
   await db.adminUser.delete({ where: { id } })
+  await recordActivity({
+    session,
+    action: "user.delete",
+    targetType: "user",
+    targetId: id,
+    targetLabel: deletedUser?.email ?? id,
+  })
   return NextResponse.json({ ok: true })
 }

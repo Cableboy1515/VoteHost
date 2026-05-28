@@ -4,6 +4,7 @@ import { db } from "@/lib/db"
 import { csrfCheck } from "@/lib/csrf"
 import { sendBallotResetNotices, sendBallotResetAdminNotice } from "@/lib/email"
 import { generateVoterToken } from "@/lib/voterToken"
+import { recordActivity } from "@/lib/recordActivity"
 
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const csrf = csrfCheck(req)
@@ -90,6 +91,16 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   sendBallotResetAdminNotice(election.title, session.email, votersToNotify.length, reason.trim()).catch((err) =>
     console.error("[reset-ballot] admin notification threw:", err)
   )
+
+  await recordActivity({
+    session,
+    action: "election.ballot_reset",
+    electionId: id,
+    targetType: "election",
+    targetId: id,
+    targetLabel: election.title,
+    metadata: { voterCount: votedVoters.length, reason: reason.trim() },
+  })
 
   return NextResponse.json({ ok: true, votersNotified: votersToNotify.length })
 }
