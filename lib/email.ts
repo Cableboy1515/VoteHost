@@ -11,6 +11,7 @@ const ALL_KEYS = [
   "resend_api_key",
   "email_from_address",
   "email_from_name",
+  "email_reply_to",
   "smtp_host",
   "smtp_port",
   "smtp_user",
@@ -23,6 +24,7 @@ type ResendConfig = {
   apiKey: string
   fromAddress: string
   fromName: string
+  replyTo?: string
 }
 
 type SmtpConfig = {
@@ -34,6 +36,7 @@ type SmtpConfig = {
   secure: boolean
   fromAddress: string
   fromName: string
+  replyTo?: string
 }
 
 type EmailConfig = ResendConfig | SmtpConfig
@@ -45,6 +48,7 @@ async function getAllEmailConfig(): Promise<EmailConfig> {
 
   const fromAddress = map.email_from_address || "onboarding@resend.dev"
   const fromName = map.email_from_name || BRAND_NAME
+  const replyTo = map.email_reply_to || undefined
 
   if ((map.email_provider ?? "resend") === "smtp") {
     return {
@@ -56,6 +60,7 @@ async function getAllEmailConfig(): Promise<EmailConfig> {
       secure: map.smtp_secure === "true",
       fromAddress,
       fromName,
+      replyTo,
     }
   }
 
@@ -64,6 +69,7 @@ async function getAllEmailConfig(): Promise<EmailConfig> {
     apiKey: map.resend_api_key || process.env.RESEND_API_KEY || "",
     fromAddress,
     fromName,
+    replyTo,
   }
 }
 
@@ -75,6 +81,14 @@ export async function isEmailConfigured(): Promise<boolean> {
     return !!(map.smtp_host && map.smtp_user && map.smtp_pass)
   }
   return !!(map.resend_api_key || process.env.RESEND_API_KEY)
+}
+
+export async function getOrganizerContactEmail(): Promise<string> {
+  const rows = await db.setting.findMany({
+    where: { key: { in: ["email_reply_to", "email_from_address"] } },
+  })
+  const m = Object.fromEntries(rows.map((r) => [r.key, r.value]))
+  return m.email_reply_to || m.email_from_address || ""
 }
 
 export type EmailMode = "invite" | "reminder-early" | "reminder-final" | "results"
@@ -642,10 +656,10 @@ async function sendRawEmail(
         secure: config.secure,
         auth: { user: config.user, pass: config.pass },
       })
-      await transporter.sendMail({ from: `${config.fromName} <${config.fromAddress}>`, to, subject, html })
+      await transporter.sendMail({ from: `${config.fromName} <${config.fromAddress}>`, to, subject, html, ...(config.replyTo ? { replyTo: config.replyTo } : {}) })
     } else {
       const resend = new Resend(config.apiKey)
-      const { error } = await resend.emails.send({ from: `${config.fromName} <${config.fromAddress}>`, to, subject, html })
+      const { error } = await resend.emails.send({ from: `${config.fromName} <${config.fromAddress}>`, to, subject, html, ...(config.replyTo ? { replyTo: config.replyTo } : {}) })
       if (error) return { error: String(error) }
     }
     return { error: null }

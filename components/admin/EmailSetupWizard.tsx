@@ -43,6 +43,7 @@ type FormState = {
   smtp_secure: string
   email_from_name: string
   email_from_address: string
+  email_reply_to: string
 }
 
 const STEP_ORDER: WizardStep[] = ["welcome", "timezone", "credentials", "identity", "test", "done"]
@@ -116,6 +117,7 @@ export default function EmailSetupWizard({
     smtp_secure: "false",
     email_from_name: BRAND_NAME,
     email_from_address: adminEmail,
+    email_reply_to: "",
   })
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState("")
@@ -238,6 +240,7 @@ export default function EmailSetupWizard({
       email_preset: form.preset,
       email_from_name: form.email_from_name,
       email_from_address: form.email_from_address,
+      email_reply_to: form.email_reply_to,
       smtp_host: form.smtp_host,
       smtp_port: form.smtp_port,
       smtp_user: form.smtp_user,
@@ -566,6 +569,21 @@ export default function EmailSetupWizard({
                 {form.preset === "resend"
                   ? "Must be a verified sender in your Resend account."
                   : "Most providers require this to match your SMTP username."}
+              </p>
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="wiz_reply_to">Reply-To Address <span style={{ color: "var(--vh-muted)", fontWeight: 400 }}>(optional)</span></Label>
+              <Input
+                id="wiz_reply_to"
+                type="email"
+                placeholder="support@yourdomain.com"
+                value={form.email_reply_to}
+                onChange={(e) => setField("email_reply_to", e.target.value)}
+                autoComplete="email"
+                className="bg-white"
+              />
+              <p className="text-[12px]" style={{ color: "var(--vh-muted)" }}>
+                Where voter replies go, and the address shown on the &ldquo;Contact organizer&rdquo; button. Defaults to the From address if blank.
               </p>
             </div>
             {form.email_from_name && form.email_from_address && (

@@ -7,6 +7,10 @@ interface Config {
   body: string
   primaryLabel?: string
   primaryHref?: string
+  /** If true, render a "Contact organizer" secondary button using contactEmail prop */
+  showContactButton?: boolean
+  /** If true, render a "Request a new link" primary button and contact is secondary */
+  showRecoverPrimary?: boolean
 }
 
 const CONFIGS: Record<string, Config> = {
@@ -14,9 +18,9 @@ const CONFIGS: Record<string, Config> = {
     icon: "⚠",
     iconBg: "bg-vh-danger-soft",
     title: "Invalid voting link",
-    body: "This link is not valid. Please check your email for the correct link, or request a new one from the election organizer.",
-    primaryLabel: "Contact organizer",
-    primaryHref: "mailto:",
+    body: "This link is not valid. Please check your email for the correct link, or request a new one below.",
+    showRecoverPrimary: true,
+    showContactButton: true,
   },
   "already-voted": {
     icon: "🗳",
@@ -35,8 +39,7 @@ const CONFIGS: Record<string, Config> = {
     iconBg: "bg-vh-warn-soft",
     title: "Election hasn't opened yet",
     body: "Check back shortly, or contact the organizer if you were expecting it to be open.",
-    primaryLabel: "Contact organizer",
-    primaryHref: "mailto:",
+    showContactButton: true,
   },
   "not-open": {
     icon: "🕐",
@@ -46,7 +49,17 @@ const CONFIGS: Record<string, Config> = {
   },
 }
 
-export default function ErrorScreen({ type, startsAt, timeZone = "UTC" }: { type: string; startsAt?: string; timeZone?: string }) {
+export default function ErrorScreen({
+  type,
+  startsAt,
+  timeZone = "UTC",
+  contactEmail,
+}: {
+  type: string
+  startsAt?: string
+  timeZone?: string
+  contactEmail?: string
+}) {
   const cfg = CONFIGS[type] ?? CONFIGS.invalid
   let body = cfg.body
   if (type === "not-open" && startsAt) {
@@ -56,16 +69,32 @@ export default function ErrorScreen({ type, startsAt, timeZone = "UTC" }: { type
     })
     body = `Voting opens ${formatted}. Save this link — it will activate then.`
   }
+
+  const contactHref = contactEmail ? `mailto:${contactEmail}` : undefined
+
+  if (cfg.showRecoverPrimary) {
+    return (
+      <StateScreen
+        icon={cfg.icon}
+        iconBg={cfg.iconBg}
+        title={cfg.title}
+        body={body}
+        primaryLabel="Request a new link"
+        primaryHref="/vote/recover"
+        secondaryButtonLabel={contactHref ? "Contact organizer" : undefined}
+        secondaryButtonHref={contactHref}
+      />
+    )
+  }
+
   return (
     <StateScreen
       icon={cfg.icon}
       iconBg={cfg.iconBg}
       title={cfg.title}
       body={body}
-      primaryLabel={cfg.primaryLabel}
-      primaryHref={cfg.primaryHref}
-      secondaryLinkLabel={type === "invalid" ? "Lost your link? Request a fresh one →" : undefined}
-      secondaryLinkHref={type === "invalid" ? "/vote/recover" : undefined}
+      primaryLabel={cfg.showContactButton && contactHref ? "Contact organizer" : cfg.primaryLabel}
+      primaryHref={cfg.showContactButton && contactHref ? contactHref : cfg.primaryHref}
     />
   )
 }

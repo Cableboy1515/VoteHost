@@ -12,6 +12,8 @@ interface Props {
   primaryLabel?: string
   primaryHref?: string
   secondary?: string
+  secondaryButtonLabel?: string
+  secondaryButtonHref?: string
   secondaryLinkLabel?: string
   secondaryLinkHref?: string
   className?: string
@@ -25,6 +27,8 @@ export function StateScreen({
   primaryLabel,
   primaryHref,
   secondary,
+  secondaryButtonLabel,
+  secondaryButtonHref,
   secondaryLinkLabel,
   secondaryLinkHref,
   className,
@@ -58,6 +62,15 @@ export function StateScreen({
             onMouseLeave={(e) => ((e.currentTarget as HTMLElement).style.background = "var(--vh-accent)")}
           >
             {primaryLabel}
+          </Link>
+        )}
+
+        {secondaryButtonLabel && secondaryButtonHref && (
+          <Link
+            href={secondaryButtonHref}
+            className="mt-3 inline-flex items-center justify-center font-medium text-vh-ink-soft rounded-[var(--vh-radius-sm)] px-5 py-2.5 border border-vh-line bg-vh-surface transition-colors hover:bg-vh-surface-2"
+          >
+            {secondaryButtonLabel}
           </Link>
         )}
 

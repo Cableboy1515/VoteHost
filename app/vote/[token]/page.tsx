@@ -4,18 +4,20 @@ import BallotForm from "@/components/ballot/BallotForm"
 import { canActivate } from "@/lib/canActivate"
 import { findVoterIdByToken } from "@/lib/voterToken"
 import { getDisplayTimeZone } from "@/lib/timezone"
+import { getOrganizerContactEmail } from "@/lib/email"
 
 export default async function VotePage({ params }: { params: Promise<{ token: string }> }) {
   const { token } = await params
 
   // Phase 1: lightweight check — skips the questions/options join for invalid or
   // closed-election tokens (the common case for stale magic links in old emails).
-  const [voterId, tz] = await Promise.all([
+  const [voterId, tz, contactEmail] = await Promise.all([
     findVoterIdByToken(token),
     getDisplayTimeZone(),
+    getOrganizerContactEmail(),
   ])
 
-  if (!voterId) return <ErrorScreen type="invalid" />
+  if (!voterId) return <ErrorScreen type="invalid" contactEmail={contactEmail} />
 
   const quick = await db.voter.findUnique({
     where: { id: voterId },
@@ -35,7 +37,7 @@ export default async function VotePage({ params }: { params: Promise<{ token: st
     },
   })
 
-  if (!quick) return <ErrorScreen type="invalid" />
+  if (!quick) return <ErrorScreen type="invalid" contactEmail={contactEmail} />
   if (quick.hasVoted) return <ErrorScreen type="already-voted" />
 
   const now = new Date()
@@ -67,7 +69,7 @@ export default async function VotePage({ params }: { params: Promise<{ token: st
     return <ErrorScreen type="not-open" startsAt={quick.election.startsAt.toISOString()} timeZone={tz} />
   }
   // DRAFT with no startsAt, or past startsAt the organizer hasn't activated yet.
-  if (quick.election.status === "DRAFT") return <ErrorScreen type="draft-pending" />
+  if (quick.election.status === "DRAFT") return <ErrorScreen type="draft-pending" contactEmail={contactEmail} />
   // Genuinely finished (COMPLETED), or ACTIVE but past endsAt.
   if (quick.election.status !== "ACTIVE") return <ErrorScreen type="closed" />
   if (quick.election.endsAt && now > quick.election.endsAt) return <ErrorScreen type="closed" />
@@ -87,7 +89,7 @@ export default async function VotePage({ params }: { params: Promise<{ token: st
     },
   })
 
-  if (!voter) return <ErrorScreen type="invalid" />
+  if (!voter) return <ErrorScreen type="invalid" contactEmail={contactEmail} />
 
   return (
     <BallotForm

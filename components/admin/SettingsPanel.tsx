@@ -274,6 +274,7 @@ type EmailSettings = {
   resend_webhook_secret: string
   email_from_address: string
   email_from_name: string
+  email_reply_to: string
   smtp_host: string
   smtp_port: string
   smtp_user: string
@@ -288,6 +289,7 @@ const DEFAULT_SETTINGS: EmailSettings = {
   resend_webhook_secret: "",
   email_from_address: "",
   email_from_name: BRAND_NAME,
+  email_reply_to: "",
   smtp_host: "",
   smtp_port: "587",
   smtp_user: "",
@@ -584,6 +586,22 @@ function EmailSettingsTab() {
               Most providers require this to match your SMTP username.
             </p>
           )}
+        </div>
+
+        <div className="space-y-1.5">
+          <Label htmlFor="email_reply_to">Reply-To Address</Label>
+          <Input
+            id="email_reply_to"
+            type="email"
+            placeholder="support@yourdomain.com"
+            value={settings.email_reply_to}
+            onChange={(e) => set("email_reply_to", e.target.value)}
+            autoComplete="email"
+            className="bg-white"
+          />
+          <p className="text-xs text-zinc-400">
+            Optional. Replies to voter emails go here, and it&apos;s used as the &ldquo;Contact organizer&rdquo; address on voter error screens. Defaults to the From address if blank.
+          </p>
         </div>
 
         {/* Resend-only */}
