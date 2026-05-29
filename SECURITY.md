@@ -60,4 +60,4 @@ The following advisories appear in `npm audit` but have been triaged and accepte
 | Advisory | Package | Reason accepted |
 |---|---|---|
 | GHSA-w5hq-g745-h8pq (`uuid` bounds check) | `exceljs → uuid@8` | Only affects `uuid.v3/v5/v6` when a `buf` argument is provided. `exceljs` uses `uuid.v4` (random) internally; this code path is not reachable. |
-| GHSA-92pp-h63x-v22m (`@hono/node-server` path bypass) | `prisma → @prisma/dev → @hono/node-server` | `@prisma/dev` is the WASM-Postgres dev server used only by `prisma dev` (local development). Production deployments use `@prisma/client` + `prisma migrate deploy`, which do not load `@hono/node-server`. |
+| GHSA-92pp-h63x-v22m (`@hono/node-server` path bypass) | `prisma → @prisma/dev → @hono/node-server` | `@prisma/dev` is the WASM-Postgres dev server used only by `prisma dev` (local development). Production deployments use `@prisma/client` + `prisma db push`, which do not load `@hono/node-server`. |
