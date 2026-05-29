@@ -201,6 +201,11 @@ export default function ResultsDashboard({ electionId, initialData, endsAt, elec
           return bV - aV
         })
 
+        const getVotes = (o: (typeof sortedOptions)[number]) =>
+          "count" in o ? o.count : "firstChoiceCount" in o ? o.firstChoiceCount : 0
+        const topValue = sortedOptions.length > 0 ? getVotes(sortedOptions[0]) : 0
+        const isTie = topValue > 0 && sortedOptions.filter((o) => getVotes(o) === topValue).length > 1
+
         return (
           <div
             key={q.questionId}
@@ -223,24 +228,29 @@ export default function ResultsDashboard({ electionId, initialData, endsAt, elec
             )}
 
             <div className="flex flex-col gap-3.5">
-              {sortedOptions.map((o, i) => {
-                const votes = "count" in o ? o.count : "firstChoiceCount" in o ? o.firstChoiceCount : 0
+              {sortedOptions.map((o) => {
+                const votes = getVotes(o)
                 const pct = maxVotes > 0 ? Math.round((votes / maxVotes) * 100) : 0
-                const isLeader = i === 0 && votes > 0
+                const isTop = votes > 0 && votes === topValue
+                const chipLabel = !isTop ? null : isTie ? "Tie" : isLive ? "LEAD" : "Winner"
 
                 return (
                   <div key={o.optionId}>
                     <div className="flex items-center justify-between mb-1.5 text-[14px]">
                       <span className="flex items-center gap-2 min-w-0 flex-1 mr-2">
-                        {isLeader && q.type !== "RANKED_CHOICE" && (
+                        {chipLabel && q.type !== "RANKED_CHOICE" && (
                           <span
-                            className="flex-shrink-0 text-[11px] font-medium text-white px-1.5 py-0.5 rounded-[4px]"
-                            style={{ background: "var(--vh-accent)" }}
+                            className="flex-shrink-0 text-[11px] font-medium px-1.5 py-0.5 rounded-[4px]"
+                            style={
+                              chipLabel === "Tie"
+                                ? { background: "var(--vh-surface-2)", color: "var(--vh-muted)" }
+                                : { background: "var(--vh-accent)", color: "#fff" }
+                            }
                           >
-                            LEAD
+                            {chipLabel}
                           </span>
                         )}
-                        <span className="min-w-0 break-words" style={{ fontWeight: isLeader ? 600 : 400 }}>{o.optionText}</span>
+                        <span className="min-w-0 break-words" style={{ fontWeight: isTop ? 600 : 400 }}>{o.optionText}</span>
                       </span>
                       <span style={{ fontVariantNumeric: "tabular-nums", color: "var(--vh-ink-soft)" }}>
                         <strong>{votes}</strong>
@@ -259,7 +269,7 @@ export default function ResultsDashboard({ electionId, initialData, endsAt, elec
                         className="h-full rounded-full transition-all"
                         style={{
                           width: `${pct}%`,
-                          background: isLeader ? "var(--vh-accent)" : "oklch(0.7 0.04 255)",
+                          background: isTop ? "var(--vh-accent)" : "oklch(0.7 0.04 255)",
                         }}
                       />
                     </div>

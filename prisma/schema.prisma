@@ -52,6 +52,7 @@ model Election {
   endsSoonNoticeSentAt           DateTime?
   completionEmailSentAt          DateTime?
   startReminderSentAt            DateTime?
+  startedEmailSentAt             DateTime?
   fullTurnoutNoticeSentAt        DateTime?
 
   activatedAt                    DateTime?

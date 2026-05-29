@@ -5,6 +5,8 @@ import { canActivate, CANNOT_ACTIVATE_MESSAGES } from "@/lib/canActivate"
 import { sendBallotInvitationsToUninvited } from "@/lib/sendBallotInvitationsToUninvited"
 import { startProgress, recordSent, recordFailed, finishProgress } from "@/lib/activationProgress"
 import { recordActivity } from "@/lib/recordActivity"
+import { sendElectionStartedStaffNotice } from "@/lib/email"
+import { getViewerPlusRecipients } from "@/lib/staffRecipients"
 
 export async function POST(_req: Request, { params }: { params: Promise<{ id: string }> }) {
   const session = await requireRole("ORGANIZER")
@@ -62,6 +64,21 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
       .then((r) => finishProgress(electionId, r))
       .catch((err) => finishProgress(electionId, { sent: 0, failed: total, stopped: true, lastError: String(err) }))
   )
+
+  after(async () => {
+    if (!election.startedEmailSentAt) {
+      try {
+        const recipients = await getViewerPlusRecipients()
+        await sendElectionStartedStaffNotice(
+          { id: electionId, title: election.title, startsAt: now, endsAt: election.endsAt },
+          recipients,
+        )
+        await db.election.update({ where: { id: electionId }, data: { startedEmailSentAt: new Date() } })
+      } catch (err) {
+        console.error("[activate] started-notice error:", err)
+      }
+    }
+  })
 
   return NextResponse.json({ activated: true, sending: true, total }, { status: 202 })
 }

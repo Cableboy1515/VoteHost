@@ -1,7 +1,7 @@
 import { db } from "@/lib/db"
 import { canActivate } from "@/lib/canActivate"
-import { sendBallotInvitation, sendAutoActivateFailedStaffNotice } from "@/lib/email"
-import { getStaffRecipients } from "@/lib/staffRecipients"
+import { sendBallotInvitation, sendAutoActivateFailedStaffNotice, sendElectionStartedStaffNotice } from "@/lib/email"
+import { getStaffRecipients, getViewerPlusRecipients } from "@/lib/staffRecipients"
 import { generateVoterToken, appendVoterToken } from "@/lib/voterToken"
 import { recordActivity } from "@/lib/recordActivity"
 
@@ -23,6 +23,7 @@ export async function autoActivateElections(): Promise<string[]> {
   const activated: string[] = []
   const baseUrl = process.env.NEXTAUTH_URL ?? "http://localhost:3000"
   const staffRecipients = await getStaffRecipients()
+  const viewerPlusRecipients = await getViewerPlusRecipients()
 
   for (const election of candidates) {
     const check = canActivate({
@@ -78,6 +79,18 @@ export async function autoActivateElections(): Promise<string[]> {
         targetLabel: election.title,
         metadata: { questionCount: election._count.questions, voterCount: election._count.voters },
       })
+
+      if (election.startedEmailSentAt == null) {
+        try {
+          await sendElectionStartedStaffNotice(
+            { id: election.id, title: election.title, startsAt: election.startsAt, endsAt: election.endsAt },
+            viewerPlusRecipients,
+          )
+          await db.election.update({ where: { id: election.id }, data: { startedEmailSentAt: now } })
+        } catch (err) {
+          console.error(`[autoActivateElections] started-notice error for ${election.id}:`, err)
+        }
+      }
 
       const uninvitedVoters = await db.voter.findMany({
         where: { electionId: election.id, invitedAt: null },

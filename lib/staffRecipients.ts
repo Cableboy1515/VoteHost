@@ -8,3 +8,10 @@ export async function getStaffRecipients(): Promise<StaffRecipient[]> {
     select: { email: true },
   })
 }
+
+export async function getViewerPlusRecipients(): Promise<StaffRecipient[]> {
+  return db.adminUser.findMany({
+    where: { role: { in: ["ADMIN", "ORGANIZER", "VIEWER"] } },
+    select: { email: true },
+  })
+}

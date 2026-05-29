@@ -890,14 +890,27 @@ function buildCompletedStaffHtml(election: StaffElection, votedCount: number, to
   `)
 }
 
-function buildDraftReminderStaffHtml(election: StaffElection, tz: string): string {
+const _ONE_DAY_MS = 24 * 60 * 60 * 1000
+
+function formatStartCountdown(startsAt: Date | null | undefined): string {
+  if (!startsAt) return "soon"
+  const ms = startsAt.getTime() - Date.now()
+  if (ms <= 0) return "shortly"
+  // Within 15 min of the 24h mark — still say "24 hours" to absorb cron jitter.
+  if (ms >= _ONE_DAY_MS - 15 * 60 * 1000) return "in about 24 hours"
+  if (ms < 60 * 60 * 1000) return "in under an hour"
+  const hours = Math.round(ms / (60 * 60 * 1000))
+  return hours === 1 ? "in about an hour" : `in about ${hours} hours`
+}
+
+function buildDraftReminderStaffHtml(election: StaffElection, tz: string, phrase: string): string {
   const title = escapeHtml(election.title)
   const startStr = election.startsAt ? escapeHtml(formatDateInTz(election.startsAt.toISOString(), tz)) : ""
   const editUrl = escapeHtml(absolutizeUrl(`/elections/${election.id}`))
   const autoActivate = election.autoActivate !== false // default true if omitted
   const heading = autoActivate
-    ? `Election will start automatically in 24 hours`
-    : `Election scheduled to start in 24 hours`
+    ? `Election will start automatically ${phrase}`
+    : `Election scheduled to start ${phrase}`
   const body = autoActivate
     ? `<strong style="color:${C.ink};">${title}</strong> is scheduled to open ${startStr ? `on ${startStr}` : "soon"}.
         The system will activate it automatically at that time and send voting invitations to all voters.
@@ -978,16 +991,51 @@ export async function sendElectionCompletedStaffNotice(
   await sendStaffBlast("sendElectionCompletedStaffNotice", election.title, recipients, subject, html)
 }
 
+function buildElectionStartedStaffHtml(election: StaffElection): string {
+  const title = escapeHtml(election.title)
+  const resultsUrl = escapeHtml(absolutizeUrl(`/elections/${election.id}/results`))
+  return emailWrapper(`
+    ${brandRow()}
+    <tr><td style="padding:24px 32px 14px;">
+      <h1 style="margin:0 0 14px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:22px;font-weight:600;color:${C.ink};letter-spacing:-0.02em;">Election is now live</h1>
+      <p style="margin:0 0 14px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:14.5px;color:${C.inkSoft};line-height:1.6;">
+        <strong style="color:${C.ink};">${title}</strong> has started and voting is now open.
+        Voters have been sent their ballot invitations.
+      </p>
+    </td></tr>
+    <tr><td style="padding:0 32px 14px;">
+      <a href="${resultsUrl}" style="display:inline-block;background:${C.accent};color:#ffffff;text-decoration:none;padding:14px 28px;border-radius:10px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:15px;font-weight:500;">View Live Results →</a>
+    </td></tr>
+    <tr><td style="padding:0 32px 28px;">
+      <table role="presentation" cellpadding="0" cellspacing="0" width="100%"><tr>
+        <td style="border-top:1px solid ${C.line};padding-top:18px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:12px;color:${C.muted};line-height:1.6;">
+          You received this because you administer or organize elections on ${BRAND_NAME}.
+        </td>
+      </tr></table>
+    </td></tr>
+  `)
+}
+
+export async function sendElectionStartedStaffNotice(
+  election: StaffElection,
+  recipients: Array<{ email: string }>,
+): Promise<void> {
+  const subject = `Now live — ${election.title}`
+  const html = buildElectionStartedStaffHtml(election)
+  await sendStaffBlast("sendElectionStartedStaffNotice", election.title, recipients, subject, html)
+}
+
 export async function sendDraftReminderStaffNotice(
   election: StaffElection,
   recipients: Array<{ email: string }>,
 ): Promise<void> {
   const tz = await getDisplayTimeZone()
   const autoActivate = election.autoActivate !== false
+  const phrase = formatStartCountdown(election.startsAt)
   const subject = autoActivate
-    ? `Heads up: "${election.title}" will auto-start in 24h`
-    : `Reminder: publish "${election.title}" — starts in 24h`
-  const html = buildDraftReminderStaffHtml(election, tz)
+    ? `Heads up: "${election.title}" will auto-start ${phrase}`
+    : `Reminder: publish "${election.title}" — starts ${phrase}`
+  const html = buildDraftReminderStaffHtml(election, tz, phrase)
   await sendStaffBlast("sendDraftReminderStaffNotice", election.title, recipients, subject, html)
 }
 
