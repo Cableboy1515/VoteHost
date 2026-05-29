@@ -54,27 +54,33 @@ export async function PUT(req: Request) {
       update: { value: tz },
       create: { key: TZ_SETTING_KEY, value: tz },
     }))
-    invalidateTimezoneCache()
   }
 
   if (updates.length === 0) {
     return NextResponse.json({ error: "No valid fields provided" }, { status: 400 })
   }
 
-  const [beforeRetention, beforeTz] = await Promise.all([
+  // Read before-values directly from DB (not via getDisplayTimeZone cache) so we
+  // don't accidentally re-populate the cache before the write commits.
+  const [beforeRetention, beforeTzRow] = await Promise.all([
     "image_retention_days" in body
       ? db.setting.findUnique({ where: { key: "image_retention_days" } }).then((r) => r?.value ?? "30")
       : Promise.resolve(null),
-    "display_time_zone" in body ? getDisplayTimeZone() : Promise.resolve(null),
+    "display_time_zone" in body
+      ? db.setting.findUnique({ where: { key: TZ_SETTING_KEY } }).then((r) => r?.value ?? "UTC")
+      : Promise.resolve(null),
   ])
 
   await Promise.all(updates)
 
+  // Invalidate AFTER the DB write so the next getDisplayTimeZone() reads the new value.
+  if ("display_time_zone" in body) invalidateTimezoneCache()
+
   const changes: Record<string, { from: unknown; to: unknown }> = {}
   if ("image_retention_days" in body && beforeRetention !== null)
     changes.image_retention_days = { from: beforeRetention, to: String(body.image_retention_days ?? "30") }
-  if ("display_time_zone" in body && beforeTz !== null)
-    changes.display_time_zone = { from: beforeTz, to: body.display_time_zone }
+  if ("display_time_zone" in body && beforeTzRow !== null)
+    changes.display_time_zone = { from: beforeTzRow, to: body.display_time_zone }
 
   await recordActivity({
     session,

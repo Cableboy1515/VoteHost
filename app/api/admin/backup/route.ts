@@ -8,6 +8,7 @@ import { requireRole } from "@/lib/auth"
 import { csrfCheck } from "@/lib/csrf"
 import { dumpDatabase } from "@/lib/backup/dumpData"
 import { packHeader, CURRENT_SCHEMA_VERSION, type BackupHeader, type BackupType } from "@/lib/backup/format"
+import { getDisplayTimeZone, formatDateSlugInTz } from "@/lib/timezone"
 import { encryptZip, generateSalt, generateIV } from "@/lib/backup/crypto"
 import { createHash } from "node:crypto"
 import { recordActivity } from "@/lib/recordActivity"
@@ -96,6 +97,7 @@ export async function POST(req: Request) {
   const iv = generateIV()
 
   const appVersion = process.env.NEXT_PUBLIC_APP_VERSION ?? "1.0.0"
+  const tz = await getDisplayTimeZone()
 
   const manifest = {
     type,
@@ -131,7 +133,7 @@ export async function POST(req: Request) {
   const ciphertextWithTag = await encryptZip(passphrase, zipBuffer, salt, iv, headerBuf)
   const vhbak = Buffer.concat([headerBuf, ciphertextWithTag])
 
-  const dateStr = new Date().toISOString().slice(0, 10)
+  const dateStr = formatDateSlugInTz(new Date(), tz)
   const filename = `votehost-${type}-${dateStr}.vhbak`
 
   await recordActivity({
