@@ -15,4 +15,16 @@ const eslintConfig = defineConfig([
   ]),
 ]);
 
+// Demote over-strict React-Compiler advisory rules to warnings.
+// These rules fire on intentional patterns (sync-from-props effects, "latest ref"
+// trick, Date.now() in async Server Components) and were never enforced before CI.
+// Genuine hook-order bugs remain errors via react-hooks/rules-of-hooks.
+eslintConfig.push({
+  rules: {
+    "react-hooks/set-state-in-effect": "warn",
+    "react-hooks/purity": "warn",
+    "react-hooks/refs": "warn",
+  },
+})
+
 export default eslintConfig;
