@@ -158,7 +158,7 @@ The app binds only to `127.0.0.1:3000` on the host. To make it reachable from th
 
 Requires a domain you control on Cloudflare DNS. The tunnel is free; domain registration is typically around $10/year.
 
-1. Go to [Cloudflare Zero Trust](https://one.dash.cloudflare.com) → Networks → Tunnels → Create a tunnel
+1. Go to the [Cloudflare dashboard](https://dash.cloudflare.com) → Networks → Tunnels → Create a tunnel
 2. Choose Docker. The dashboard shows a `docker run ... --token eyJ...` command — copy **only** the long token after `--token`, not the whole command.
 3. Add to your `.env`:
    ```

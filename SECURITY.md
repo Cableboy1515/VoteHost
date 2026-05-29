@@ -44,7 +44,7 @@ We aim to acknowledge reports within 48 hours and resolve critical issues within
 
 ## Implemented hardening (since initial release)
 
-- **TOTP 2FA** — mandatory for ADMIN and ORGANIZER roles; optional for VIEWER
+- **TOTP 2FA** — recommended for ADMIN and ORGANIZER roles; optional for all
 - **Voter token hashing** — SHA-256 hash stored, plain UUID never persisted
 - **HTTP security headers** — CSP, HSTS, X-Frame-Options, X-Content-Type-Options, Referrer-Policy, Permissions-Policy
 - **CSRF fail-closed** — state-changing requests without an Origin header are rejected
