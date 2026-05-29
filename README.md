@@ -27,7 +27,7 @@ Designed to run on a Raspberry Pi, mini PC, VPS, or Proxmox LXC — single `dock
 - **Results exports** — download results as CSV, XLSX, or PDF; a full anonymised audit package (JSON) is also available for independent verification
 - **Activity log** — every admin and organizer action is recorded and viewable per election
 - **Voter ballot recovery** — voters who lose their magic link can request a fresh one without contacting an admin
-- **Admin controls** — admins can reset an individual voter's ballot, close an election early, or archive completed elections
+- **Admin controls** — admins can close an election earl or archive completed elections
 
 ---
 
