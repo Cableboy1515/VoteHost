@@ -5,7 +5,7 @@ VoteHost Elections is a self-hosted election platform for organizations that nee
 Designed to run on a Raspberry Pi, mini PC, VPS, or Proxmox LXC.
 
 
->Note from Cableboy1515: Hey all! This is a vibecoded election software project I wanted to create beacuse an organization I participate in was wanting to hold electronic elections, but all platforms required paying for a service if you have over 20 or so voters. We have over 150, so I decided to see what I could create with my buddy, Claude. I tried to take careful consideration while building this platform with over 240 commits, but the reality is that I am not a coder. I'm hopeful that this is a good start and the community can analyze, offer suggestionss and help this platform grow.
+>Note from Cableboy1515: Hey all! This is a vibe-coded election software project I wanted to create beacuse an organization I participate in was wanting to hold electronic elections, but all platforms required paying for a service if you have over 20 or so voters. We have over 150, so I decided to see what I could create with my buddy, Claude. I tried to take careful consideration while building this platform with over 240 commits, but the reality is that I am not a coder. I'm hopeful that this is a good start and the community can analyze, offer suggestionss and help this platform grow.
 >
 >I plan on running some large-scale tests with my organization soon. In addition to the audit system that's built, I will ask my organization to vote in a test election and email results that they vote for as additonal testing and verification.
 >
