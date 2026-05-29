@@ -45,7 +45,7 @@ interface Props {
 const TYPES: { value: QuestionType; label: string; tooltip: string }[] = [
   { value: "SINGLE_CHOICE", label: "Single choice", tooltip: "Voter picks exactly one option." },
   { value: "MULTIPLE_CHOICE", label: "Multiple", tooltip: "Voter can pick up to a chosen maximum." },
-  { value: "RANKED_CHOICE", label: "Preference Ranking", tooltip: "Voter ranks options in order of preference; winner determined by ranked-choice (instant-runoff) tally." },
+  { value: "RANKED_CHOICE", label: "Preference Ranking", tooltip: "Voter ranks options in order of preference. Results show a per-rank breakdown — no instant-runoff elimination." },
   { value: "WRITE_IN", label: "Write-in", tooltip: "Voter types a free-text response instead of choosing from preset options." },
 ]
 

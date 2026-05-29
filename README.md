@@ -21,8 +21,13 @@ Designed to run on a Raspberry Pi, mini PC, VPS, or Proxmox LXC — single `dock
 - **Results announcement** — one-click results email with charts sent to all voters after the election closes
 - **Customizable email branding** — per-election subject, message body, header logo, and footer
 - **Image retention** — uploaded logos and avatars are automatically replaced with a transparent placeholder after a configurable number of days, reducing long-term server load from old inbox links
-- **Admin roles** — ADMIN (full access including user management and settings) and ORGANIZER (election management only)
+- **Admin roles** — ADMIN (full access including user management, settings, and election deletion), ORGANIZER (election management only), and VIEWER (read-only access to elections and results); elections must be archived before they can be deleted, and only ADMIN can delete them
 - **SMTP or Resend** — bring your own email provider; configured through the admin settings panel
+- **Election activation** — one-click activation sends invites immediately; elections with a scheduled start time activate and deliver invitations automatically
+- **Results exports** — download results as CSV, XLSX, or PDF; a full anonymised audit package (JSON) is also available for independent verification
+- **Activity log** — every admin and organizer action is recorded and viewable per election
+- **Voter ballot recovery** — voters who lose their magic link can request a fresh one without contacting an admin
+- **Admin controls** — admins can reset an individual voter's ballot, close an election early, or archive completed elections
 
 ---
 
@@ -47,7 +52,7 @@ cd VoteHost
 ./scripts/install.sh
 ```
 
-The wizard will ask which tunnel option you're using, prompt for your admin email and password, and then build and start the stack. Once the containers are healthy, the wizard creates your admin account automatically — no browser step required. If you skip the in-wizard admin creation, it prints your `SETUP_TOKEN` and the URL to finish setup from the browser.
+The wizard will ask which tunnel option you're using, prompt for your admin email and password, and then build and start the stack. Once the containers are healthy, the wizard creates your admin account automatically — no browser step required. If you skip the in-wizard admin creation, it shows the `/setup` URL to finish from the browser — your `SETUP_TOKEN` is in the generated `.env` file.
 
 ---
 
@@ -139,7 +144,7 @@ You should see `Postgres is ready`, `Schema applied`, and `Starting VoteHost Ele
 
 Visit `https://your-domain.com/setup`. The form asks for a **setup token** — paste the `SETUP_TOKEN` value from your `.env` file. This prevents anyone on the internet from racing you for the admin account while the server is first starting up.
 
-Once the admin account is created, you can optionally delete `SETUP_TOKEN` from `.env` and run `docker compose restart app` — it's never checked again after the first admin exists.
+Once the admin account is created, you can optionally remove `SETUP_TOKEN` from `.env` and run `docker compose restart app` — it is never checked again after the first admin exists.
 
 > **Tip — SSH port-forward**: if you need to reach the setup page before your tunnel/DNS is live, `ssh -L 3000:localhost:3000 user@your-server` lets you browse `http://localhost:3000/setup` from your workstation. The forward closes when you exit the session.
 
@@ -289,6 +294,17 @@ The Resend free tier allows 100 emails/day and 3,000/month — sufficient for sm
 
 ---
 
+## Election activation
+
+Elections are created in **DRAFT** status. Once an election has at least one question, at least one voter, and an end date in the future, an **Activate** button appears in the election editor.
+
+- **One-click activate** — clicking Activate publishes the election immediately and sends invitation emails to all voters.
+- **Scheduled start** — set a `Starts at` time when creating the election. The election stays in DRAFT until that time arrives, then auto-activates and sends invites automatically. The per-minute cron handles this without any manual action.
+
+If voters are added to an already-active election, use **Resume invitations** from the Voters tab to send them their magic links.
+
+---
+
 ## First run checklist
 
 After setup and email configuration, run through these before your first election:
@@ -303,7 +319,10 @@ After setup and email configuration, run through these before your first electio
    curl -s -X POST -H "Authorization: Bearer $CRON_SECRET" \
      https://your-domain.com/api/reminders/run | jq
    ```
-   Should return `{ "elections": 0, "sent": 0, "purged": 0, "errors": [] }`.
+   Should return something like:
+   ```json
+   { "elections": 0, "sent": 0, "completionsSent": 0, "draftRemindersSent": 0, "fullTurnoutNoticesSent": 0, "purged": 0, "errors": [] }
+   ```
 
 > **Troubleshooting — admin actions return "Forbidden"**: The browser's hostname doesn't match `NEXTAUTH_URL` in your `.env`. Fix by updating `NEXTAUTH_URL` to match exactly what's in your browser's address bar (scheme, host, no trailing slash), then `docker compose restart app`. Alternatively, you can append the browser host as a second comma-separated value: `NEXTAUTH_URL=https://original.example.com,https://actual.example.com`.
 
@@ -315,7 +334,7 @@ Election logos and candidate photos are uploaded through the admin panel and sto
 
 - Avatars are resized to 256×256 px JPEG in the browser before upload; logos are scaled to max 1120 px wide.
 - Uploaded images are served with a one-year `Cache-Control: immutable` header. After the first load, browsers and email-client caches (Gmail, Outlook) serve them locally.
-- After an election closes, the hourly cron automatically replaces image files with a 1×1 transparent GIF once the configured retention period has passed (default: 30 days). The URLs stay valid — old emails show a blank area rather than a broken-image icon. Change the retention period under **System Settings → Storage & Retention**.
+- After an election closes, the per-minute cron automatically replaces image files with a 1×1 transparent GIF once the configured retention period has passed (default: 30 days); the image-retention sweep itself is throttled to run at most once per hour. The URLs stay valid — old emails show a blank area rather than a broken-image icon. Change the retention period under **System Settings → Storage & Retention**.
 
 ---
 
@@ -339,7 +358,13 @@ docker compose logs app | grep -E "Schema|Starting|error"
 
 ## Backups
 
-The database lives in a named Docker volume. Back it up with `pg_dump`:
+### In-app backup and restore
+
+Admins can create and download an encrypted backup of the entire database directly from **System Settings → Backup & Restore**, and restore from the same page. This is the simplest option for most self-hosters.
+
+### Manual backup with pg_dump
+
+For scripted or off-site backups, use `pg_dump` against the database volume directly:
 
 ```bash
 # One-time backup
@@ -494,7 +519,7 @@ VoteHost is designed for small-organisation elections (HOAs, clubs, small nonpro
 - **Ballot anonymity** — votes are not linked to voter identity in the database
 - **Voter authenticity** — magic-link tokens are SHA-256 hashed; plain tokens are never stored
 - **Tally integrity** — a SHA-256 hash of the final tally is published at election close; anyone can recompute it from the audit export (see [Election verification](#election-verification))
-- **Admin 2FA** — TOTP two-factor authentication is mandatory for ADMIN and ORGANIZER roles
+- **Admin 2FA** — TOTP two-factor authentication is available for all roles; ADMIN and ORGANIZER users are prompted to enrol on first login (dismissible, not enforced at the gate)
 
 VoteHost uses a **server-trust model** — the organisation running the server is trusted. It is not end-to-end verifiable like [Helios](https://heliosvoting.org/) or [Belenios](https://www.belenios.org/). If you need a cryptographically verifiable ballot, those platforms are better suited.
 
