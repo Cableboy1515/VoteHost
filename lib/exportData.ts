@@ -1,5 +1,6 @@
 import { db } from "./db"
 import { getResultsForElection } from "./results"
+import { formatDateSlugInTz } from "./timezone"
 import type { Election } from "./generated/prisma/client"
 
 export type EnrichedOption = {
@@ -44,9 +45,9 @@ export function slugifyTitle(title: string): string {
   return title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "election"
 }
 
-export function exportFilename(election: Election, ext: string): string {
+export function exportFilename(election: Election, ext: string, tz = "UTC"): string {
   const slug = slugifyTitle(election.title)
-  const date = (election.closedAt ?? election.endsAt ?? election.createdAt).toISOString().slice(0, 10)
+  const date = formatDateSlugInTz(election.closedAt ?? election.endsAt ?? election.createdAt, tz)
   return `${slug}-results-${date}.${ext}`
 }
 

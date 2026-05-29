@@ -3,13 +3,14 @@ export const runtime = "nodejs"
 import Papa from "papaparse"
 import { requireRole } from "@/lib/auth"
 import { loadExportData, exportFilename } from "@/lib/exportData"
+import { getDisplayTimeZone } from "@/lib/timezone"
 
 export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
   const session = await requireRole("VIEWER")
   if (!session) return new Response("Forbidden", { status: 403 })
 
   const { id } = await params
-  const data = await loadExportData(id)
+  const [data, tz] = await Promise.all([loadExportData(id), getDisplayTimeZone()])
   if (!data) return new Response("Not found or election not completed", { status: 404 })
 
   const { election, questions, tallyHash } = data
@@ -69,7 +70,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
   const hashComment = tallyHash ? `# Tally Hash: sha256:${tallyHash}\n` : ""
   const csv = hashComment + csvBody
 
-  const filename = exportFilename(election, "csv")
+  const filename = exportFilename(election, "csv", tz)
 
   return new Response(csv, {
     headers: {

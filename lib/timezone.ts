@@ -60,6 +60,21 @@ export function formatDateInTz(
   return d.toLocaleString("en-US", { ...DEFAULT_DATE_TIME_OPTS, ...opts, timeZone: tz })
 }
 
+// Returns a YYYY-MM-DD string in the given timezone (suitable for filenames/slugs).
+export function formatDateSlugInTz(date: string | Date, tz: string): string {
+  const d = typeof date === "string" ? new Date(date) : date
+  // en-CA locale formats dates as YYYY-MM-DD natively.
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    timeZone: tz,
+  }).formatToParts(d)
+  const p: Record<string, string> = {}
+  for (const { type, value } of parts) p[type] = value
+  return `${p.year}-${p.month}-${p.day}`
+}
+
 export function formatDateOnlyInTz(date: string | Date, tz: string): string {
   const d = typeof date === "string" ? new Date(date) : date
   return d.toLocaleDateString("en-US", {

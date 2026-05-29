@@ -193,7 +193,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
   ]
 
   const buffer = await workbook.xlsx.writeBuffer()
-  const filename = exportFilename(election, "xlsx")
+  const filename = exportFilename(election, "xlsx", tz)
 
   return new Response(buffer, {
     headers: {

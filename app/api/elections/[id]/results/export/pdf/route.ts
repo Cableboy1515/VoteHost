@@ -261,7 +261,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
   applyPageDecorations(chosen, generatedOn, tallyHash ?? null)
 
   const buffer = await docToBuffer(chosen)
-  const filename = exportFilename(election, "pdf")
+  const filename = exportFilename(election, "pdf", tz)
 
   return new Response(buffer as unknown as BodyInit, {
     headers: {
