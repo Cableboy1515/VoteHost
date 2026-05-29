@@ -4,7 +4,7 @@ Copyright © 2026 Christopher Dewald. Licensed under the [AGPL-3.0-or-later](./L
 
 VoteHost Elections is a self-hosted election platform for organizations that need secure, private voting without relying on third-party services. Admins manage elections and voters through a web panel; voters receive a magic link by email and cast their ballot anonymously without creating an account.
 
-Designed to run on a Raspberry Pi, mini PC, VPS, or Proxmox LXC — single `docker compose up` and you're live.
+Designed to run on a Raspberry Pi, mini PC, VPS, or Proxmox LXC.
 
 Source code lives at [github.com/Cableboy1515/VoteHost](https://github.com/Cableboy1515/VoteHost) — the repository keeps the original short name.
 
