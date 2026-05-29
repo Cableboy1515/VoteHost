@@ -7,7 +7,7 @@ import { PassThrough } from "node:stream"
 import { requireRole } from "@/lib/auth"
 import { csrfCheck } from "@/lib/csrf"
 import { dumpDatabase } from "@/lib/backup/dumpData"
-import { packHeader, type BackupHeader, type BackupType } from "@/lib/backup/format"
+import { packHeader, CURRENT_SCHEMA_VERSION, type BackupHeader, type BackupType } from "@/lib/backup/format"
 import { encryptZip, generateSalt, generateIV } from "@/lib/backup/crypto"
 import { createHash } from "node:crypto"
 import { recordActivity } from "@/lib/recordActivity"
@@ -95,10 +95,12 @@ export async function POST(req: Request) {
   const salt = generateSalt()
   const iv = generateIV()
 
+  const appVersion = process.env.NEXT_PUBLIC_APP_VERSION ?? "1.0.0"
+
   const manifest = {
     type,
-    schemaVersion: "1",
-    voteHostVersion: "0.1.0",
+    schemaVersion: CURRENT_SCHEMA_VERSION,
+    voteHostVersion: appVersion,
     createdAt,
     counts,
     dbSha256: dbHash,
@@ -109,8 +111,8 @@ export async function POST(req: Request) {
 
   const header: BackupHeader = {
     type,
-    schemaVersion: "1",
-    voteHostVersion: "0.1.0",
+    schemaVersion: CURRENT_SCHEMA_VERSION,
+    voteHostVersion: appVersion,
     createdAt,
     kdf: {
       name: "scrypt",

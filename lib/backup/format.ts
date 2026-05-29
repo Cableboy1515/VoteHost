@@ -3,6 +3,9 @@ import { BRAND_NAME } from "@/lib/branding"
 export const MAGIC = Buffer.from("VHBK", "ascii")
 export const FORMAT_VERSION = 2  // v2 adds GCM AAD over the outer header
 export const CURRENT_SCHEMA_VERSION = "2"
+// All schema versions this build can restore. "1" was mislabeled by the writer
+// before v1.0.0 but contains schema-2-shaped data, so it restores without migration.
+export const SUPPORTED_SCHEMA_VERSIONS = ["1", "2"] as const
 export const GCM_TAG_LENGTH = 16
 
 export type BackupType = "full" | "elections"

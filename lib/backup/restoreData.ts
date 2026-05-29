@@ -1,6 +1,6 @@
 import { db } from "@/lib/db"
 import { BRAND_NAME } from "@/lib/branding"
-import { CURRENT_SCHEMA_VERSION, type BackupCounts, type BackupType } from "./format"
+import { CURRENT_SCHEMA_VERSION, SUPPORTED_SCHEMA_VERSIONS, type BackupCounts, type BackupType } from "./format"
 import type { BackupData } from "./dumpData"
 
 export async function restoreDatabase(
@@ -8,10 +8,10 @@ export async function restoreDatabase(
   data: BackupData,
   schemaVersion: string,
 ): Promise<BackupCounts> {
-  if (schemaVersion !== CURRENT_SCHEMA_VERSION) {
+  if (!(SUPPORTED_SCHEMA_VERSIONS as readonly string[]).includes(schemaVersion)) {
     throw new Error(
-      `Archive schema version "${schemaVersion}" does not match current version "${CURRENT_SCHEMA_VERSION}". ` +
-        `Upgrade your ${BRAND_NAME} installation to match the archive version before restoring.`,
+      `Archive schema version "${schemaVersion}" is not supported (supported: ${SUPPORTED_SCHEMA_VERSIONS.join(", ")}). ` +
+        `This archive was created by a newer version of ${BRAND_NAME} — upgrade your installation before restoring.`,
     )
   }
 
