@@ -329,7 +329,7 @@ export default function EmailSetupWizard({
         {step === "welcome" && (
           <div className="space-y-4">
             <p className="text-[13.5px] leading-relaxed" style={{ color: "var(--vh-ink-soft)" }}>
-              {BRAND_NAME} sends email to deliver ballot invitations, voting reminders, and
+              {BRAND_NAME}{" "}sends email to deliver ballot invitations, voting reminders, and
               password setup links. Without an email provider, voters can&apos;t receive their
               ballot links.
             </p>
