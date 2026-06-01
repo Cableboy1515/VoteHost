@@ -132,7 +132,7 @@ export default function ResultsDashboard({ electionId, initialData, endsAt, elec
           className="rounded-[16px] p-5"
           style={{ background: "var(--vh-surface)", border: "1px solid var(--vh-line)" }}
         >
-          <div className="flex items-center justify-between gap-3 mb-3">
+          <div className="flex items-center gap-2 mb-3">
             <h3 className="text-[14px] font-semibold" style={{ color: "var(--vh-ink)" }}>Quorum</h3>
             <span
               className="text-[12px] font-medium px-2.5 py-1 rounded-full"
