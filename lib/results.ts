@@ -6,7 +6,7 @@ import type { Question, Option, Vote } from "./generated/prisma/client"
 type QuestionWithOptions = Question & { options: Option[] }
 
 export async function getResultsForElection(electionId: string) {
-  const [election, questions, votes, voterStats] = await Promise.all([
+  const [election, questions, votes, voterStats, votedVoterStats] = await Promise.all([
     db.election.findUnique({ where: { id: electionId } }),
     db.question.findMany({
       where: { electionId },
@@ -14,15 +14,14 @@ export async function getResultsForElection(electionId: string) {
       orderBy: { order: "asc" },
     }),
     db.vote.findMany({ where: { electionId } }),
-    db.voter.aggregate({
-      where: { electionId },
-      _count: { id: true },
-    }),
+    db.voter.aggregate({ where: { electionId }, _count: { id: true }, _sum: { weight: true } }),
+    db.voter.aggregate({ where: { electionId, hasVoted: true }, _count: { id: true }, _sum: { weight: true } }),
   ])
 
-  const votedCount = await db.voter.count({
-    where: { electionId, hasVoted: true },
-  })
+  const weightingEnabled = election?.weightingEnabled ?? false
+  const votedCount = votedVoterStats._count.id
+  const totalWeight = voterStats._sum.weight ?? voterStats._count.id
+  const votedWeight = votedVoterStats._sum.weight ?? votedCount
 
   const questionResults = (questions as QuestionWithOptions[]).map((question) => {
     const questionVotes = (votes as Vote[]).filter((v) => v.questionId === question.id)
@@ -77,11 +76,17 @@ export async function getResultsForElection(electionId: string) {
       }
     }
 
-    const optionCounts = question.options.map((option) => ({
-      optionId: option.id,
-      optionText: option.text,
-      count: questionVotes.filter((v) => v.optionId === option.id).length,
-    }))
+    const optionCounts = question.options.map((option) => {
+      const matching = questionVotes.filter((v) => v.optionId === option.id)
+      return {
+        optionId: option.id,
+        optionText: option.text,
+        count: weightingEnabled
+          ? matching.reduce((sum, v) => sum + (v.weight ?? 1), 0)
+          : matching.length,
+        rawCount: matching.length,
+      }
+    })
 
     return {
       questionId: question.id,
@@ -91,20 +96,24 @@ export async function getResultsForElection(electionId: string) {
     }
   })
 
-  // Quorum computation
+  // Quorum computation — uses weight sums when weighting is enabled
   const quorumType = election?.quorumType ?? "NONE"
   const quorumValue = election?.quorumValue ?? null
   const totalVoters = voterStats._count.id
 
+  // Participation denominator: weight sum when weighted, headcount otherwise
+  const participationNumerator = weightingEnabled ? votedWeight : votedCount
+  const participationDenominator = weightingEnabled ? totalWeight : totalVoters
+
   let quorumRequired: number | null = null
   let quorumMet: boolean | null = null
 
-  if (quorumType === "PERCENT" && quorumValue !== null && totalVoters > 0) {
-    quorumRequired = Math.ceil(totalVoters * quorumValue / 100)
-    quorumMet = votedCount >= quorumRequired
+  if (quorumType === "PERCENT" && quorumValue !== null && participationDenominator > 0) {
+    quorumRequired = Math.ceil(participationDenominator * quorumValue / 100)
+    quorumMet = participationNumerator >= quorumRequired
   } else if (quorumType === "COUNT" && quorumValue !== null) {
     quorumRequired = quorumValue
-    quorumMet = votedCount >= quorumRequired
+    quorumMet = participationNumerator >= quorumRequired
   }
 
   let tallyHash = election?.tallyHash ?? null
@@ -124,6 +133,9 @@ export async function getResultsForElection(electionId: string) {
     electionTitle: election?.title ?? "",
     totalVoters,
     votedCount,
+    weightingEnabled,
+    totalWeight,
+    votedWeight,
     quorumType,
     quorumValue,
     quorumRequired,

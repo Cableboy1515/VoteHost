@@ -27,6 +27,16 @@ It is **not** designed to defend against:
 
 VoteHost is similar in model to a **trusted ballot box** administered by a known organisation, not a cryptographic voting protocol.
 
+## Weighted voting and anonymity
+
+When weighted voting is enabled, each `Vote` row stores the voter's weight at cast time. The weight is denormalized onto the anonymous vote — no `voterId` is ever written to the `Vote` table, so the core anonymity guarantee holds.
+
+**Caveat:** if voter weights are near-unique (e.g. every voter has a distinct fractional share), a third party with read access to the vote table could potentially narrow down which ballot belongs to which voter by matching the weight value. To reduce this risk:
+
+- Prefer grouped/bucketed weights (e.g. 1, 2, 5, 10) rather than unique fractional values.
+- The audit export surfaces weighted *aggregates* only — it never reveals per-ballot weight in a way that can be directly matched to a named voter.
+- This risk is inherent to any weighted ballot system and is documented here for transparency.
+
 ## Supported versions
 
 Only the latest release is supported with security fixes.

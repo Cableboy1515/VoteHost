@@ -33,6 +33,7 @@ type BallotVote = {
   optionId: string | null
   rank: number | null
   writeInText: string | null
+  weight?: number
 }
 
 function sortBallotVotes<T extends BallotVote>(votes: T[]): T[] {
@@ -51,6 +52,8 @@ export function computeBallotHash(votes: BallotVote[]): string {
     optionId: v.optionId,
     rank: v.rank,
     writeInText: v.writeInText,
+    // Only include weight when non-default — preserves hashes for all existing unweighted ballots
+    ...(v.weight && v.weight > 1 ? { weight: v.weight } : {}),
   }))
   return createHash("sha256").update(JSON.stringify(canonical)).digest("hex")
 }
@@ -64,6 +67,7 @@ export function computeTallyHash(votes: TallyVote[]): string {
     optionId: v.optionId,
     rank: v.rank,
     writeInText: v.writeInText,
+    ...(v.weight && v.weight > 1 ? { weight: v.weight } : {}),
   }))
   return createHash("sha256").update(JSON.stringify(canonical)).digest("hex")
 }

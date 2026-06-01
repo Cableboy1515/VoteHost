@@ -70,6 +70,8 @@ model Election {
   heroColor              String?
   dashboardDismissedAt   DateTime?
 
+  weightingEnabled Boolean    @default(false)
+
   quorumType     QuorumType @default(NONE)
   quorumValue    Int?
 
@@ -124,6 +126,7 @@ model Voter {
   electionId           String
   name                 String
   email                String
+  weight               Int       @default(1)
   hasVoted             Boolean   @default(false)
   invitedAt            DateTime?
   votedAt              DateTime?
@@ -163,6 +166,7 @@ model Vote {
   rank        Int?
   writeInText String?
   ballotId    String?
+  weight      Int      @default(1)
   createdAt   DateTime @default(now())
 
   election Election  @relation(fields: [electionId], references: [id], onDelete: Cascade)

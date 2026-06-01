@@ -40,10 +40,12 @@ export default async function VotersPage({ params }: { params: Promise<{ id: str
         electionAutoActivate={election.autoActivate}
         electionTitle={election.title}
         questionCount={election._count.questions}
+        weightingEnabled={election.weightingEnabled}
         initialVoters={election.voters.map((v) => ({
           id: v.id,
           name: v.name,
           email: v.email,
+          weight: v.weight,
           hasVoted: v.hasVoted,
           invitedAt: v.invitedAt?.toISOString() ?? null,
           votedAt: v.votedAt?.toISOString() ?? null,

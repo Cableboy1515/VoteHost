@@ -45,6 +45,7 @@ export const ElectionBaseSchema = z.object({
   firstReminderDays: z.number().int().positive().nullish(),
   autoActivate: z.boolean().optional(),
   autoSendResults: z.boolean().optional(),
+  weightingEnabled: z.boolean().optional(),
   quorumType: z.enum(["NONE", "PERCENT", "COUNT"]).optional(),
   quorumValue: z.number().int().min(1).nullish(),
   heroColor: z.union([
@@ -95,6 +96,7 @@ export const OptionSchema = z.object({
 export const VoterSchema = z.object({
   name: z.string().min(1, "Name is required"),
   email: z.string().email("Invalid email address"),
+  weight: z.number().int().min(1).optional(),
 })
 
 export const VotersSchema = z.array(VoterSchema).max(5000, "Cannot import more than 5000 voters at once")

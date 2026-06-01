@@ -102,6 +102,7 @@ export default async function EditElectionPage({ params }: { params: Promise<{ i
           autoSendResults: election.autoSendResults,
           resultsEmailSentAt: election.resultsEmailSentAt?.toISOString() ?? null,
           firstVoteAt: election.firstVoteAt?.toISOString() ?? null,
+          weightingEnabled: election.weightingEnabled,
           quorumType: election.quorumType,
           quorumValue: election.quorumValue,
         }}

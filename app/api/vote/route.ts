@@ -129,6 +129,10 @@ export async function POST(req: Request) {
 
   const ballotId = generateBallotId()
 
+  // Denormalize voter weight onto anonymous vote rows — preserves ballot secrecy
+  // (no voterId ever written to Vote) while allowing weighted tallies.
+  const voterWeight = voter.weight ?? 1
+
   // Build vote records with no voter linkage — anonymity guarantee
   const voteRecords: {
     electionId: string
@@ -137,22 +141,23 @@ export async function POST(req: Request) {
     rank?: number
     writeInText?: string
     ballotId: string
+    weight: number
   }[] = []
 
   for (const answer of answers) {
     if (answer.type === "SINGLE_CHOICE") {
-      voteRecords.push({ electionId: voter.electionId, questionId: answer.questionId, optionId: answer.optionId, ballotId })
+      voteRecords.push({ electionId: voter.electionId, questionId: answer.questionId, optionId: answer.optionId, ballotId, weight: voterWeight })
     } else if (answer.type === "MULTIPLE_CHOICE") {
       const unique = [...new Set(answer.optionIds)]
       for (const optionId of unique) {
-        voteRecords.push({ electionId: voter.electionId, questionId: answer.questionId, optionId, ballotId })
+        voteRecords.push({ electionId: voter.electionId, questionId: answer.questionId, optionId, ballotId, weight: voterWeight })
       }
     } else if (answer.type === "RANKED_CHOICE") {
       answer.rankedOptionIds.forEach((optionId, index) => {
-        voteRecords.push({ electionId: voter.electionId, questionId: answer.questionId, optionId, rank: index + 1, ballotId })
+        voteRecords.push({ electionId: voter.electionId, questionId: answer.questionId, optionId, rank: index + 1, ballotId, weight: voterWeight })
       })
     } else if (answer.type === "WRITE_IN") {
-      voteRecords.push({ electionId: voter.electionId, questionId: answer.questionId, writeInText: answer.text, ballotId })
+      voteRecords.push({ electionId: voter.electionId, questionId: answer.questionId, writeInText: answer.text, ballotId, weight: voterWeight })
     }
   }
 
@@ -162,6 +167,7 @@ export async function POST(req: Request) {
     optionId: v.optionId ?? null,
     rank: v.rank ?? null,
     writeInText: v.writeInText ?? null,
+    weight: v.weight,
   })))
 
   try {

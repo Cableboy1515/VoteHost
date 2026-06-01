@@ -39,8 +39,11 @@ export default function ResultsDashboard({ electionId, initialData, endsAt, elec
     return () => es.close()
   }, [electionId])
 
-  const participationPct = data.totalVoters > 0
-    ? Math.round((data.votedCount / data.totalVoters) * 100)
+  const weightingEnabled = data.weightingEnabled ?? false
+  const participationNumerator = weightingEnabled ? (data.votedWeight ?? data.votedCount) : data.votedCount
+  const participationDenominator = weightingEnabled ? (data.totalWeight ?? data.totalVoters) : data.totalVoters
+  const participationPct = participationDenominator > 0
+    ? Math.round((participationNumerator / participationDenominator) * 100)
     : 0
 
   const isLive = electionStatus === "ACTIVE"
@@ -68,8 +71,15 @@ export default function ResultsDashboard({ electionId, initialData, endsAt, elec
               {participationPct}<span className="text-[26px]">%</span>
             </span>
             <span className="text-[13px]" style={{ opacity: 0.7 }}>
-              {data.votedCount} / {data.totalVoters}
+              {weightingEnabled
+                ? `${participationNumerator} / ${participationDenominator} weight`
+                : `${data.votedCount} / ${data.totalVoters}`}
             </span>
+            {weightingEnabled && (
+              <span className="text-[11px]" style={{ opacity: 0.5 }}>
+                {data.votedCount} of {data.totalVoters} voters
+              </span>
+            )}
           </div>
           <div
             className="h-1 rounded-full overflow-hidden mt-3.5"
