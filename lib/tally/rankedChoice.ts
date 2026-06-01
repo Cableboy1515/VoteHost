@@ -204,8 +204,8 @@ export function runSTV(
       const counts: Record<string, number> = {}
       for (const id of remaining) {
         counts[id] = Math.round(
-          wBallots.reduce((s, wb) => (topActive(wb.prefs) === id ? s + wb.weight : s), 0) * 10,
-        ) / 10
+          wBallots.reduce((s, wb) => (topActive(wb.prefs) === id ? s + wb.weight : s), 0) * 100,
+        ) / 100
       }
       rounds.push({ round: rounds.length + 1, counts, quota, elected: remaining, eliminated: [] })
       elected.push(...remaining)
@@ -221,7 +221,7 @@ export function runSTV(
     }
     const displayCounts: Record<string, number> = {}
     for (const [id, c] of Object.entries(rawCounts)) {
-      displayCounts[id] = Math.round(c * 10) / 10
+      displayCounts[id] = Math.round(c * 100) / 100
     }
 
     // Capture round-1 first-preference counts for elimination tie-breaking

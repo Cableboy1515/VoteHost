@@ -476,7 +476,7 @@ export default function ResultsDashboard({ electionId, initialData, endsAt, elec
                                     )
                                   }
 
-                                  const displayCount = Number.isInteger(count) ? String(count) : count.toFixed(1)
+                                  const displayCount = Number.isInteger(count) ? String(count) : String(Math.round(count * 100) / 100)
 
                                   const marker = eliminatedThisRound
                                     ? <span style={{ color: "var(--vh-danger)" }}>✗</span>
@@ -523,6 +523,13 @@ export default function ResultsDashboard({ electionId, initialData, endsAt, elec
                       {rcv.winner && rounds.length === 1 && (
                         <> {optionLabelMap.get(rcv.winner) ?? rcv.winner} won an outright first-round majority, so no eliminations or transfers were needed.</>
                       )}
+                    </p>
+                  )}
+
+                  {rcv.kind === "stv" && rounds.length > 0 && (
+                    <p className="text-[12px] mt-2" style={{ color: "var(--vh-muted)" }}>
+                      Counts use fractional surplus transfers (Gregory method) and are rounded for display,
+                      so near-ties can look identical; the result is decided on the exact underlying weights.
                     </p>
                   )}
                 </div>
