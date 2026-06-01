@@ -272,6 +272,7 @@ export default function ResultsDashboard({ electionId, initialData, endsAt, elec
                 {q.type === "RANKED_CHOICE" ? "Ranked Choice" : q.type === "SINGLE_CHOICE" ? "Single Choice" : q.type === "MULTIPLE_CHOICE" ? "Multiple Choice" : "Write-in"}
               </span>
             </div>
+            {/* ── Ranked Choice: round-by-round table ─────────────────────────── */}
             {q.type === "RANKED_CHOICE" && (() => {
               const rcv = "rcvResult" in q ? q.rcvResult as {
                 kind: string
@@ -279,161 +280,298 @@ export default function ResultsDashboard({ electionId, initialData, endsAt, elec
                 winners?: string[]
                 isTie?: boolean
                 tiedOptions?: string[]
-                rounds?: Array<{ round: number; counts: Record<string, number>; totalActive?: number; eliminated: string[] }>
+                rounds?: Array<{
+                  round: number
+                  counts: Record<string, number>
+                  totalActive?: number
+                  quota?: number
+                  elected: string[]
+                  eliminated: string[]
+                }>
               } | null : null
 
               if (!rcv) return (
-                <p className="text-[12px] mb-4" style={{ color: "var(--vh-muted)" }}>
-                  No votes yet.
-                </p>
+                <p className="text-[12px]" style={{ color: "var(--vh-muted)" }}>No votes yet.</p>
               )
 
               const seats = "seats" in q ? (q.seats as number) : 1
+              const rounds = rcv.rounds ?? []
               const optionLabelMap = new Map(options.map((o) => [o.optionId, o.optionText]))
 
+              // Per-candidate metadata derived from rounds
+              const meta = new Map<string, {
+                eliminatedAfterRound: number | null
+                electedInRound: number | null
+                isWinner: boolean
+                isTied: boolean
+                firstChoiceCount: number
+              }>()
+              for (const opt of options) {
+                meta.set(opt.optionId, {
+                  eliminatedAfterRound: null,
+                  electedInRound: null,
+                  isWinner: false,
+                  isTied: false,
+                  firstChoiceCount: rounds[0]?.counts[opt.optionId] ?? 0,
+                })
+              }
+              for (const r of rounds) {
+                for (const id of r.eliminated ?? []) {
+                  const m = meta.get(id); if (m) m.eliminatedAfterRound = r.round
+                }
+                for (const id of r.elected ?? []) {
+                  const m = meta.get(id); if (m) m.electedInRound = r.round
+                }
+              }
               if (rcv.kind === "irv") {
-                const winnerLabel = rcv.isTie
-                  ? `Tied: ${(rcv.tiedOptions ?? []).map((id) => optionLabelMap.get(id) ?? id).join(", ")}`
-                  : rcv.winner
-                    ? `Winner: ${optionLabelMap.get(rcv.winner) ?? rcv.winner}`
-                    : null
-                const rounds = rcv.rounds ?? []
-
-                return (
-                  <div className="mb-4">
-                    {winnerLabel && (
-                      <div
-                        className="inline-flex items-center gap-1.5 text-[12.5px] font-medium px-3 py-1.5 rounded-[8px] mb-3"
-                        style={rcv.isTie
-                          ? { background: "var(--vh-surface-2)", color: "var(--vh-muted)" }
-                          : { background: "var(--vh-accent-soft)", color: "var(--vh-accent-strong)" }
-                        }
-                      >
-                        {rcv.isTie ? "⊜" : "✓"} {winnerLabel}
-                      </div>
-                    )}
-                    {rounds.length > 1 && (
-                      <details className="mt-1">
-                        <summary
-                          className="text-[12px] cursor-pointer select-none"
-                          style={{ color: "var(--vh-muted)" }}
-                        >
-                          {rounds.length} elimination round{rounds.length !== 1 ? "s" : ""} · click to expand
-                        </summary>
-                        <div className="mt-2 flex flex-col gap-1">
-                          {rounds.map((r) => (
-                            <div
-                              key={r.round}
-                              className="text-[11.5px] rounded-[8px] px-3 py-2"
-                              style={{ background: "var(--vh-surface-2)", color: "var(--vh-ink-soft)" }}
-                            >
-                              <span className="font-medium">Round {r.round}</span>
-                              {r.eliminated.length > 0 && (
-                                <span style={{ color: "var(--vh-muted)" }}>
-                                  {" — eliminated: "}{r.eliminated.map((id) => optionLabelMap.get(id) ?? id).join(", ")}
-                                </span>
-                              )}
-                              {r.eliminated.length === 0 && rcv.winner && (
-                                <span style={{ color: "var(--vh-accent)" }}>{" — winner declared"}</span>
-                              )}
-                            </div>
-                          ))}
-                        </div>
-                      </details>
-                    )}
-                  </div>
-                )
+                if (rcv.winner) { const m = meta.get(rcv.winner); if (m) m.isWinner = true }
+                rcv.tiedOptions?.forEach(id => { const m = meta.get(id); if (m) m.isTied = true })
               }
-
               if (rcv.kind === "stv") {
-                const winners = rcv.winners ?? []
-                return (
-                  <div className="mb-4">
-                    <div
-                      className="inline-flex items-center gap-1.5 text-[12.5px] font-medium px-3 py-1.5 rounded-[8px]"
-                      style={{ background: "var(--vh-accent-soft)", color: "var(--vh-accent-strong)" }}
-                    >
-                      ✓ {winners.length} of {seats} seat{seats !== 1 ? "s" : ""} filled
-                      {winners.length > 0 && `: ${winners.map((id) => optionLabelMap.get(id) ?? id).join(", ")}`}
-                    </div>
-                  </div>
-                )
+                rcv.winners?.forEach(id => { const m = meta.get(id); if (m) m.isWinner = true })
               }
 
-              return null
+              // Sort: winners first (earlier elected = top), then by survival round desc, then first-choice desc
+              const sortedCandidates = [...options].sort((a, b) => {
+                const ma = meta.get(a.optionId)!
+                const mb = meta.get(b.optionId)!
+                const aWin = ma.isWinner || ma.isTied
+                const bWin = mb.isWinner || mb.isTied
+                if (aWin !== bWin) return aWin ? -1 : 1
+                if (aWin && bWin) {
+                  const ar = ma.electedInRound ?? rounds.length + 1
+                  const br = mb.electedInRound ?? rounds.length + 1
+                  if (ar !== br) return ar - br
+                }
+                const aElim = ma.eliminatedAfterRound ?? rounds.length + 1
+                const bElim = mb.eliminatedAfterRound ?? rounds.length + 1
+                if (aElim !== bElim) return bElim - aElim
+                return mb.firstChoiceCount - ma.firstChoiceCount
+              })
+
+              // Winner / STV seats badge
+              const badge = rcv.kind === "irv" ? (() => {
+                const label = rcv.isTie
+                  ? `Tied: ${(rcv.tiedOptions ?? []).map(id => optionLabelMap.get(id) ?? id).join(", ")}`
+                  : rcv.winner ? `Winner: ${optionLabelMap.get(rcv.winner) ?? rcv.winner}` : null
+                if (!label) return null
+                return (
+                  <div
+                    className="inline-flex items-center gap-1.5 text-[12.5px] font-medium px-3 py-1.5 rounded-[8px] mb-3"
+                    style={rcv.isTie
+                      ? { background: "var(--vh-surface-2)", color: "var(--vh-muted)" }
+                      : { background: "var(--vh-accent-soft)", color: "var(--vh-accent-strong)" }
+                    }
+                  >
+                    {rcv.isTie ? "⊜" : "✓"} {label}
+                  </div>
+                )
+              })() : rcv.kind === "stv" ? (() => {
+                const winners = rcv.winners ?? []
+                if (!winners.length) return null
+                return (
+                  <div
+                    className="inline-flex items-center gap-1.5 text-[12.5px] font-medium px-3 py-1.5 rounded-[8px] mb-3"
+                    style={{ background: "var(--vh-accent-soft)", color: "var(--vh-accent-strong)" }}
+                  >
+                    ✓ {winners.length} of {seats} seat{seats !== 1 ? "s" : ""} filled: {winners.map(id => optionLabelMap.get(id) ?? id).join(", ")}
+                  </div>
+                )
+              })() : null
+
+              const quota = rounds.find(r => r.quota != null)?.quota ?? null
+
+              return (
+                <div>
+                  {badge}
+
+                  {quota !== null && (
+                    <p className="text-[12px] mb-2" style={{ color: "var(--vh-muted)" }}>
+                      Droop quota: {quota} votes needed to win a seat
+                    </p>
+                  )}
+
+                  {rounds.length > 0 ? (
+                    <div className="overflow-x-auto rounded-[10px]" style={{ border: "1px solid var(--vh-line)" }}>
+                      <table className="w-full text-[12.5px] border-collapse" style={{ minWidth: `${130 + rounds.length * 76}px` }}>
+                        <thead>
+                          <tr>
+                            <th
+                              className="text-left px-3 py-2.5 font-medium sticky left-0 z-10"
+                              style={{
+                                background: "var(--vh-surface-2)",
+                                color: "var(--vh-muted)",
+                                borderBottom: "1px solid var(--vh-line-strong)",
+                                minWidth: 130,
+                              }}
+                            >
+                              Candidate
+                            </th>
+                            {rounds.map((r) => (
+                              <th
+                                key={r.round}
+                                className="text-center px-3 py-2.5 font-medium tabular-nums"
+                                style={{
+                                  background: "var(--vh-surface-2)",
+                                  color: "var(--vh-muted)",
+                                  borderBottom: "1px solid var(--vh-line-strong)",
+                                  borderLeft: "1px solid var(--vh-line)",
+                                  minWidth: 76,
+                                }}
+                              >
+                                Rd {r.round}
+                              </th>
+                            ))}
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {sortedCandidates.map((opt, rowIdx) => {
+                            const m = meta.get(opt.optionId)!
+                            const isWinnerRow = m.isWinner
+                            const isTiedRow = m.isTied
+
+                            return (
+                              <tr
+                                key={opt.optionId}
+                                style={{
+                                  background: (isWinnerRow || isTiedRow) ? "var(--vh-accent-soft)" : "transparent",
+                                  borderTop: rowIdx > 0 ? "1px solid var(--vh-line)" : "none",
+                                }}
+                              >
+                                {/* Candidate name — sticky left */}
+                                <td
+                                  className="px-3 py-2.5 font-medium sticky left-0 z-10"
+                                  style={{
+                                    background: (isWinnerRow || isTiedRow) ? "var(--vh-accent-soft)" : "var(--vh-surface)",
+                                    color: (isWinnerRow || isTiedRow) ? "var(--vh-accent-strong)" : "var(--vh-ink)",
+                                    maxWidth: 180,
+                                    overflow: "hidden",
+                                    textOverflow: "ellipsis",
+                                    whiteSpace: "nowrap",
+                                  }}
+                                >
+                                  {opt.optionText}
+                                </td>
+
+                                {/* One cell per round */}
+                                {rounds.map((r) => {
+                                  const count = r.counts[opt.optionId]
+                                  const alreadyGone =
+                                    (m.eliminatedAfterRound !== null && r.round > m.eliminatedAfterRound) ||
+                                    (m.electedInRound !== null && r.round > m.electedInRound)
+                                  const eliminatedThisRound = m.eliminatedAfterRound === r.round
+                                  const electedThisRound = m.electedInRound === r.round
+                                  const irvFinalWin = rcv.kind === "irv" && m.isWinner && r.eliminated.length === 0 && count != null
+                                  const irvFinalTie = rcv.kind === "irv" && m.isTied && r.eliminated.length === 0 && count != null
+
+                                  if (alreadyGone || count == null) {
+                                    return (
+                                      <td
+                                        key={r.round}
+                                        style={{
+                                          borderLeft: "1px solid var(--vh-line)",
+                                          background: alreadyGone ? "var(--vh-surface-2)" : undefined,
+                                        }}
+                                      />
+                                    )
+                                  }
+
+                                  const displayCount = Number.isInteger(count) ? String(count) : count.toFixed(1)
+
+                                  const marker = eliminatedThisRound
+                                    ? <span style={{ color: "var(--vh-danger)" }}>✗</span>
+                                    : (electedThisRound || irvFinalWin)
+                                      ? <span style={{ color: "var(--vh-accent)" }}>✓</span>
+                                      : irvFinalTie
+                                        ? <span style={{ color: "var(--vh-muted)" }}>⊜</span>
+                                        : null
+
+                                  return (
+                                    <td
+                                      key={r.round}
+                                      className="px-3 py-2.5 text-center tabular-nums"
+                                      style={{
+                                        borderLeft: "1px solid var(--vh-line)",
+                                        color: eliminatedThisRound
+                                          ? "var(--vh-muted)"
+                                          : (electedThisRound || irvFinalWin)
+                                            ? "var(--vh-accent-strong)"
+                                            : irvFinalTie
+                                              ? "var(--vh-muted)"
+                                              : "var(--vh-ink-soft)",
+                                        fontWeight: (eliminatedThisRound || electedThisRound || irvFinalWin || irvFinalTie) ? 600 : 400,
+                                      }}
+                                    >
+                                      {displayCount}{marker && <>{" "}{marker}</>}
+                                    </td>
+                                  )
+                                })}
+                              </tr>
+                            )
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  ) : (
+                    <p className="text-[12px] mt-1" style={{ color: "var(--vh-muted)" }}>Counting in progress…</p>
+                  )}
+                </div>
+              )
             })()}
 
-            <div className="flex flex-col gap-3.5">
-              {(() => {
-                const rcvWinnerIds = new Set<string>()
-                if (q.type === "RANKED_CHOICE") {
-                  const rcv = "rcvResult" in q
-                    ? q.rcvResult as { kind: string; winner?: string | null; winners?: string[]; isTie?: boolean; tiedOptions?: string[] } | null
-                    : null
-                  if (rcv?.kind === "irv" && !rcv.isTie && rcv.winner) {
-                    rcvWinnerIds.add(rcv.winner)
-                  } else if (rcv?.kind === "irv" && rcv.isTie) {
-                    rcv.tiedOptions?.forEach((id) => rcvWinnerIds.add(id))
-                  } else if (rcv?.kind === "stv") {
-                    rcv.winners?.forEach((id) => rcvWinnerIds.add(id))
-                  }
-                }
-                return sortedOptions.map((o) => {
+            {/* ── Single/Multiple choice: bar chart (not shown for ranked choice) ─ */}
+            {q.type !== "RANKED_CHOICE" && (
+              <div className="flex flex-col gap-3.5">
+                {sortedOptions.map((o) => {
                   const votes = getVotes(o)
                   const pct = maxVotes > 0 ? Math.round((votes / maxVotes) * 100) : 0
-                  // For ranked choice, highlight the IRV/STV winner(s), not the first-choice leader
-                  const isTop = q.type === "RANKED_CHOICE"
-                    ? (rcvWinnerIds.size > 0 ? rcvWinnerIds.has(o.optionId) : false)
-                    : votes > 0 && votes === topValue
-                  // Ranked choice: no chip here — the IRV/STV section above is the authoritative display
-                  const chipLabel = q.type === "RANKED_CHOICE"
-                    ? null
-                    : (!isTop ? null : isTie ? "Tie" : isLive ? "LEAD" : "Winner")
+                  const isTop = votes > 0 && votes === topValue
+                  const chipLabel = !isTop ? null : isTie ? "Tie" : isLive ? "LEAD" : "Winner"
 
-                return (
-                  <div key={o.optionId}>
-                    <div className="flex items-center justify-between mb-1.5 text-[14px]">
-                      <span className="flex items-center gap-2 min-w-0 flex-1 mr-2">
-                        {chipLabel && (
-                          <span
-                            className="flex-shrink-0 text-[11px] font-medium px-1.5 py-0.5 rounded-[4px]"
-                            style={
-                              chipLabel === "Tie"
-                                ? { background: "var(--vh-surface-2)", color: "var(--vh-muted)" }
-                                : { background: "var(--vh-accent)", color: "#fff" }
-                            }
-                          >
-                            {chipLabel}
-                          </span>
-                        )}
-                        <span className="min-w-0 break-words" style={{ fontWeight: isTop ? 600 : 400 }}>{o.optionText}</span>
-                      </span>
-                      <span style={{ fontVariantNumeric: "tabular-nums", color: "var(--vh-ink-soft)" }}>
-                        <strong>{votes}</strong>
-                        {data.votedCount > 0 && (
-                          <span style={{ color: "var(--vh-muted)" }}>
-                            {" · "}{Math.round((votes / data.votedCount) * 100)}%
-                          </span>
-                        )}
-                      </span>
-                    </div>
-                    <div
-                      className="h-3 rounded-full overflow-hidden"
-                      style={{ background: "var(--vh-surface-3)" }}
-                    >
+                  return (
+                    <div key={o.optionId}>
+                      <div className="flex items-center justify-between mb-1.5 text-[14px]">
+                        <span className="flex items-center gap-2 min-w-0 flex-1 mr-2">
+                          {chipLabel && (
+                            <span
+                              className="flex-shrink-0 text-[11px] font-medium px-1.5 py-0.5 rounded-[4px]"
+                              style={
+                                chipLabel === "Tie"
+                                  ? { background: "var(--vh-surface-2)", color: "var(--vh-muted)" }
+                                  : { background: "var(--vh-accent)", color: "#fff" }
+                              }
+                            >
+                              {chipLabel}
+                            </span>
+                          )}
+                          <span className="min-w-0 break-words" style={{ fontWeight: isTop ? 600 : 400 }}>{o.optionText}</span>
+                        </span>
+                        <span style={{ fontVariantNumeric: "tabular-nums", color: "var(--vh-ink-soft)" }}>
+                          <strong>{votes}</strong>
+                          {data.votedCount > 0 && (
+                            <span style={{ color: "var(--vh-muted)" }}>
+                              {" · "}{Math.round((votes / data.votedCount) * 100)}%
+                            </span>
+                          )}
+                        </span>
+                      </div>
                       <div
-                        className="h-full rounded-full transition-all"
-                        style={{
-                          width: `${pct}%`,
-                          background: isTop ? "var(--vh-accent)" : "oklch(0.7 0.04 255)",
-                        }}
-                      />
+                        className="h-3 rounded-full overflow-hidden"
+                        style={{ background: "var(--vh-surface-3)" }}
+                      >
+                        <div
+                          className="h-full rounded-full transition-all"
+                          style={{
+                            width: `${pct}%`,
+                            background: isTop ? "var(--vh-accent)" : "oklch(0.7 0.04 255)",
+                          }}
+                        />
+                      </div>
                     </div>
-                  </div>
-                )
-              })
-              })()}
-            </div>
+                  )
+                })}
+              </div>
+            )}
           </div>
         )
       })}
