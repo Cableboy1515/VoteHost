@@ -203,17 +203,22 @@ export function runSTV(
       displayCounts[id] = Math.round(c * 10) / 10
     }
 
-    const newlyElected = remaining.filter((id) => rawCounts[id] >= quota)
+    // Elect at most seatsNeeded candidates per round, highest counts first.
+    // Without this cap, multiple candidates simultaneously reaching quota in
+    // one round could push elected.length past seats.
+    const newlyElected = remaining
+      .filter((id) => rawCounts[id] >= quota)
+      .sort((a, b) => (rawCounts[b] ?? 0) - (rawCounts[a] ?? 0))
+      .slice(0, seatsNeeded)
 
     if (newlyElected.length > 0) {
-      // Gregory surplus transfer: reduce weight of winning candidate's ballots
+      // Gregory surplus transfer. When winnerVotes === quota (no surplus),
+      // transferValue = 0 — those ballots are fully spent and must not flow on.
       for (const winnerId of newlyElected) {
         const winnerVotes = rawCounts[winnerId]
-        if (winnerVotes > quota) {
-          const transferValue = (winnerVotes - quota) / winnerVotes
-          for (const wb of wBallots) {
-            if (topActive(wb.prefs) === winnerId) wb.weight *= transferValue
-          }
+        const transferValue = winnerVotes > quota ? (winnerVotes - quota) / winnerVotes : 0
+        for (const wb of wBallots) {
+          if (topActive(wb.prefs) === winnerId) wb.weight *= transferValue
         }
       }
       rounds.push({ round: rounds.length + 1, counts: displayCounts, quota, elected: newlyElected, eliminated: [] })

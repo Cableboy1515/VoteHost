@@ -70,6 +70,40 @@ function formatServerError(data: unknown): string {
   return "Submission failed. Please try again."
 }
 
+/** Avatar for ranked choice items — photo if available, initials circle otherwise. */
+function RcvAvatar({ option, size = 40 }: { option: Option; size?: number }) {
+  if (option.photoUrl) {
+    return (
+      // eslint-disable-next-line @next/next/no-img-element
+      <img
+        src={option.photoUrl}
+        alt={option.text}
+        className="flex-shrink-0 rounded-full object-cover border border-vh-line"
+        style={{ width: size, height: size }}
+      />
+    )
+  }
+  const parts = option.text.trim().split(/\s+/)
+  const letters = (parts.length >= 2
+    ? parts[0][0] + parts[parts.length - 1][0]
+    : option.text.slice(0, 2)
+  ).toUpperCase()
+  return (
+    <span
+      aria-hidden
+      className="flex-shrink-0 inline-grid place-items-center rounded-full font-semibold"
+      style={{
+        width: size, height: size, fontSize: size * 0.36,
+        background: "var(--vh-surface-3)",
+        color: "var(--vh-ink-soft)",
+        border: "1px solid var(--vh-line)",
+      }}
+    >
+      {letters}
+    </span>
+  )
+}
+
 export default function BallotForm({ token, electionTitle, electionDescription, questions }: Props) {
   const router = useRouter()
 
@@ -97,7 +131,7 @@ export default function BallotForm({ token, electionTitle, electionDescription, 
   const shuffledOptionsMap = useMemo(() => {
     const map: Record<string, Option[]> = {}
     for (const q of questions) {
-      if (q.randomizeOptions && (q.type === "SINGLE_CHOICE" || q.type === "MULTIPLE_CHOICE")) {
+      if (q.randomizeOptions && (q.type === "SINGLE_CHOICE" || q.type === "MULTIPLE_CHOICE" || q.type === "RANKED_CHOICE")) {
         map[q.id] = seededShuffle(q.options, `${token}:${q.id}`)
       } else {
         map[q.id] = q.options
@@ -348,8 +382,11 @@ export default function BallotForm({ token, electionTitle, electionDescription, 
 
     if (q.type === "RANKED_CHOICE") {
       const rankedIds = rankedOrders[q.id] ?? []
-      const rankedOptions = rankedIds.map((id) => q.options.find((o) => o.id === id)).filter(Boolean) as Option[]
-      const unrankedOptions = q.options.filter((o) => !rankedIds.includes(o.id))
+      // Use the shuffled map so randomizeOptions works for ranked choice too
+      const allOptions = shuffledOptionsMap[q.id]
+      const rankedOptions = rankedIds.map((id) => allOptions.find((o) => o.id === id)).filter(Boolean) as Option[]
+      const unrankedOptions = allOptions.filter((o) => !rankedIds.includes(o.id))
+      const showAvatars = q.showOptionAvatars !== false
 
       return (
         <div aria-labelledby={groupLabelId} className="space-y-3">
@@ -360,17 +397,16 @@ export default function BallotForm({ token, electionTitle, electionDescription, 
                 {rankedOptions.map((o, i) => (
                   <li
                     key={o.id}
-                    className="flex items-center gap-3 px-4 py-3 rounded-[12px] border"
+                    className="flex items-center gap-3 px-3 py-2.5 rounded-[12px] border"
                     style={{ background: "var(--vh-accent-soft)", borderColor: "oklch(0.85 0.05 255)" }}
                   >
-                    <span
-                      aria-hidden
-                      className="w-9 h-9 flex-shrink-0 inline-grid place-items-center rounded-full text-white text-sm font-semibold"
-                      style={{ background: "var(--vh-accent)" }}
-                    >
-                      {i + 1}
-                    </span>
+                    {/* Avatar on the left */}
+                    {showAvatars && <RcvAvatar option={o} size={40} />}
+
+                    {/* Name */}
                     <span className="flex-1 min-w-0 break-words text-sm font-medium text-vh-ink">{o.text}</span>
+
+                    {/* Reorder / remove controls */}
                     <div className="flex items-center gap-1 flex-shrink-0">
                       <button
                         type="button"
@@ -393,6 +429,15 @@ export default function BallotForm({ token, electionTitle, electionDescription, 
                         className="w-9 h-9 sm:w-7 sm:h-7 inline-grid place-items-center rounded-[6px] text-sm text-vh-muted hover:bg-vh-surface-3 transition-colors"
                       >×</button>
                     </div>
+
+                    {/* Rank badge on the right */}
+                    <span
+                      aria-hidden
+                      className="w-8 h-8 flex-shrink-0 inline-grid place-items-center rounded-full text-white text-sm font-semibold"
+                      style={{ background: "var(--vh-accent)" }}
+                    >
+                      {i + 1}
+                    </span>
                   </li>
                 ))}
               </ol>
@@ -411,16 +456,22 @@ export default function BallotForm({ token, electionTitle, electionDescription, 
                       type="button"
                       aria-label={`Add ${o.text} to your ranking`}
                       onClick={() => addToRanked(q.id, o.id)}
-                      className="w-full flex items-center gap-3 px-4 py-3 border-2 border-dashed rounded-[12px] text-left transition-colors"
+                      className="w-full flex items-center gap-3 px-3 py-2.5 border-2 border-dashed rounded-[12px] text-left transition-colors"
                       style={{ borderColor: "var(--vh-line-strong)" }}
                       onMouseEnter={(e) => ((e.currentTarget as HTMLElement).style.borderColor = "var(--vh-accent)")}
                       onMouseLeave={(e) => ((e.currentTarget as HTMLElement).style.borderColor = "var(--vh-line-strong)")}
                     >
-                      <span
-                        aria-hidden
-                        className="w-9 h-9 flex-shrink-0 inline-grid place-items-center rounded-full border border-dashed text-xl text-vh-muted"
-                        style={{ borderColor: "var(--vh-line-strong)" }}
-                      >+</span>
+                      {/* Avatar or + placeholder */}
+                      {showAvatars
+                        ? <RcvAvatar option={o} size={40} />
+                        : (
+                          <span
+                            aria-hidden
+                            className="w-9 h-9 flex-shrink-0 inline-grid place-items-center rounded-full border border-dashed text-xl text-vh-muted"
+                            style={{ borderColor: "var(--vh-line-strong)" }}
+                          >+</span>
+                        )
+                      }
                       <span className="flex-1 min-w-0 break-words text-sm text-vh-ink-soft text-left">{o.text}</span>
                     </button>
                   </li>
