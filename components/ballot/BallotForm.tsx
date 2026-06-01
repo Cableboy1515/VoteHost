@@ -219,7 +219,7 @@ export default function BallotForm({ token, electionTitle, electionDescription, 
       setError("")
       const first = result.issues[0]
       setStep(first.questionIndex)
-      questionRefs.current[first.questionId]?.scrollIntoView({ behavior: "smooth", block: "center" })
+      scrollToQuestion(first.questionId)
       return
     }
     setIssuesPanelOpen(false)
@@ -232,7 +232,9 @@ export default function BallotForm({ token, electionTitle, electionDescription, 
     if (!result.ok) {
       setIssuesPanelOpen(true)
       setError("")
-      setStep(result.issues[0].questionIndex)
+      const first = result.issues[0]
+      setStep(first.questionIndex)
+      scrollToQuestion(first.questionId)
       return
     }
     setSubmitting(true)
@@ -259,6 +261,17 @@ export default function BallotForm({ token, electionTitle, electionDescription, 
     return r.ok ? [] : r.issues
   })()
 
+  // Fast lookup: questionId → error message, for inline per-question errors
+  const issueByQuestionId = new Map(activeIssues.map((i) => [i.questionId, i.message]))
+
+  // Smooth-scroll to a question, wrapped in rAF so the target is mounted
+  // after any step/view transition before the scroll fires.
+  function scrollToQuestion(id: string) {
+    requestAnimationFrame(() =>
+      questionRefs.current[id]?.scrollIntoView({ behavior: "smooth", block: "center" })
+    )
+  }
+
   // ── Issues panel ────────────────────────────────────────────────────────
 
   function renderIssuesPanel(layout: "desktop" | "mobile") {
@@ -284,7 +297,7 @@ export default function BallotForm({ token, electionTitle, electionDescription, 
                 type="button"
                 onClick={() => {
                   setStep(issue.questionIndex)
-                  questionRefs.current[issue.questionId]?.scrollIntoView({ behavior: "smooth", block: "center" })
+                  scrollToQuestion(issue.questionId)
                 }}
                 className="shrink-0 text-xs font-semibold px-2.5 py-1 rounded-[6px] border transition-colors"
                 style={{ borderColor: "var(--vh-danger)", color: "var(--vh-danger)" }}
@@ -761,41 +774,51 @@ export default function BallotForm({ token, electionTitle, electionDescription, 
             {renderIssuesPanel("desktop")}
 
             <div className="space-y-10">
-              {questions.map((q, i) => (
-                <section
-                  key={q.id}
-                  ref={(el) => { questionRefs.current[q.id] = el }}
-                >
-                  <div className="mb-4 flex items-start gap-3">
-                    <div className="flex flex-col items-end gap-1 flex-shrink-0">
-                      <span
-                        className="inline-flex items-center justify-center text-base font-semibold rounded-[8px] px-2.5"
-                        style={{ background: "var(--vh-accent)", color: "var(--vh-accent-fg)", minWidth: 32, height: 32 }}
-                      >
-                        {i + 1}
-                      </span>
-                      {q.required && (
-                        <span className="text-[11px] font-medium" style={{ color: "var(--vh-danger)" }}>Required</span>
-                      )}
+              {questions.map((q, i) => {
+                const inlineError = issueByQuestionId.get(q.id)
+                return (
+                  <section
+                    key={q.id}
+                    ref={(el) => { questionRefs.current[q.id] = el }}
+                    className={cn(inlineError && "-mx-4 px-4 py-4 rounded-[12px]")}
+                    style={inlineError ? { border: "1px solid var(--vh-danger)", background: "oklch(0.98 0.012 15)" } : undefined}
+                  >
+                    <div className="mb-4 flex items-start gap-3">
+                      <div className="flex flex-col items-end gap-1 flex-shrink-0">
+                        <span
+                          className="inline-flex items-center justify-center text-base font-semibold rounded-[8px] px-2.5"
+                          style={{ background: "var(--vh-accent)", color: "var(--vh-accent-fg)", minWidth: 32, height: 32 }}
+                        >
+                          {i + 1}
+                        </span>
+                        {q.required && (
+                          <span className="text-[11px] font-medium" style={{ color: "var(--vh-danger)" }}>Required</span>
+                        )}
+                      </div>
+                      <div className="min-w-0 flex-1 pt-0.5">
+                        <h3 id={`q-label-${q.id}`} className="text-[18px] font-semibold text-vh-ink">{q.text}</h3>
+                        {q.description && (
+                          <p className="text-[15px] leading-relaxed text-vh-muted mt-1.5">{q.description}</p>
+                        )}
+                        {q.type === "MULTIPLE_CHOICE" && q.maxSelections && (
+                          <p className="text-sm text-vh-muted mt-1.5">
+                            Pick up to {q.maxSelections}{" "}
+                            <span className="tabular-nums">
+                              ({((answers[q.id] as string[]) ?? []).length}/{q.maxSelections})
+                            </span>
+                          </p>
+                        )}
+                      </div>
                     </div>
-                    <div className="min-w-0 flex-1 pt-0.5">
-                      <h3 id={`q-label-${q.id}`} className="text-[18px] font-semibold text-vh-ink">{q.text}</h3>
-                      {q.description && (
-                        <p className="text-[15px] leading-relaxed text-vh-muted mt-1.5">{q.description}</p>
-                      )}
-                      {q.type === "MULTIPLE_CHOICE" && q.maxSelections && (
-                        <p className="text-sm text-vh-muted mt-1.5">
-                          Pick up to {q.maxSelections}{" "}
-                          <span className="tabular-nums">
-                            ({((answers[q.id] as string[]) ?? []).length}/{q.maxSelections})
-                          </span>
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                  <div className="pl-11">{renderQuestionInput(q)}</div>
-                </section>
-              ))}
+                    <div className="pl-11">{renderQuestionInput(q)}</div>
+                    {inlineError && (
+                      <p className="pl-11 mt-2 text-sm font-medium" style={{ color: "var(--vh-danger)" }}>
+                        ⚠ {inlineError}
+                      </p>
+                    )}
+                  </section>
+                )
+              })}
             </div>
 
             {error && (
@@ -855,6 +878,12 @@ export default function BallotForm({ token, electionTitle, electionDescription, 
         {renderIssuesPanel("mobile")}
 
         {renderQuestionInput(questions[step])}
+
+        {issueByQuestionId.get(questions[step].id) && (
+          <p className="mt-2 text-sm font-medium" style={{ color: "var(--vh-danger)" }}>
+            ⚠ {issueByQuestionId.get(questions[step].id)}
+          </p>
+        )}
 
         {error && (
           <p role="alert" className="mt-3 text-sm" style={{ color: "var(--vh-danger)" }}>{error}</p>
