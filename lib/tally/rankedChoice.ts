@@ -62,7 +62,7 @@ export function runIRV(ballots: string[][], allOptionIds: string[]): IrvResult {
     }
   }
 
-  let active = new Set(allOptionIds)
+  const active = new Set(allOptionIds)
   const rounds: IrvRound[] = []
   let round1Counts: Record<string, number> = {}
 

@@ -17,17 +17,23 @@ interface Props {
   title: string
   role: string
   archived: boolean
+  status: string
 }
 
-export default function DeleteElectionButton({ id, title, role, archived }: Props) {
+export default function DeleteElectionButton({ id, title, role, archived, status }: Props) {
   const router = useRouter()
-  const [stage, setStage] = useState<"closed" | "warn" | "confirm">("closed")
+  const [stage, setStage] = useState<"closed" | "warn" | "confirm" | "draft-confirm">("closed")
   const [checked, setChecked] = useState(false)
   const [deleting, setDeleting] = useState(false)
 
-  if (role !== "ADMIN" || !archived) return null
+  const isDraft = status === "DRAFT"
+  const canDelete =
+    (isDraft && (role === "ORGANIZER" || role === "ADMIN")) ||
+    (!isDraft && archived && role === "ADMIN")
 
-  function openWarn() { setStage("warn") }
+  if (!canDelete) return null
+
+  function openWarn() { setStage(isDraft ? "draft-confirm" : "warn") }
   function goConfirm() { setChecked(false); setStage("confirm") }
   function closeAll() { setStage("closed"); setChecked(false) }
 
@@ -53,7 +59,25 @@ export default function DeleteElectionButton({ id, title, role, archived }: Prop
         Delete
       </button>
 
-      {/* Stage 1 — neutral warning */}
+      {/* Draft — single-step confirmation */}
+      <Dialog open={stage === "draft-confirm"} onOpenChange={(o) => { if (!o) closeAll() }}>
+        <DialogContent showCloseButton={false}>
+          <DialogHeader>
+            <DialogTitle>Delete draft &ldquo;{title}&rdquo;?</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-zinc-500 py-2">
+            This draft hasn&rsquo;t been activated. Deleting it is permanent and cannot be undone.
+          </p>
+          <DialogFooter>
+            <DialogClose render={<Button variant="outline" />}>Cancel</DialogClose>
+            <Button variant="destructive" onClick={handleDelete} disabled={deleting}>
+              {deleting ? "Deleting…" : "Delete draft"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Archived — Stage 1 — neutral warning */}
       <Dialog open={stage === "warn"} onOpenChange={(o) => { if (!o) closeAll() }}>
         <DialogContent showCloseButton={false}>
           <DialogHeader>
@@ -69,7 +93,7 @@ export default function DeleteElectionButton({ id, title, role, archived }: Prop
         </DialogContent>
       </Dialog>
 
-      {/* Stage 2 — forceful confirmation with checkbox */}
+      {/* Archived — Stage 2 — forceful confirmation with checkbox */}
       <Dialog open={stage === "confirm"} onOpenChange={(o) => { if (!o) closeAll() }}>
         <DialogContent showCloseButton={false}>
           <DialogHeader>

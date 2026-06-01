@@ -1149,7 +1149,7 @@ export default function VoterManager({
                   className="w-full text-sm rounded-[10px] px-3 py-2.5"
                   style={{ border: "1px solid var(--vh-line-strong)", background: "var(--vh-surface)", color: "var(--vh-ink)", outline: "none" }}
                 />
-                <p className="mt-1 text-[12px]" style={{ color: "var(--vh-muted)" }}>How many votes this person's ballot counts for. Default is 1.</p>
+                <p className="mt-1 text-[12px]" style={{ color: "var(--vh-muted)" }}>How many votes this person&rsquo;s ballot counts for. Default is 1.</p>
               </div>
             )}
             <DialogFooter>

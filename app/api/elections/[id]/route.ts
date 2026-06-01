@@ -371,7 +371,8 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
 }
 
 export async function DELETE(_req: Request, { params }: { params: Promise<{ id: string }> }) {
-  const session = await requireRole("ADMIN")
+  // Organizers may delete their own Draft elections; only Admins may delete archived elections
+  const session = await requireRole("ORGANIZER")
   if (!session) return NextResponse.json({ error: "Forbidden" }, { status: 403 })
 
   const { id } = await params
@@ -381,6 +382,7 @@ export async function DELETE(_req: Request, { params }: { params: Promise<{ id: 
     where: { id },
     select: {
       title: true,
+      status: true,
       archived: true,
       emailLogoDeleteUrl: true,
       questions: { select: { options: { select: { photoDeleteUrl: true } } } },
@@ -389,11 +391,18 @@ export async function DELETE(_req: Request, { params }: { params: Promise<{ id: 
 
   if (!election) return NextResponse.json({ error: "Not found" }, { status: 404 })
 
-  if (!election.archived) {
-    return NextResponse.json(
-      { error: "Election must be archived before it can be deleted." },
-      { status: 409 }
-    )
+  if (election.status !== "DRAFT") {
+    // Non-draft elections must be archived first
+    if (!election.archived) {
+      return NextResponse.json(
+        { error: "Election must be archived before it can be deleted." },
+        { status: 409 },
+      )
+    }
+    // Only admins may delete archived (completed) elections
+    if (session.role !== "ADMIN") {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+    }
   }
 
   await db.election.delete({ where: { id } })
