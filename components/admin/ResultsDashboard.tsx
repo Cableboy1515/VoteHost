@@ -364,11 +364,31 @@ export default function ResultsDashboard({ electionId, initialData, endsAt, elec
             })()}
 
             <div className="flex flex-col gap-3.5">
-              {sortedOptions.map((o) => {
-                const votes = getVotes(o)
-                const pct = maxVotes > 0 ? Math.round((votes / maxVotes) * 100) : 0
-                const isTop = votes > 0 && votes === topValue
-                const chipLabel = !isTop ? null : isTie ? "Tie" : isLive ? "LEAD" : "Winner"
+              {(() => {
+                const rcvWinnerIds = new Set<string>()
+                if (q.type === "RANKED_CHOICE") {
+                  const rcv = "rcvResult" in q
+                    ? q.rcvResult as { kind: string; winner?: string | null; winners?: string[]; isTie?: boolean; tiedOptions?: string[] } | null
+                    : null
+                  if (rcv?.kind === "irv" && !rcv.isTie && rcv.winner) {
+                    rcvWinnerIds.add(rcv.winner)
+                  } else if (rcv?.kind === "irv" && rcv.isTie) {
+                    rcv.tiedOptions?.forEach((id) => rcvWinnerIds.add(id))
+                  } else if (rcv?.kind === "stv") {
+                    rcv.winners?.forEach((id) => rcvWinnerIds.add(id))
+                  }
+                }
+                return sortedOptions.map((o) => {
+                  const votes = getVotes(o)
+                  const pct = maxVotes > 0 ? Math.round((votes / maxVotes) * 100) : 0
+                  // For ranked choice, highlight the IRV/STV winner(s), not the first-choice leader
+                  const isTop = q.type === "RANKED_CHOICE"
+                    ? (rcvWinnerIds.size > 0 ? rcvWinnerIds.has(o.optionId) : false)
+                    : votes > 0 && votes === topValue
+                  // Ranked choice: no chip here — the IRV/STV section above is the authoritative display
+                  const chipLabel = q.type === "RANKED_CHOICE"
+                    ? null
+                    : (!isTop ? null : isTie ? "Tie" : isLive ? "LEAD" : "Winner")
 
                 return (
                   <div key={o.optionId}>
@@ -411,7 +431,8 @@ export default function ResultsDashboard({ electionId, initialData, endsAt, elec
                     </div>
                   </div>
                 )
-              })}
+              })
+              })()}
             </div>
           </div>
         )
