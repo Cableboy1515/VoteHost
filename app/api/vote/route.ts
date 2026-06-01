@@ -91,17 +91,24 @@ export async function POST(req: Request) {
         }
       }
     } else if (answer.type === "RANKED_CHOICE") {
-      const allOptionIds = [...validOptionIds].sort()
-      const ranked = [...answer.rankedOptionIds].sort()
-      if (new Set(answer.rankedOptionIds).size !== answer.rankedOptionIds.length) {
+      const ranked = answer.rankedOptionIds
+      if (new Set(ranked).size !== ranked.length) {
         return NextResponse.json(
           { error: `"${question.text}" has the same option ranked twice.` },
           { status: 400 }
         )
       }
-      if (ranked.length !== allOptionIds.length || ranked.some((id, i) => id !== allOptionIds[i])) {
+      // A submitted ranked answer must rank at least one option.
+      // An absent answer for a non-required question is handled by the required-question check below.
+      if (ranked.length === 0) {
         return NextResponse.json(
-          { error: `Please rank all ${question.options.length} options for "${question.text}".` },
+          { error: `Please rank at least one option for "${question.text}".` },
+          { status: 400 }
+        )
+      }
+      if (ranked.some((id) => !validOptionIds.has(id))) {
+        return NextResponse.json(
+          { error: `An option you ranked for "${question.text}" isn't valid.` },
           { status: 400 }
         )
       }

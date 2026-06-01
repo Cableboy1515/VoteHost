@@ -165,7 +165,7 @@ export default function BallotForm({ token, electionTitle, electionDescription, 
   function isAnswered(q: Question): boolean {
     if (q.type === "SINGLE_CHOICE") return !!(answers[q.id])
     if (q.type === "MULTIPLE_CHOICE") return ((answers[q.id] as string[]) ?? []).length > 0
-    if (q.type === "RANKED_CHOICE") return (rankedOrders[q.id] ?? []).length === q.options.length
+    if (q.type === "RANKED_CHOICE") return (rankedOrders[q.id] ?? []).length >= 1
     if (q.type === "WRITE_IN") return !!((answers[q.id] as string) ?? "").trim()
     return true
   }
@@ -193,14 +193,12 @@ export default function BallotForm({ token, electionTitle, electionDescription, 
         }
       } else if (q.type === "RANKED_CHOICE") {
         const rankedIds = rankedOrders[q.id] ?? []
-        const totalOptions = q.options.length
         if (rankedIds.length === 0 && q.required) {
-          issues.push({ questionId: q.id, questionIndex: i, questionText: q.text, message: `Please rank all ${totalOptions} options.` })
-        } else if (rankedIds.length > 0 && rankedIds.length < totalOptions) {
-          issues.push({ questionId: q.id, questionIndex: i, questionText: q.text, message: `Please rank all ${totalOptions} options (you've ranked ${rankedIds.length}).` })
-        } else if (rankedIds.length === totalOptions) {
+          issues.push({ questionId: q.id, questionIndex: i, questionText: q.text, message: "Please rank at least one option." })
+        } else if (rankedIds.length >= 1) {
           payload.push({ questionId: q.id, type: "RANKED_CHOICE", rankedOptionIds: rankedIds })
         }
+        // rankedIds.length === 0 && !q.required → skip (valid partial ballot)
       } else if (q.type === "WRITE_IN") {
         const text = (answers[q.id] as string) ?? ""
         if (!text.trim() && q.required) {
@@ -481,7 +479,7 @@ export default function BallotForm({ token, electionTitle, electionDescription, 
           )}
 
           {rankedIds.length === 0 && (
-            <p className="text-xs text-vh-muted" aria-live="polite">Select options above to rank them in order of preference.</p>
+            <p className="text-xs text-vh-muted" aria-live="polite">Tap an option to add it to your ranking. Rank as many or as few as you like.</p>
           )}
         </div>
       )

@@ -146,6 +146,13 @@ export type StvResult = {
 /**
  * Run STV with Droop quota and Gregory surplus transfer.
  * seats=1 is equivalent to IRV; prefer runIRV for cleaner output when seats=1.
+ *
+ * Gap 2: Elimination tie-break now mirrors IRV — fewest round-1 first-preference
+ * votes first, then alphabetical by optionId as a final deterministic fallback.
+ *
+ * Gap 6: Droop quota is recomputed each round from non-exhausted weighted votes
+ * so that partial rankings (exhausted ballots) don't make the quota unreachable.
+ * StvResult.quota holds the initial (first-round) quota for display purposes.
  */
 export function runSTV(
   ballots: string[][],
@@ -159,15 +166,17 @@ export function runSTV(
     return { winners: [...allOptionIds], quota: 1, rounds: [] }
   }
 
-  const totalVotes = ballots.length
-  const quota = Math.floor(totalVotes / (seats + 1)) + 1
-
   // Weighted ballots (weight starts at 1.0; reduced on surplus transfer)
   const wBallots = ballots.map((prefs) => ({ prefs, weight: 1.0 }))
 
   const elected: string[] = []
   const eliminated: string[] = []
   const rounds: StvRound[] = []
+
+  // Round-1 raw counts for elimination tie-breaking (mirrors IRV's back-count rule)
+  let round1RawCounts: Record<string, number> = {}
+  // Initial quota captured from the first counting round; returned in StvResult.quota
+  let initialQuota = 0
 
   const isActive = (id: string) => !elected.includes(id) && !eliminated.includes(id)
   const topActive = (prefs: string[]) => prefs.find(isActive) ?? null
@@ -177,6 +186,18 @@ export function runSTV(
     if (remaining.length === 0) break
 
     const seatsNeeded = seats - elected.length
+
+    // Dynamic Droop quota: recomputed each round from non-exhausted weighted votes.
+    // As ballots exhaust (partial rankings), activeVotes shrinks so the quota stays
+    // reachable. Fixed quota (totalVotes / (seats+1) + 1) is the degenerate case
+    // when no ballots exhaust (i.e., all voters rank all candidates).
+    const activeVotes = wBallots.reduce(
+      (s, wb) => (topActive(wb.prefs) !== null ? s + wb.weight : s),
+      0,
+    )
+    if (activeVotes === 0) break
+    const quota = Math.floor(activeVotes / (seats + 1)) + 1
+    if (rounds.length === 0) initialQuota = quota
 
     // Elect all remaining if they're exactly what we need
     if (remaining.length <= seatsNeeded) {
@@ -203,6 +224,9 @@ export function runSTV(
       displayCounts[id] = Math.round(c * 10) / 10
     }
 
+    // Capture round-1 first-preference counts for elimination tie-breaking
+    if (rounds.length === 0) round1RawCounts = { ...rawCounts }
+
     // Elect at most seatsNeeded candidates per round, highest counts first.
     // Without this cap, multiple candidates simultaneously reaching quota in
     // one round could push elected.length past seats.
@@ -224,15 +248,22 @@ export function runSTV(
       rounds.push({ round: rounds.length + 1, counts: displayCounts, quota, elected: newlyElected, eliminated: [] })
       elected.push(...newlyElected)
     } else {
-      // Eliminate lowest (alphabetical tie-break for determinism)
+      // Eliminate lowest — tie-break: fewest round-1 first-preference votes, then
+      // alphabetical by optionId as final deterministic fallback (mirrors IRV).
       const minCount = Math.min(...remaining.map((id) => rawCounts[id] ?? 0))
       const minCands = remaining.filter((id) => (rawCounts[id] ?? 0) === minCount)
-      const toEliminate = [...minCands].sort((a, b) => (a < b ? -1 : 1))[0]
+      const toEliminate =
+        minCands.length === 1
+          ? minCands[0]
+          : [...minCands].sort((a, b) => {
+              const diff = (round1RawCounts[a] ?? 0) - (round1RawCounts[b] ?? 0)
+              return diff !== 0 ? diff : a < b ? -1 : 1
+            })[0]
 
       rounds.push({ round: rounds.length + 1, counts: displayCounts, quota, elected: [], eliminated: [toEliminate] })
       eliminated.push(toEliminate)
     }
   }
 
-  return { winners: elected, quota, rounds }
+  return { winners: elected, quota: initialQuota, rounds }
 }

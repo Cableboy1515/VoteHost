@@ -3,6 +3,7 @@ export const runtime = "nodejs"
 import { requireRole } from "@/lib/auth"
 import { db } from "@/lib/db"
 import { exportFilename } from "@/lib/exportData"
+import { getResultsForElection } from "@/lib/results"
 
 export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
   const session = await requireRole("VIEWER")
@@ -30,7 +31,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
     return new Response("Not found or election not completed", { status: 404 })
   }
 
-  const [questions, votes, receipts, voterStats] = await Promise.all([
+  const [questions, votes, receipts, voterStats, electionResults] = await Promise.all([
     db.question.findMany({
       where: { electionId: id },
       include: { options: { orderBy: { order: "asc" } } },
@@ -46,6 +47,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
       orderBy: { createdAt: "asc" },
     }),
     db.voter.aggregate({ where: { electionId: id }, _count: { id: true } }),
+    getResultsForElection(id),
   ])
 
   const totalVoters = voterStats._count.id
@@ -59,6 +61,77 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
     quorumRequired = election.quorumValue
     quorumMet = votedCount >= quorumRequired
   }
+
+  // Build human-readable tally results (option text instead of IDs) for auditors who
+  // want to verify the algorithm output without re-running it from raw votes.
+  // Note: tallyHash covers raw votes only — not this derived section.
+  const tallyResults = electionResults.questions.map((q) => {
+    if (q.type === "RANKED_CHOICE") {
+      const rcv = (q as unknown as { rcvResult: {
+        kind: string
+        winner?: string | null
+        winners?: string[]
+        isTie?: boolean
+        tiedOptions?: string[]
+        quota?: number
+        rounds?: Array<{
+          round: number
+          counts: Record<string, number>
+          totalActive?: number
+          quota?: number
+          elected?: string[]
+          eliminated?: string[]
+        }>
+      } | null }).rcvResult
+      const optionLabel = (id: string) =>
+        q.options.find((o) => (o as unknown as { optionId: string }).optionId === id)?.optionText ?? id
+      return {
+        questionId: q.questionId,
+        questionText: q.questionText,
+        type: "RANKED_CHOICE",
+        method: rcv?.kind === "stv" ? "STV" : "IRV",
+        seats: (q as unknown as { seats?: number }).seats ?? 1,
+        ...( rcv?.kind === "irv" ? {
+          winner: rcv.winner ? optionLabel(rcv.winner) : null,
+          isTie: rcv.isTie ?? false,
+          tiedOptions: (rcv.tiedOptions ?? []).map(optionLabel),
+          rounds: (rcv.rounds ?? []).map((r) => ({
+            round: r.round,
+            totalActive: r.totalActive,
+            counts: Object.fromEntries(Object.entries(r.counts).map(([id, c]) => [optionLabel(id), c])),
+            eliminated: (r.eliminated ?? []).map(optionLabel),
+          })),
+        } : rcv?.kind === "stv" ? {
+          winners: (rcv.winners ?? []).map(optionLabel),
+          quota: rcv.quota,
+          rounds: (rcv.rounds ?? []).map((r) => ({
+            round: r.round,
+            quota: r.quota,
+            counts: Object.fromEntries(Object.entries(r.counts).map(([id, c]) => [optionLabel(id), c])),
+            elected: (r.elected ?? []).map(optionLabel),
+            eliminated: (r.eliminated ?? []).map(optionLabel),
+          })),
+        } : { winner: null, rounds: [] }),
+      }
+    }
+    if (q.type === "WRITE_IN") {
+      return {
+        questionId: q.questionId,
+        questionText: q.questionText,
+        type: "WRITE_IN",
+        responseCount: (q as unknown as { writeIns: unknown[] }).writeIns?.length ?? 0,
+      }
+    }
+    // SINGLE_CHOICE / MULTIPLE_CHOICE
+    const opts = (q as unknown as { options: Array<{ optionText: string; count: number }> }).options ?? []
+    const topCount = Math.max(0, ...opts.map((o) => o.count))
+    return {
+      questionId: q.questionId,
+      questionText: q.questionText,
+      type: q.type,
+      options: opts.map((o) => ({ option: o.optionText, count: o.count, winner: o.count === topCount && topCount > 0 })),
+    }
+  })
 
   const payload = {
     electionId: election.id,
@@ -83,6 +156,9 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
       writeInText: v.writeInText,
     })),
     ballotReceipts: receipts,
+    // Computed tally — verify by re-running the algorithm against the raw votes above.
+    // Counts use option text for readability; IDs are in the questions[] section above.
+    tallyResults,
   }
 
   const json = JSON.stringify(payload, null, 2)

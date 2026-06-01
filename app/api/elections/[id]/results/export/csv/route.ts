@@ -67,11 +67,15 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
     header: true,
   })
 
+  const hasRcv = questions.some((q) => q.type === "RANKED_CHOICE")
   const hashComment = tallyHash ? `# Tally Hash: sha256:${tallyHash}\n` : ""
   const quorumComment = quorumType !== "NONE" && quorumRequired !== null
     ? `# Quorum: ${votedCount} of ${quorumRequired} required — ${quorumMet ? "Met" : "Not met"}\n`
     : ""
-  const csv = hashComment + quorumComment + csvBody
+  const rcvComment = hasRcv
+    ? `# Note: For ranked-choice questions, "votes" = 1st-preference count; winner determined by IRV/STV algorithm.\n`
+    : ""
+  const csv = hashComment + quorumComment + rcvComment + csvBody
 
   const filename = exportFilename(election, "csv", tz)
 
