@@ -515,6 +515,16 @@ export default function ResultsDashboard({ electionId, initialData, endsAt, elec
                   ) : (
                     <p className="text-[12px] mt-1" style={{ color: "var(--vh-muted)" }}>Counting in progress…</p>
                   )}
+
+                  {rcv.kind === "irv" && rounds.length > 0 && (
+                    <p className="text-[12px] mt-2" style={{ color: "var(--vh-muted)" }}>
+                      Counts show first-choice votes among the remaining candidates each round; a
+                      candidate&rsquo;s later rankings are only transferred after someone is eliminated.
+                      {rcv.winner && rounds.length === 1 && (
+                        <> {optionLabelMap.get(rcv.winner) ?? rcv.winner} won an outright first-round majority, so no eliminations or transfers were needed.</>
+                      )}
+                    </p>
+                  )}
                 </div>
               )
             })()}
