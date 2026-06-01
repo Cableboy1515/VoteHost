@@ -46,7 +46,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
           option: opt.optionText,
           votes: opt.firstChoiceCount,
           percent: `${opt.pct}`,
-          winner: opt.winner ? "Yes" : "No",
+          winner: opt.winner ? (q.isTie ? "Tie" : "Yes") : "No",
         })
       }
     } else {
@@ -56,7 +56,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
           option: opt.optionText,
           votes: opt.count,
           percent: `${opt.pct}`,
-          winner: opt.winner ? "Yes" : "No",
+          winner: opt.winner ? (q.isTie ? "Tie" : "Yes") : "No",
         })
       }
     }

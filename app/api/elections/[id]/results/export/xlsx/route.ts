@@ -96,7 +96,8 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
       })
 
       for (const opt of q.options) {
-        const optRow = ws.addRow([opt.optionText, opt.count, `${opt.pct}%`, opt.winner ? "✓" : ""])
+        const winnerLabel = opt.winner ? (q.isTie ? "Tie" : "✓") : ""
+        const optRow = ws.addRow([opt.optionText, opt.count, `${opt.pct}%`, winnerLabel])
         if (opt.winner) {
           optRow.eachCell({ includeEmpty: false }, (cell) => {
             cell.font = { name: "Calibri", size: 11, bold: true, color: { argb: INK } }

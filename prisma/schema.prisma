@@ -83,6 +83,7 @@ model Question {
   order         Int
   required         Boolean      @default(true)
   maxSelections    Int?
+  seats            Int          @default(1)
   randomizeOptions Boolean      @default(false)
   showOptionAvatars Boolean     @default(true)
 

@@ -1,5 +1,6 @@
 import { db } from "./db"
 import { computeTallyHash } from "./verification"
+import { groupBallots, runIRV, runSTV } from "./tally/rankedChoice"
 import type { Question, Option, Vote } from "./generated/prisma/client"
 
 type QuestionWithOptions = Question & { options: Option[] }
@@ -52,11 +53,27 @@ export async function getResultsForElection(electionId: string) {
           firstChoiceCount: rankCounts[1] ?? 0,
         }
       })
+
+      const seats = question.seats ?? 1
+      const allOptionIds = question.options.map((o) => o.id)
+      const groupedBallots = groupBallots(
+        questionVotes.map((v) => ({ ballotId: v.ballotId, optionId: v.optionId, rank: v.rank }))
+      )
+
+      const rcvResult =
+        groupedBallots.length > 0
+          ? seats > 1
+            ? ({ kind: "stv" as const, ...runSTV(groupedBallots, allOptionIds, seats) })
+            : ({ kind: "irv" as const, ...runIRV(groupedBallots, allOptionIds) })
+          : null
+
       return {
         questionId: question.id,
         questionText: question.text,
         type: question.type,
+        seats,
         options: rankTotals,
+        rcvResult,
       }
     }
 

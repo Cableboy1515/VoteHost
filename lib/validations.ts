@@ -76,6 +76,7 @@ export const QuestionSchema = z.object({
   order: z.number().int().min(0),
   required: z.boolean().default(true),
   maxSelections: z.number().int().positive().nullish(),
+  seats: z.number().int().min(1).optional(),
   randomizeOptions: z.boolean().default(false),
   showOptionAvatars: z.boolean().default(true),
 })

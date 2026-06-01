@@ -66,8 +66,8 @@ function drawHLine(doc: PDFKit.PDFDocument, y: number, color = LINE) {
   doc.save().strokeColor(color).lineWidth(0.5).moveTo(50, y).lineTo(545, y).stroke().restore()
 }
 
-function drawWinnerBadge(doc: PDFKit.PDFDocument, x: number, y: number) {
-  doc.save().fontSize(8).fillColor(ACCENT).text("✓ Winner", x, y + 1).restore()
+function drawWinnerBadge(doc: PDFKit.PDFDocument, x: number, y: number, label = "✓ Winner") {
+  doc.save().fontSize(8).fillColor(ACCENT).text(label, x, y + 1).restore()
 }
 
 function renderContent(doc: PDFKit.PDFDocument, data: ExportData, s: Spacing, tz: string): void {
@@ -181,6 +181,7 @@ function renderContent(doc: PDFKit.PDFDocument, data: ExportData, s: Spacing, tz
     })
     doc.y = subY + subH + 2
 
+    const qIsTie = (q as { isTie?: boolean }).isTie ?? false
     for (const opt of q.options) {
       if (doc.y > 710) doc.addPage()
 
@@ -199,7 +200,7 @@ function renderContent(doc: PDFKit.PDFDocument, data: ExportData, s: Spacing, tz
       doc.text(opt.optionText, colX[0] + 4, rowY + 4, { width: colWidths[0] - 8 })
       doc.text(String(count), colX[1] + 4, rowY + 4, { width: colWidths[1] - 8, align: "right" })
       doc.text(`${opt.pct}%`, colX[2] + 4, rowY + 4, { width: colWidths[2] - 8, align: "right" })
-      if (isWinner) drawWinnerBadge(doc, colX[3] + 4, rowY + 4)
+      if (isWinner) drawWinnerBadge(doc, colX[3] + 4, rowY + 4, qIsTie ? "Tie" : "✓ Winner")
 
       drawHLine(doc, rowY + s.rowH - 2, "#F0F0F0")
       doc.y = rowY + s.rowH

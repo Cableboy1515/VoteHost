@@ -30,6 +30,7 @@ interface QuestionDraft {
   order: number
   required: boolean
   maxSelections?: number
+  seats?: number
   randomizeOptions?: boolean
   showOptionAvatars?: boolean
   options: OptionDraft[]
@@ -45,7 +46,7 @@ interface Props {
 const TYPES: { value: QuestionType; label: string; tooltip: string }[] = [
   { value: "SINGLE_CHOICE", label: "Single choice", tooltip: "Voter picks exactly one option." },
   { value: "MULTIPLE_CHOICE", label: "Multiple", tooltip: "Voter can pick up to a chosen maximum." },
-  { value: "RANKED_CHOICE", label: "Preference Ranking", tooltip: "Voter ranks options in order of preference. Results show a per-rank breakdown — no instant-runoff elimination." },
+  { value: "RANKED_CHOICE", label: "Ranked Choice", tooltip: "Voter ranks options in order of preference. A winner is automatically determined using instant-runoff (IRV) for single-seat, or STV for multi-seat elections." },
   { value: "WRITE_IN", label: "Write-in", tooltip: "Voter types a free-text response instead of choosing from preset options." },
 ]
 
@@ -341,7 +342,7 @@ export default function BallotBuilder({ electionId, electionStatus, firstVoteAt,
                       {q.required ? "Required" : "Optional"}
                     </button>
                   </Tooltip>
-                  {(q.type === "SINGLE_CHOICE" || q.type === "MULTIPLE_CHOICE") && (
+                  {(q.type === "SINGLE_CHOICE" || q.type === "MULTIPLE_CHOICE" || q.type === "RANKED_CHOICE") && (
                     <>
                       <Tooltip content="Each voter sees the options in a different random order to reduce position bias.">
                         <button
@@ -522,6 +523,33 @@ export default function BallotBuilder({ electionId, electionStatus, firstVoteAt,
                         style={{ border: "1px solid var(--vh-line-strong)", background: "var(--vh-surface)", color: "var(--vh-ink)", outline: "none" }}
                       />
                       <span className="text-[12px]" style={{ color: "var(--vh-muted)" }}>Leave blank for no limit</span>
+                    </div>
+                  )}
+                  {q.type === "RANKED_CHOICE" && (
+                    <div className="flex flex-wrap items-center gap-2 mt-1">
+                      <Tooltip content="1 seat uses instant-runoff (IRV). More seats uses Single Transferable Vote (STV) — useful for electing a board or committee.">
+                        <label className="text-[12.5px] whitespace-nowrap cursor-default" style={{ color: "var(--vh-muted)" }}>
+                          Seats to fill
+                        </label>
+                      </Tooltip>
+                      <input
+                        type="number"
+                        min={1}
+                        max={Math.max(1, q.options.length - 1)}
+                        inputMode="numeric"
+                        value={q.seats ?? 1}
+                        onChange={(e) =>
+                          updateQuestion(qIndex, {
+                            seats: e.target.value === "" ? 1 : Math.max(1, Number(e.target.value)),
+                          })
+                        }
+                        disabled={locked}
+                        className="w-20 text-sm px-2 py-1.5 rounded-[8px]"
+                        style={{ border: "1px solid var(--vh-line-strong)", background: "var(--vh-surface)", color: "var(--vh-ink)", outline: "none" }}
+                      />
+                      <span className="text-[12px]" style={{ color: "var(--vh-muted)" }}>
+                        {(q.seats ?? 1) === 1 ? "Single winner · IRV" : `${q.seats} winners · STV`}
+                      </span>
                     </div>
                   )}
                 </div>

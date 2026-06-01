@@ -58,6 +58,7 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
           order: q.order,
           required: q.required ?? true,
           maxSelections: q.maxSelections ?? null,
+          seats: q.seats ?? 1,
           randomizeOptions: q.randomizeOptions ?? false,
           showOptionAvatars: q.showOptionAvatars ?? true,
         },
@@ -113,6 +114,7 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
         (prev.description ?? null) !== (q.description ?? null) ||
         (prev.required ?? true) !== (q.required ?? true) ||
         (prev.maxSelections ?? null) !== (q.maxSelections ?? null) ||
+        (prev.seats ?? 1) !== (q.seats ?? 1) ||
         (prev.randomizeOptions ?? false) !== (q.randomizeOptions ?? false) ||
         (prev.showOptionAvatars ?? true) !== (q.showOptionAvatars ?? true)
 

@@ -218,14 +218,99 @@ export default function ResultsDashboard({ electionId, initialData, endsAt, elec
                 className="flex-shrink-0 text-[11.5px] uppercase tracking-wide px-2.5 py-1 rounded-full"
                 style={{ background: "var(--vh-surface-2)", color: "var(--vh-muted)" }}
               >
-                {q.type === "RANKED_CHOICE" ? "Preference Ranking" : q.type === "SINGLE_CHOICE" ? "Single Choice" : q.type === "MULTIPLE_CHOICE" ? "Multiple Choice" : "Write-in"}
+                {q.type === "RANKED_CHOICE" ? "Ranked Choice" : q.type === "SINGLE_CHOICE" ? "Single Choice" : q.type === "MULTIPLE_CHOICE" ? "Multiple Choice" : "Write-in"}
               </span>
             </div>
-            {q.type === "RANKED_CHOICE" && (
-              <p className="text-[12px] mb-4" style={{ color: "var(--vh-muted)" }}>
-                Shows 1st preference counts. No automatic winner is declared — results reflect voter ordering only.
-              </p>
-            )}
+            {q.type === "RANKED_CHOICE" && (() => {
+              const rcv = "rcvResult" in q ? q.rcvResult as {
+                kind: string
+                winner?: string | null
+                winners?: string[]
+                isTie?: boolean
+                tiedOptions?: string[]
+                rounds?: Array<{ round: number; counts: Record<string, number>; totalActive?: number; eliminated: string[] }>
+              } | null : null
+
+              if (!rcv) return (
+                <p className="text-[12px] mb-4" style={{ color: "var(--vh-muted)" }}>
+                  No votes yet.
+                </p>
+              )
+
+              const seats = "seats" in q ? (q.seats as number) : 1
+              const optionLabelMap = new Map(options.map((o) => [o.optionId, o.optionText]))
+
+              if (rcv.kind === "irv") {
+                const winnerLabel = rcv.isTie
+                  ? `Tied: ${(rcv.tiedOptions ?? []).map((id) => optionLabelMap.get(id) ?? id).join(", ")}`
+                  : rcv.winner
+                    ? `Winner: ${optionLabelMap.get(rcv.winner) ?? rcv.winner}`
+                    : null
+                const rounds = rcv.rounds ?? []
+
+                return (
+                  <div className="mb-4">
+                    {winnerLabel && (
+                      <div
+                        className="inline-flex items-center gap-1.5 text-[12.5px] font-medium px-3 py-1.5 rounded-[8px] mb-3"
+                        style={rcv.isTie
+                          ? { background: "var(--vh-surface-2)", color: "var(--vh-muted)" }
+                          : { background: "var(--vh-accent-soft)", color: "var(--vh-accent-strong)" }
+                        }
+                      >
+                        {rcv.isTie ? "⊜" : "✓"} {winnerLabel}
+                      </div>
+                    )}
+                    {rounds.length > 1 && (
+                      <details className="mt-1">
+                        <summary
+                          className="text-[12px] cursor-pointer select-none"
+                          style={{ color: "var(--vh-muted)" }}
+                        >
+                          {rounds.length} elimination round{rounds.length !== 1 ? "s" : ""} · click to expand
+                        </summary>
+                        <div className="mt-2 flex flex-col gap-1">
+                          {rounds.map((r) => (
+                            <div
+                              key={r.round}
+                              className="text-[11.5px] rounded-[8px] px-3 py-2"
+                              style={{ background: "var(--vh-surface-2)", color: "var(--vh-ink-soft)" }}
+                            >
+                              <span className="font-medium">Round {r.round}</span>
+                              {r.eliminated.length > 0 && (
+                                <span style={{ color: "var(--vh-muted)" }}>
+                                  {" — eliminated: "}{r.eliminated.map((id) => optionLabelMap.get(id) ?? id).join(", ")}
+                                </span>
+                              )}
+                              {r.eliminated.length === 0 && rcv.winner && (
+                                <span style={{ color: "var(--vh-accent)" }}>{" — winner declared"}</span>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      </details>
+                    )}
+                  </div>
+                )
+              }
+
+              if (rcv.kind === "stv") {
+                const winners = rcv.winners ?? []
+                return (
+                  <div className="mb-4">
+                    <div
+                      className="inline-flex items-center gap-1.5 text-[12.5px] font-medium px-3 py-1.5 rounded-[8px]"
+                      style={{ background: "var(--vh-accent-soft)", color: "var(--vh-accent-strong)" }}
+                    >
+                      ✓ {winners.length} of {seats} seat{seats !== 1 ? "s" : ""} filled
+                      {winners.length > 0 && `: ${winners.map((id) => optionLabelMap.get(id) ?? id).join(", ")}`}
+                    </div>
+                  </div>
+                )
+              }
+
+              return null
+            })()}
 
             <div className="flex flex-col gap-3.5">
               {sortedOptions.map((o) => {
@@ -238,7 +323,7 @@ export default function ResultsDashboard({ electionId, initialData, endsAt, elec
                   <div key={o.optionId}>
                     <div className="flex items-center justify-between mb-1.5 text-[14px]">
                       <span className="flex items-center gap-2 min-w-0 flex-1 mr-2">
-                        {chipLabel && q.type !== "RANKED_CHOICE" && (
+                        {chipLabel && (
                           <span
                             className="flex-shrink-0 text-[11px] font-medium px-1.5 py-0.5 rounded-[4px]"
                             style={

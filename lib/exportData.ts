@@ -11,6 +11,7 @@ export type EnrichedOption = {
 }
 
 export type EnrichedRcvOption = {
+  optionId: string
   optionText: string
   firstChoiceCount: number
   pct: number
@@ -20,8 +21,8 @@ export type EnrichedRcvOption = {
 
 export type EnrichedQuestion =
   | { type: "WRITE_IN"; questionText: string; writeIns: string[] }
-  | { type: "SINGLE_CHOICE" | "MULTIPLE_CHOICE"; questionText: string; options: EnrichedOption[] }
-  | { type: "RANKED_CHOICE"; questionText: string; options: EnrichedRcvOption[]; maxRank: number }
+  | { type: "SINGLE_CHOICE" | "MULTIPLE_CHOICE"; questionText: string; options: EnrichedOption[]; isTie: boolean }
+  | { type: "RANKED_CHOICE"; questionText: string; options: EnrichedRcvOption[]; maxRank: number; isTie: boolean }
 
 export type VoterRow = {
   name: string
@@ -70,20 +71,41 @@ export async function loadExportData(electionId: string): Promise<ExportData | n
 
     if (q.type === "RANKED_CHOICE") {
       const rcvOptions = (q as unknown as { options: EnrichedRcvOption[] }).options
+      const rcvResult = (q as unknown as { rcvResult?: { kind: string; winner?: string | null; winners?: string[]; isTie?: boolean; tiedOptions?: string[] } }).rcvResult
       const sorted = [...rcvOptions].sort((a, b) => b.firstChoiceCount - a.firstChoiceCount)
       const total = sorted.reduce((sum, o) => sum + o.firstChoiceCount, 0)
       const maxRank = sorted.reduce((max, o) => {
         const ranks = Object.keys(o.rankCounts).map(Number)
         return ranks.length > 0 ? Math.max(max, ...ranks) : max
       }, 0)
+
+      // Use IRV/STV winner(s) if available; fall back to first-choice leader
+      let winnerIds: Set<string>
+      let isTie: boolean
+      if (rcvResult?.kind === "irv") {
+        isTie = rcvResult.isTie ?? false
+        winnerIds = rcvResult.winner ? new Set([rcvResult.winner]) : new Set(rcvResult.tiedOptions ?? [])
+      } else if (rcvResult?.kind === "stv") {
+        isTie = false
+        winnerIds = new Set(rcvResult.winners ?? [])
+      } else {
+        const topFCC = sorted[0]?.firstChoiceCount ?? 0
+        isTie = topFCC > 0 && sorted.filter((o) => o.firstChoiceCount === topFCC).length > 1
+        winnerIds = isTie
+          ? new Set(sorted.filter((o) => o.firstChoiceCount === topFCC).map((o) => o.optionId))
+          : topFCC > 0 ? new Set([sorted[0]!.optionId]) : new Set()
+      }
+
       return {
         type: "RANKED_CHOICE" as const,
         questionText: q.questionText,
-        options: sorted.map((o, i) => ({
+        isTie,
+        options: sorted.map((o) => ({
+          optionId: o.optionId,
           optionText: o.optionText,
           firstChoiceCount: o.firstChoiceCount,
           pct: total > 0 ? Math.round((o.firstChoiceCount / total) * 100) : 0,
-          winner: i === 0 && o.firstChoiceCount > 0,
+          winner: winnerIds.has(o.optionId),
           rankCounts: o.rankCounts,
         })),
         maxRank,
@@ -93,14 +115,17 @@ export async function loadExportData(electionId: string): Promise<ExportData | n
     const rawOptions = (q as { options: Array<{ optionText: string; count: number }> }).options
     const sorted = [...rawOptions].sort((a, b) => b.count - a.count)
     const total = sorted.reduce((sum, o) => sum + o.count, 0)
+    const topCount = sorted[0]?.count ?? 0
+    const isTie = topCount > 0 && sorted.filter((o) => o.count === topCount).length > 1
     return {
       type: q.type as "SINGLE_CHOICE" | "MULTIPLE_CHOICE",
       questionText: q.questionText,
-      options: sorted.map((o, i) => ({
+      isTie,
+      options: sorted.map((o) => ({
         optionText: o.optionText,
         count: o.count,
         pct: total > 0 ? Math.round((o.count / total) * 100) : 0,
-        winner: i === 0 && o.count > 0,
+        winner: topCount > 0 && o.count === topCount,
       })),
     }
   })
