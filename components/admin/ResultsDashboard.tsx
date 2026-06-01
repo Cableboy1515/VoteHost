@@ -116,6 +116,47 @@ export default function ResultsDashboard({ electionId, initialData, endsAt, elec
         </div>
       </div>
 
+      {/* Quorum — only shown when a quorum requirement is set */}
+      {data.quorumType !== "NONE" && data.quorumRequired !== null && (
+        <div
+          className="rounded-[16px] p-5"
+          style={{ background: "var(--vh-surface)", border: "1px solid var(--vh-line)" }}
+        >
+          <div className="flex items-center justify-between gap-3 mb-3">
+            <h3 className="text-[14px] font-semibold" style={{ color: "var(--vh-ink)" }}>Quorum</h3>
+            <span
+              className="text-[12px] font-medium px-2.5 py-1 rounded-full"
+              style={data.quorumMet
+                ? { background: "var(--vh-success-soft)", color: "var(--vh-success)" }
+                : { background: "var(--vh-surface-2)", color: "var(--vh-muted)" }
+              }
+            >
+              {data.quorumMet ? "✓ Met" : "Not yet reached"}
+            </span>
+          </div>
+          <div className="flex items-baseline gap-2 mb-2">
+            <span className="text-[22px] font-semibold tabular-nums" style={{ color: "var(--vh-ink)" }}>
+              {data.votedCount}
+            </span>
+            <span className="text-[13px]" style={{ color: "var(--vh-muted)" }}>
+              of {data.quorumRequired} required
+              {data.quorumType === "PERCENT" && data.quorumValue !== null
+                ? ` (${data.quorumValue}% of ${data.totalVoters} voters)`
+                : ""}
+            </span>
+          </div>
+          <div className="h-2 rounded-full overflow-hidden" style={{ background: "var(--vh-surface-3)" }}>
+            <div
+              className="h-full rounded-full transition-all"
+              style={{
+                width: `${Math.min(100, Math.round((data.votedCount / data.quorumRequired) * 100))}%`,
+                background: data.quorumMet ? "var(--vh-success)" : "var(--vh-accent)",
+              }}
+            />
+          </div>
+        </div>
+      )}
+
       {/* Verification section — only shown for completed elections */}
       {electionStatus === "COMPLETED" && data.tallyHash && (
         <div

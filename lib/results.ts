@@ -91,6 +91,22 @@ export async function getResultsForElection(electionId: string) {
     }
   })
 
+  // Quorum computation
+  const quorumType = election?.quorumType ?? "NONE"
+  const quorumValue = election?.quorumValue ?? null
+  const totalVoters = voterStats._count.id
+
+  let quorumRequired: number | null = null
+  let quorumMet: boolean | null = null
+
+  if (quorumType === "PERCENT" && quorumValue !== null && totalVoters > 0) {
+    quorumRequired = Math.ceil(totalVoters * quorumValue / 100)
+    quorumMet = votedCount >= quorumRequired
+  } else if (quorumType === "COUNT" && quorumValue !== null) {
+    quorumRequired = quorumValue
+    quorumMet = votedCount >= quorumRequired
+  }
+
   let tallyHash = election?.tallyHash ?? null
   const tallyHashSetAt = election?.tallyHashSetAt ?? null
 
@@ -106,8 +122,12 @@ export async function getResultsForElection(electionId: string) {
   return {
     electionId,
     electionTitle: election?.title ?? "",
-    totalVoters: voterStats._count.id,
+    totalVoters,
     votedCount,
+    quorumType,
+    quorumValue,
+    quorumRequired,
+    quorumMet,
     tallyHash,
     tallyHashSetAt,
     questions: questionResults,

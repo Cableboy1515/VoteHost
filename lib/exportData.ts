@@ -38,6 +38,10 @@ export type ExportData = {
   votedCount: number
   turnoutPct: number
   tallyHash: string | null
+  quorumType: string
+  quorumValue: number | null
+  quorumRequired: number | null
+  quorumMet: boolean | null
   questions: EnrichedQuestion[]
   voters: VoterRow[]
 }
@@ -142,6 +146,10 @@ export async function loadExportData(electionId: string): Promise<ExportData | n
     votedCount: raw.votedCount,
     turnoutPct,
     tallyHash: raw.tallyHash,
+    quorumType: raw.quorumType,
+    quorumValue: raw.quorumValue,
+    quorumRequired: raw.quorumRequired,
+    quorumMet: raw.quorumMet,
     questions,
     voters,
   }

@@ -21,6 +21,8 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
       closedAt: true,
       endsAt: true,
       createdAt: true,
+      quorumType: true,
+      quorumValue: true,
     },
   })
 
@@ -28,7 +30,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
     return new Response("Not found or election not completed", { status: 404 })
   }
 
-  const [questions, votes, receipts] = await Promise.all([
+  const [questions, votes, receipts, voterStats] = await Promise.all([
     db.question.findMany({
       where: { electionId: id },
       include: { options: { orderBy: { order: "asc" } } },
@@ -43,7 +45,20 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
       select: { receiptCode: true, ballotHash: true },
       orderBy: { createdAt: "asc" },
     }),
+    db.voter.aggregate({ where: { electionId: id }, _count: { id: true } }),
   ])
+
+  const totalVoters = voterStats._count.id
+  const votedCount = await db.voter.count({ where: { electionId: id, hasVoted: true } })
+  let quorumRequired: number | null = null
+  let quorumMet: boolean | null = null
+  if (election.quorumType === "PERCENT" && election.quorumValue !== null && totalVoters > 0) {
+    quorumRequired = Math.ceil(totalVoters * election.quorumValue / 100)
+    quorumMet = votedCount >= quorumRequired
+  } else if (election.quorumType === "COUNT" && election.quorumValue !== null) {
+    quorumRequired = election.quorumValue
+    quorumMet = votedCount >= quorumRequired
+  }
 
   const payload = {
     electionId: election.id,
@@ -51,6 +66,9 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
     tallyHash: election.tallyHash ? `sha256:${election.tallyHash}` : null,
     tallyHashSetAt: election.tallyHashSetAt?.toISOString() ?? null,
     hashAlgorithm: "SHA-256 of canonical JSON (votes sorted by questionId ASC, optionId ASC, rank ASC)",
+    quorum: election.quorumType !== "NONE"
+      ? { type: election.quorumType, value: election.quorumValue, required: quorumRequired, met: quorumMet, voted: votedCount, total: totalVoters }
+      : null,
     questions: questions.map((q) => ({
       id: q.id,
       text: q.text,

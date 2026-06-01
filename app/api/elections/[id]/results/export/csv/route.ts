@@ -13,7 +13,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
   const [data, tz] = await Promise.all([loadExportData(id), getDisplayTimeZone()])
   if (!data) return new Response("Not found or election not completed", { status: 404 })
 
-  const { election, questions, tallyHash } = data
+  const { election, questions, tallyHash, quorumType, quorumRequired, quorumMet, votedCount } = data
 
   type Row = {
     question: string
@@ -68,7 +68,10 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
   })
 
   const hashComment = tallyHash ? `# Tally Hash: sha256:${tallyHash}\n` : ""
-  const csv = hashComment + csvBody
+  const quorumComment = quorumType !== "NONE" && quorumRequired !== null
+    ? `# Quorum: ${votedCount} of ${quorumRequired} required — ${quorumMet ? "Met" : "Not met"}\n`
+    : ""
+  const csv = hashComment + quorumComment + csvBody
 
   const filename = exportFilename(election, "csv", tz)
 

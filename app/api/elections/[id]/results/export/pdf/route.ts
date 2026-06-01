@@ -71,7 +71,7 @@ function drawWinnerBadge(doc: PDFKit.PDFDocument, x: number, y: number, label = 
 }
 
 function renderContent(doc: PDFKit.PDFDocument, data: ExportData, s: Spacing, tz: string): void {
-  const { election, totalVoters, votedCount, turnoutPct, questions } = data
+  const { election, totalVoters, votedCount, turnoutPct, quorumType, quorumRequired, quorumMet, questions } = data
 
   const closeDate = (election.closedAt ?? election.endsAt ?? election.createdAt)
     .toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric", timeZone: tz })
@@ -114,6 +114,13 @@ function renderContent(doc: PDFKit.PDFDocument, data: ExportData, s: Spacing, tz
   doc.x = 50
   doc.fontSize(11).fillColor(INK_SOFT).font("Helvetica")
     .text(`${votedCount} of ${totalVoters} voters cast a ballot  ·  ${turnoutPct}%`)
+  if (quorumType !== "NONE" && quorumRequired !== null) {
+    doc.moveDown(0.3)
+    doc.x = 50
+    const quorumStatus = quorumMet ? "✓ Met" : "Not met"
+    doc.fontSize(10).fillColor(quorumMet ? "#2d8a4e" : MUTED).font("Helvetica")
+      .text(`Quorum: ${votedCount} of ${quorumRequired} required — ${quorumStatus}`)
+  }
   doc.moveDown(s.turnoutGap)
 
   // ─── Per-question results ─────────────────────────────────────────────
