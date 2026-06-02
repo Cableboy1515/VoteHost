@@ -40,12 +40,13 @@ type ElectionCard = {
   totalVoters: number
   participation: number
   heroColor: string | null
-  state: "active" | "completed"
+  state: "active" | "completed" | "pending_review"
 }
 
 function ActiveCard({ e, variant }: { e: ElectionCard; variant: "hero" | "tile" }) {
   const isHero = variant === "hero"
   const isCompleted = e.state === "completed"
+  const isPendingReview = e.state === "pending_review"
   const color = getHeroColor(e.heroColor)
   return (
     <div
@@ -77,7 +78,7 @@ function ActiveCard({ e, variant }: { e: ElectionCard; variant: "hero" | "tile" 
       <div className="relative">
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2">
-            {isCompleted ? (
+            {(isCompleted || isPendingReview) ? (
               <span
                 className="w-2 h-2 rounded-full"
                 style={{ background: "rgba(255,255,255,0.70)" }}
@@ -89,7 +90,7 @@ function ActiveCard({ e, variant }: { e: ElectionCard; variant: "hero" | "tile" 
               />
             )}
             <span className="text-[11.5px] tracking-widest opacity-85 uppercase">
-              {isCompleted ? "Completed" : "Election in progress"}
+              {isPendingReview ? "Review required" : isCompleted ? "Completed" : "Election in progress"}
             </span>
           </div>
           {isCompleted && <DismissHeroButton electionId={e.id} />}
@@ -138,21 +139,33 @@ function ActiveCard({ e, variant }: { e: ElectionCard; variant: "hero" | "tile" 
           )}
         </div>
         <div className={`flex justify-end gap-2 ${isHero ? "mt-5" : "mt-4"}`}>
-          {!isCompleted && <HeroColorPicker electionId={e.id} currentColor={e.heroColor} />}
-          <Link
-            href={`/elections/${e.id}/voters`}
-            className="inline-flex items-center justify-center px-3.5 py-1.5 rounded-[10px] text-[13px] transition-colors bg-[rgba(255,255,255,0.12)] hover:bg-[rgba(255,255,255,0.20)]"
-            style={{ color: "white", border: "1px solid rgba(255,255,255,0.25)" }}
-          >
-            Voters
-          </Link>
-          <Link
-            href={`/elections/${e.id}/results`}
-            className="inline-flex items-center justify-center px-3.5 py-1.5 rounded-[10px] text-[13px] font-semibold transition-colors hover:opacity-90"
-            style={{ background: "white", color: color.strong }}
-          >
-            {isCompleted ? "View final results →" : "View live results →"}
-          </Link>
+          {!isCompleted && !isPendingReview && <HeroColorPicker electionId={e.id} currentColor={e.heroColor} />}
+          {!isPendingReview && (
+            <Link
+              href={`/elections/${e.id}/voters`}
+              className="inline-flex items-center justify-center px-3.5 py-1.5 rounded-[10px] text-[13px] transition-colors bg-[rgba(255,255,255,0.12)] hover:bg-[rgba(255,255,255,0.20)]"
+              style={{ color: "white", border: "1px solid rgba(255,255,255,0.25)" }}
+            >
+              Voters
+            </Link>
+          )}
+          {isPendingReview ? (
+            <Link
+              href={`/elections/${e.id}/review`}
+              className="inline-flex items-center justify-center px-3.5 py-1.5 rounded-[10px] text-[13px] font-semibold transition-colors hover:opacity-90"
+              style={{ background: "white", color: color.strong }}
+            >
+              Review write-ins →
+            </Link>
+          ) : (
+            <Link
+              href={`/elections/${e.id}/results`}
+              className="inline-flex items-center justify-center px-3.5 py-1.5 rounded-[10px] text-[13px] font-semibold transition-colors hover:opacity-90"
+              style={{ background: "white", color: color.strong }}
+            >
+              {isCompleted ? "View final results →" : "View live results →"}
+            </Link>
+          )}
         </div>
         {e.totalVoters > 0 && (
           <div
@@ -218,6 +231,19 @@ export default async function DashboardPage() {
           state: "active" as const,
         }]
       }
+      if (e.status === "PENDING_REVIEW") {
+        return [{
+          id: e.id,
+          title: e.title,
+          endsAt: e.endsAt,
+          endedAt: e.closedAt ?? e.endsAt,
+          votedCount: e.votedCount,
+          totalVoters: e._count.voters,
+          participation: e._count.voters > 0 ? Math.round((e.votedCount / e._count.voters) * 100) : 0,
+          heroColor: e.heroColor,
+          state: "pending_review" as const,
+        }]
+      }
       if (e.status === "COMPLETED" && !e.dashboardDismissedAt) {
         const endedAt = e.closedAt ?? e.endsAt
         if (endedAt && now - endedAt.getTime() <= GRACE_MS) {
@@ -250,7 +276,7 @@ export default async function DashboardPage() {
       return bEnded - aEnded
     })
 
-  const activeCount = heroElections.filter((e) => e.state === "active").length
+  const activeCount = heroElections.filter((e) => e.state === "active" || e.state === "pending_review").length
   const totalVoters = electionsWithStats.reduce((sum, e) => sum + e._count.voters, 0)
   const totalVoted = electionsWithStats.reduce((sum, e) => sum + e.votedCount, 0)
   const draftCount = electionsWithStats.filter((e) => e.status === "DRAFT").length

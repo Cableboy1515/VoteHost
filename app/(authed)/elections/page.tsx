@@ -14,12 +14,14 @@ type FilterKey = "all" | "active" | "draft" | "completed"
 const STATUS_LABEL: Record<ElectionStatus, string> = {
   DRAFT: "Draft",
   ACTIVE: "Active",
+  PENDING_REVIEW: "Pending Review",
   COMPLETED: "Completed",
 }
 
 const STATUS_STYLE: Record<ElectionStatus, React.CSSProperties> = {
   DRAFT: { background: "var(--vh-surface-3)", color: "var(--vh-ink-soft)", borderColor: "var(--vh-line-strong)" },
   ACTIVE: { background: "var(--vh-success-soft)", color: "oklch(0.35 0.10 155)", borderColor: "oklch(0.78 0.08 155)" },
+  PENDING_REVIEW: { background: "oklch(0.96 0.06 75)", color: "oklch(0.4 0.14 65)", borderColor: "oklch(0.82 0.10 75)" },
   COMPLETED: { background: "var(--vh-accent-soft)", color: "var(--vh-accent-strong)", borderColor: "oklch(0.85 0.05 255)" },
 }
 
@@ -42,6 +44,8 @@ const FILTER_TABS: { key: FilterKey; label: string; status?: ElectionStatus }[] 
   { key: "active", label: "Active", status: "ACTIVE" },
   { key: "draft", label: "Drafts", status: "DRAFT" },
   { key: "completed", label: "Completed", status: "COMPLETED" },
+  // PENDING_REVIEW elections are intentionally included in "All" but not a separate
+  // filter tab (they appear as a distinct amber badge with a Review link).
 ]
 
 export default async function ElectionsListPage({
@@ -157,7 +161,8 @@ export default async function ElectionsListPage({
     all: totalNonArchived,
     active: statusCounts.find((s) => s.status === "ACTIVE")?._count._all ?? 0,
     draft: statusCounts.find((s) => s.status === "DRAFT")?._count._all ?? 0,
-    completed: statusCounts.find((s) => s.status === "COMPLETED")?._count._all ?? 0,
+    completed: (statusCounts.find((s) => s.status === "COMPLETED")?._count._all ?? 0)
+             + (statusCounts.find((s) => s.status === "PENDING_REVIEW")?._count._all ?? 0),
   }
 
   return (
@@ -241,27 +246,41 @@ export default async function ElectionsListPage({
                 </div>
               )}
               <div className="flex flex-wrap gap-1.5">
-                <Link
-                  href={`/elections/${e.id}`}
-                  className="px-3 py-1.5 rounded-[10px] text-[13px] transition-colors bg-vh-surface-2 hover:bg-vh-surface-3"
-                  style={{ color: "var(--vh-ink-soft)", border: "1px solid var(--vh-line-strong)" }}
-                >
-                  Edit
-                </Link>
-                <Link
-                  href={`/elections/${e.id}/voters`}
-                  className="px-3 py-1.5 rounded-[10px] text-[13px] transition-colors bg-vh-surface-2 hover:bg-vh-surface-3"
-                  style={{ color: "var(--vh-ink-soft)", border: "1px solid var(--vh-line-strong)" }}
-                >
-                  Voters
-                </Link>
-                <Link
-                  href={`/elections/${e.id}/results`}
-                  className="px-3 py-1.5 rounded-[10px] text-[13px] transition-colors bg-vh-surface-2 hover:bg-vh-surface-3"
-                  style={{ color: "var(--vh-ink-soft)", border: "1px solid var(--vh-line-strong)" }}
-                >
-                  Results
-                </Link>
+                {e.status !== "PENDING_REVIEW" && (
+                  <Link
+                    href={`/elections/${e.id}`}
+                    className="px-3 py-1.5 rounded-[10px] text-[13px] transition-colors bg-vh-surface-2 hover:bg-vh-surface-3"
+                    style={{ color: "var(--vh-ink-soft)", border: "1px solid var(--vh-line-strong)" }}
+                  >
+                    Edit
+                  </Link>
+                )}
+                {e.status === "PENDING_REVIEW" ? (
+                  <Link
+                    href={`/elections/${e.id}/review`}
+                    className="px-3 py-1.5 rounded-[10px] text-[13px] font-medium transition-colors"
+                    style={{ background: "oklch(0.96 0.06 75)", color: "oklch(0.4 0.14 65)", border: "1px solid oklch(0.82 0.10 75)" }}
+                  >
+                    Review write-ins →
+                  </Link>
+                ) : (
+                  <>
+                    <Link
+                      href={`/elections/${e.id}/voters`}
+                      className="px-3 py-1.5 rounded-[10px] text-[13px] transition-colors bg-vh-surface-2 hover:bg-vh-surface-3"
+                      style={{ color: "var(--vh-ink-soft)", border: "1px solid var(--vh-line-strong)" }}
+                    >
+                      Voters
+                    </Link>
+                    <Link
+                      href={`/elections/${e.id}/results`}
+                      className="px-3 py-1.5 rounded-[10px] text-[13px] transition-colors bg-vh-surface-2 hover:bg-vh-surface-3"
+                      style={{ color: "var(--vh-ink-soft)", border: "1px solid var(--vh-line-strong)" }}
+                    >
+                      Results
+                    </Link>
+                  </>
+                )}
                 <ArchiveElectionButton id={e.id} archived={false} electionStatus={e.status} />
               </div>
             </div>

@@ -36,7 +36,8 @@ export default async function EditElectionPage({ params }: { params: Promise<{ i
   if (!election) notFound()
 
   const isClosed = election.status === "COMPLETED"
-  const canDiscard = !!election.firstVoteAt && election.status !== "COMPLETED"
+  const isPendingReview = election.status === "PENDING_REVIEW"
+  const canDiscard = !!election.firstVoteAt && election.status !== "COMPLETED" && !isPendingReview
   const votedCount = election._count.voters
   const totalVoterCount = election.voters.length
   const invitedCount = election.voters.filter((v) => v.invitedAt !== null).length
@@ -107,6 +108,28 @@ export default async function EditElectionPage({ params }: { params: Promise<{ i
           quorumValue: election.quorumValue,
         }}
       />
+      {isPendingReview && (
+        <div
+          className="mt-6 rounded-[14px] px-5 py-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3"
+          style={{ background: "oklch(0.96 0.06 75)", border: "1px solid oklch(0.82 0.10 75)" }}
+        >
+          <div>
+            <p className="text-[14px] font-semibold" style={{ color: "oklch(0.4 0.14 65)" }}>
+              Write-in review required
+            </p>
+            <p className="text-[13px]" style={{ color: "oklch(0.5 0.10 65)" }}>
+              Voting has closed. Review and merge write-in responses before the tally is sealed.
+            </p>
+          </div>
+          <a
+            href={`/elections/${id}/review`}
+            className="flex-shrink-0 px-4 py-2.5 rounded-[10px] text-[13.5px] font-semibold transition-colors"
+            style={{ background: "oklch(0.55 0.14 65)", color: "white" }}
+          >
+            Review write-ins →
+          </a>
+        </div>
+      )}
       {isClosed && (
         <PurgeImagesButton
           electionId={id}
@@ -123,7 +146,7 @@ export default async function EditElectionPage({ params }: { params: Promise<{ i
           {election.status === "ACTIVE" && !election.firstVoteAt && (
             <CancelActivationButton electionId={id} electionTitle={election.title} />
           )}
-          {election.status === "ACTIVE" && (
+          {election.status === "ACTIVE" && !isPendingReview && (
             <CloseElectionEarlyButton id={id} title={election.title} variant="danger" />
           )}
           {canDiscard && (

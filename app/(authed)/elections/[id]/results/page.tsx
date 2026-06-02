@@ -13,6 +13,7 @@ import { formatDateOnlyInTz, getDisplayTimeZone } from "@/lib/timezone"
 const STATUS_STYLE: Record<ElectionStatus, React.CSSProperties> = {
   DRAFT: { background: "var(--vh-surface-3)", color: "var(--vh-ink-soft)", borderColor: "var(--vh-line-strong)" },
   ACTIVE: { background: "var(--vh-success-soft)", color: "oklch(0.35 0.10 155)", borderColor: "oklch(0.78 0.08 155)" },
+  PENDING_REVIEW: { background: "oklch(0.96 0.06 75)", color: "oklch(0.4 0.14 65)", borderColor: "oklch(0.82 0.10 75)" },
   COMPLETED: { background: "var(--vh-accent-soft)", color: "var(--vh-accent-strong)", borderColor: "oklch(0.85 0.05 255)" },
 }
 

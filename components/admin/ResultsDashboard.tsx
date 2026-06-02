@@ -290,7 +290,7 @@ export default function ResultsDashboard({ electionId, initialData, endsAt, elec
                 className="flex-shrink-0 text-[11.5px] uppercase tracking-wide px-2.5 py-1 rounded-full"
                 style={{ background: "var(--vh-surface-2)", color: "var(--vh-muted)" }}
               >
-                {q.type === "RANKED_CHOICE" ? "Ranked Choice" : q.type === "SINGLE_CHOICE" ? "Single Choice" : q.type === "MULTIPLE_CHOICE" ? "Multiple Choice" : "Write-in"}
+                {q.type === "RANKED_CHOICE" ? "Ranked Choice" : q.type === "SINGLE_CHOICE" ? "Single Choice" : q.type === "MULTIPLE_CHOICE" ? "Multiple Choice" : "Comment"}
               </span>
             </div>
             {/* ── Ranked Choice: round-by-round table ─────────────────────────── */}
@@ -471,7 +471,12 @@ export default function ResultsDashboard({ electionId, initialData, endsAt, elec
                                     whiteSpace: "nowrap",
                                   }}
                                 >
-                                  {opt.optionText}
+                                  <span className="flex items-center gap-1.5">
+                                    <span className="truncate">{opt.optionText}</span>
+                                    {(opt as { optionId: string }).optionId?.startsWith("writein:") && (
+                                      <span className="flex-shrink-0 text-[10px] px-1.5 py-0.5 rounded-[4px] font-medium" style={{ background: "var(--vh-surface-3)", color: "var(--vh-muted)" }}>write-in</span>
+                                    )}
+                                  </span>
                                 </td>
 
                                 {/* One cell per round */}
@@ -583,6 +588,9 @@ export default function ResultsDashboard({ electionId, initialData, endsAt, elec
                             </span>
                           )}
                           <span className="min-w-0 break-words" style={{ fontWeight: isTop ? 600 : 400 }}>{o.optionText}</span>
+                          {(o as { optionId: string }).optionId?.startsWith("writein:") && (
+                            <span className="flex-shrink-0 text-[10px] px-1.5 py-0.5 rounded-[4px] font-medium" style={{ background: "var(--vh-surface-3)", color: "var(--vh-muted)" }}>write-in</span>
+                          )}
                         </span>
                         <span style={{ fontVariantNumeric: "tabular-nums", color: "var(--vh-ink-soft)" }}>
                           <strong>{votes}</strong>

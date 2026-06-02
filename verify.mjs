@@ -39,21 +39,56 @@ console.log("Published hash:", published)
 console.log("Computed hash: ", computed)
 console.log("Hash match:    ", computed === published ? "YES ✓" : "NO ✗ — results may have been altered")
 
+// ── 1b. Verify normalization manifest hash (write-in merges) ────────────────
+const manifest = audit.normalizationManifest ?? []
+const manifestHashPublished = audit.normalizationManifestHash ?? null
+if (manifestHashPublished) {
+  // Sorted the same way the server sorts in computeNormalizationManifestHash:
+  // orderBy [questionId ASC, rawText ASC], select {questionId, rawText, canonicalLabel}
+  const sortedManifest = [...manifest].sort((a, b) => {
+    if (a.questionId !== b.questionId) return a.questionId.localeCompare(b.questionId)
+    return a.rawText.localeCompare(b.rawText)
+  })
+  const computedManifestHash = "sha256:" + sha256(sortedManifest)
+  console.log("\nNormalization manifest:")
+  console.log("  Published manifest hash:", manifestHashPublished)
+  console.log("  Computed manifest hash: ", computedManifestHash)
+  console.log("  Manifest hash match:    ", computedManifestHash === manifestHashPublished
+    ? "YES ✓" : "NO ✗ — manifest may have been altered")
+  console.log(`  Merge mappings: ${manifest.length}`)
+}
+
+// Build per-question merge map for tally reproduction
+const mergeMapByQuestion = new Map()
+for (const m of manifest) {
+  if (!mergeMapByQuestion.has(m.questionId)) mergeMapByQuestion.set(m.questionId, new Map())
+  mergeMapByQuestion.get(m.questionId).set(m.rawText, m.canonicalLabel)
+}
+
 // ── 2. Re-tally votes (type-aware, full IRV/STV re-tabulation) ─────────────
 // The three functions below are a verbatim JS port of lib/tally/rankedChoice.ts.
 // If the server engine changes, update this section to match.
 
-function groupBallots(votes) {
+// groupBallots now accepts a mergeMap and optionTextToId so write-in votes can
+// be assigned a stable candidateId that matches the server's tally overlay.
+function groupBallots(votes, qMergeMap, optionTextToId) {
   const map = new Map()
   for (const v of votes) {
-    if (!v.ballotId || !v.optionId || v.rank == null) continue
+    if (!v.ballotId || v.rank == null) continue
+    let candidateId = v.optionId
+    if (!candidateId && v.writeInText) {
+      const normalized = qMergeMap?.get(v.writeInText) ?? v.writeInText
+      const realId = optionTextToId?.get(normalized)
+      candidateId = realId ?? `writein:${normalized}`
+    }
+    if (!candidateId) continue
     if (!map.has(v.ballotId)) map.set(v.ballotId, [])
-    map.get(v.ballotId).push({ optionId: v.optionId, rank: v.rank })
+    map.get(v.ballotId).push({ candidateId, rank: v.rank })
   }
   const ballots = []
   for (const rankings of map.values()) {
     rankings.sort((a, b) => a.rank - b.rank)
-    ballots.push(rankings.map(r => r.optionId))
+    ballots.push(rankings.map(r => r.candidateId))
   }
   return ballots
 }
@@ -179,22 +214,45 @@ function runSTV(ballots, allOptionIds, seats) {
 
 console.log("\nVote tallies by question:")
 for (const q of audit.questions) {
-  const label = id => q.options.find(o => o.id === id)?.text ?? id
   const qVotes = audit.votes.filter(v => v.questionId === q.id)
+  const qMergeMap = mergeMapByQuestion.get(q.id) ?? new Map()
+  const optionTextToId = new Map(q.options.map(o => [o.text, o.id]))
+  // label: resolves a candidateId (real optionId or "writein:<label>") to display text
+  const label = id => {
+    const opt = q.options.find(o => o.id === id)
+    if (opt) return opt.text
+    if (id?.startsWith("writein:")) return `${id.slice(8)} (write-in)`
+    return id ?? "(unknown)"
+  }
   console.log(`\n  ${q.text} [${q.type}]`)
 
   if (q.type === "RANKED_CHOICE") {
     const seats = q.seats ?? 1
-    const allOptionIds = q.options.map(o => o.id)
-    const ballots = groupBallots(qVotes)
-    // First-choice (rank-1) counts per candidate
+
+    // Build the full candidate set: real options + write-in synthetic candidates.
+    // Mirrors lib/results.ts: write-ins normalised to a real option's text use that
+    // option's id; others get a "writein:<label>" synthetic id.
+    const writeInVotes = qVotes.filter(v => !v.optionId && v.writeInText)
+    const synthIds = new Set()
+    for (const v of writeInVotes) {
+      const normalized = qMergeMap.get(v.writeInText) ?? v.writeInText
+      const realId = optionTextToId.get(normalized)
+      if (!realId) synthIds.add(`writein:${normalized}`)
+    }
+    const allCandidateIds = [...q.options.map(o => o.id), ...synthIds]
+
+    const ballots = groupBallots(qVotes, qMergeMap, optionTextToId)
+
+    // First-choice counts (real options only by default; synthetics counted in ballots)
     const fc = {}
-    for (const id of allOptionIds) fc[id] = 0
+    for (const id of allCandidateIds) fc[id] = 0
     for (const ballot of ballots) if (ballot[0]) fc[ballot[0]] = (fc[ballot[0]] ?? 0) + 1
+
     console.log(`    Method: ${seats > 1 ? "STV" : "IRV"}  |  Seats: ${seats}  |  Ballots cast: ${ballots.length}`)
+    if (synthIds.size > 0) console.log(`    Write-in candidates: ${[...synthIds].map(id => label(id)).join(", ")}`)
     console.log("    First-choice counts:")
-    for (const id of allOptionIds) console.log(`      ${fc[id].toString().padStart(4)}  ${label(id)}`)
-    const result = seats > 1 ? runSTV(ballots, allOptionIds, seats) : runIRV(ballots, allOptionIds)
+    for (const id of allCandidateIds) console.log(`      ${(fc[id] ?? 0).toString().padStart(4)}  ${label(id)}`)
+    const result = seats > 1 ? runSTV(ballots, allCandidateIds, seats) : runIRV(ballots, allCandidateIds)
     if (seats > 1) {
       console.log(`    Droop quota (initial): ${result.quota}`)
       for (const r of result.rounds) {
@@ -225,12 +283,24 @@ for (const q of audit.questions) {
     for (const [t, n] of entries) console.log(`      ${n.toString().padStart(4)}  ${t}`)
 
   } else {
-    // SINGLE_CHOICE / MULTIPLE_CHOICE — weight-aware tally
+    // SINGLE_CHOICE / MULTIPLE_CHOICE — weight-aware tally, with write-in normalization.
+    const counts = {}
+    // Real options first
     for (const o of q.options) {
-      const count = qVotes
+      counts[o.id] = qVotes
         .filter(v => v.optionId === o.id)
         .reduce((s, v) => s + (v.weight && v.weight > 1 ? v.weight : 1), 0)
-      console.log(`      ${count.toString().padStart(4)}  ${o.text}`)
+    }
+    // Write-in votes: normalize and bucket
+    const writeInVotes = qVotes.filter(v => !v.optionId && v.writeInText)
+    for (const v of writeInVotes) {
+      const normalized = qMergeMap.get(v.writeInText) ?? v.writeInText
+      const realId = optionTextToId.get(normalized)
+      const candidateId = realId ?? `writein:${normalized}`
+      counts[candidateId] = (counts[candidateId] ?? 0) + (v.weight && v.weight > 1 ? v.weight : 1)
+    }
+    for (const [id, count] of Object.entries(counts)) {
+      console.log(`      ${count.toString().padStart(4)}  ${label(id)}`)
     }
   }
 }

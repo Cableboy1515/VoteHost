@@ -19,6 +19,8 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
       status: true,
       tallyHash: true,
       tallyHashSetAt: true,
+      normalizationManifestHash: true,
+      finalizedAt: true,
       closedAt: true,
       endsAt: true,
       createdAt: true,
@@ -31,7 +33,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
     return new Response("Not found or election not completed", { status: 404 })
   }
 
-  const [questions, votes, receipts, voterStats, electionResults] = await Promise.all([
+  const [questions, votes, receipts, voterStats, electionResults, writeInMerges] = await Promise.all([
     db.question.findMany({
       where: { electionId: id },
       include: { options: { orderBy: { order: "asc" } } },
@@ -48,6 +50,14 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
     }),
     db.voter.aggregate({ where: { electionId: id }, _count: { id: true } }),
     getResultsForElection(id),
+    // Normalization manifest: the write-in merge overlay applied at tally time.
+    // Raw Vote.writeInText is never mutated — this manifest maps rawText → canonicalLabel.
+    // An observer can reproduce the merged tally from raw votes + this manifest.
+    db.writeInMerge.findMany({
+      where: { electionId: id },
+      orderBy: [{ questionId: "asc" }, { rawText: "asc" }],
+      select: { questionId: true, rawText: true, canonicalLabel: true },
+    }),
   ])
 
   const totalVoters = voterStats._count.id
@@ -139,6 +149,15 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
     tallyHash: election.tallyHash ? `sha256:${election.tallyHash}` : null,
     tallyHashSetAt: election.tallyHashSetAt?.toISOString() ?? null,
     hashAlgorithm: "SHA-256 of canonical JSON (votes sorted by questionId ASC, optionId ASC, rank ASC)",
+    // Write-in normalization manifest — empty array for elections with no write-in questions.
+    // The tallyHash covers raw votes ONLY (raw writeInText unchanged).
+    // normalizationManifestHash = sha256(JSON.stringify(sorted normalizationManifest)).
+    // To reproduce the merged tally: apply manifest (rawText → canonicalLabel) then re-tally.
+    normalizationManifest: writeInMerges,
+    normalizationManifestHash: election.normalizationManifestHash
+      ? `sha256:${election.normalizationManifestHash}`
+      : (writeInMerges.length === 0 ? null : null),
+    finalizedAt: election.finalizedAt?.toISOString() ?? null,
     quorum: election.quorumType !== "NONE"
       ? { type: election.quorumType, value: election.quorumValue, required: quorumRequired, met: quorumMet, voted: votedCount, total: totalVoters }
       : null,
