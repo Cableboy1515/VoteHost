@@ -22,7 +22,7 @@ export type EnrichedRcvOption = {
 export type EnrichedQuestion =
   | { type: "WRITE_IN"; questionText: string; writeIns: string[] }
   | { type: "SINGLE_CHOICE" | "MULTIPLE_CHOICE"; questionText: string; options: EnrichedOption[]; isTie: boolean }
-  | { type: "RANKED_CHOICE"; questionText: string; options: EnrichedRcvOption[]; maxRank: number; isTie: boolean }
+  | { type: "RANKED_CHOICE"; questionText: string; options: EnrichedRcvOption[]; maxRank: number; isTie: boolean; rcvKind: "irv" | "stv" | null; rcvRoundsCount: number }
 
 export type VoterRow = {
   name: string
@@ -75,7 +75,7 @@ export async function loadExportData(electionId: string): Promise<ExportData | n
 
     if (q.type === "RANKED_CHOICE") {
       const rcvOptions = (q as unknown as { options: EnrichedRcvOption[] }).options
-      const rcvResult = (q as unknown as { rcvResult?: { kind: string; winner?: string | null; winners?: string[]; isTie?: boolean; tiedOptions?: string[] } }).rcvResult
+      const rcvResult = (q as unknown as { rcvResult?: { kind: string; winner?: string | null; winners?: string[]; isTie?: boolean; tiedOptions?: string[]; rounds?: unknown[] } }).rcvResult
       const sorted = [...rcvOptions].sort((a, b) => b.firstChoiceCount - a.firstChoiceCount)
       const total = sorted.reduce((sum, o) => sum + o.firstChoiceCount, 0)
       const maxRank = sorted.reduce((max, o) => {
@@ -100,6 +100,9 @@ export async function loadExportData(electionId: string): Promise<ExportData | n
           : topFCC > 0 ? new Set([sorted[0]!.optionId]) : new Set()
       }
 
+      const rcvKind = rcvResult?.kind === "irv" || rcvResult?.kind === "stv" ? rcvResult.kind : null
+      const rcvRoundsCount = rcvResult?.rounds?.length ?? 0
+
       return {
         type: "RANKED_CHOICE" as const,
         questionText: q.questionText,
@@ -113,6 +116,8 @@ export async function loadExportData(electionId: string): Promise<ExportData | n
           rankCounts: o.rankCounts,
         })),
         maxRank,
+        rcvKind,
+        rcvRoundsCount,
       }
     }
 

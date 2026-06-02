@@ -213,6 +213,26 @@ function renderContent(doc: PDFKit.PDFDocument, data: ExportData, s: Spacing, tz
       doc.y = rowY + s.rowH
     }
 
+    // Explanatory note for ranked-choice questions
+    if (q.type === "RANKED_CHOICE") {
+      const rcvQ = q as typeof q & { rcvKind: "irv" | "stv" | null; rcvRoundsCount: number }
+      let note = ""
+      if (rcvQ.rcvKind === "irv") {
+        note = "Column shows first-choice votes; lower rankings transfer only after an elimination."
+        if (rcvQ.rcvRoundsCount === 1) {
+          const winnerName = q.options.find((o) => o.winner)?.optionText
+          if (winnerName) note += ` ${winnerName} won an outright first-round majority — no transfers needed.`
+        }
+      } else if (rcvQ.rcvKind === "stv") {
+        note = "Counts use fractional surplus transfers (Gregory method); near-ties are decided on exact underlying weights."
+      }
+      if (note) {
+        doc.moveDown(0.3)
+        doc.x = 50
+        doc.fontSize(8).fillColor(MUTED).font("Helvetica-Oblique").text(note, { width: 495 })
+      }
+    }
+
     doc.moveDown(s.questionGap)
   }
 }
