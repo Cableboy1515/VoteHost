@@ -114,11 +114,11 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
         } : { winner: null, rounds: [] }),
       }
     }
-    if (q.type === "WRITE_IN") {
+    if (q.type === "COMMENT") {
       return {
         questionId: q.questionId,
         questionText: q.questionText,
-        type: "WRITE_IN",
+        type: "COMMENT",
         responseCount: (q as unknown as { writeIns: unknown[] }).writeIns?.length ?? 0,
       }
     }

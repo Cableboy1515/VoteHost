@@ -143,7 +143,7 @@ function renderContent(doc: PDFKit.PDFDocument, data: ExportData, s: Spacing, tz
     const tintH = doc.heightOfString(labeled, { width: 495 - tintPadH * 2 }) + tintPadV * 2
 
     // Keep-together: ensure tint + at least sub-header + 2 rows (or a few write-in lines) fit
-    const minBelow = q.type === "WRITE_IN" ? 30 : subH + s.rowH * 2
+    const minBelow = q.type === "COMMENT" ? 30 : subH + s.rowH * 2
     if (doc.y + tintH + minBelow > 720) doc.addPage()
 
     // Tinted question header bar
@@ -155,7 +155,7 @@ function renderContent(doc: PDFKit.PDFDocument, data: ExportData, s: Spacing, tz
       .text(labeled, 50 + tintPadH, tintY + tintPadV, { width: 495 - tintPadH * 2 })
     doc.y = tintY + tintH
 
-    if (q.type === "WRITE_IN") {
+    if (q.type === "COMMENT") {
       doc.moveDown(0.3)
       doc.x = 50
       doc.fontSize(10).fillColor(INK_SOFT).font("Helvetica-Oblique").text("Write-in responses:")

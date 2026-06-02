@@ -63,7 +63,7 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
           showOptionAvatars: q.showOptionAvatars ?? true,
         },
       })
-      if (q.options && q.type !== "WRITE_IN") {
+      if (q.options && q.type !== "COMMENT") {
         await tx.option.createMany({
           data: q.options.map((o) => ({
             questionId: question.id,

@@ -203,7 +203,7 @@ export default function ResultsDashboard({ electionId, initialData, endsAt, elec
 
       {/* Per-question result cards */}
       {data.questions.map((q) => {
-        if (q.type === "WRITE_IN") {
+        if (q.type === "COMMENT") {
           return (
             <div
               key={q.questionId}

@@ -161,9 +161,9 @@ export async function GET(req: Request) {
     ),
   )
 
-  // Q5 — WRITE_IN, optional (no options — write-in questions have none)
+  // Q5 — COMMENT (free-text feedback), optional (no options — comment questions have none)
   const q5 = await db.question.create({
-    data: { electionId: election.id, text: "Suggest a future meeting location", type: "WRITE_IN", order: 5, required: false },
+    data: { electionId: election.id, text: "Suggest a future meeting location", type: "COMMENT", order: 5, required: false },
   })
 
   // Q6 — RANKED_CHOICE IRV (1 seat), required — ENGINEERED TIE
@@ -274,7 +274,7 @@ export async function GET(req: Request) {
       })
     }
 
-    // Q5 — WRITE_IN optional: skip ~10% of voters
+    // Q5 — COMMENT (free-text feedback), optional: skip ~10% of voters
     // Repeated text values test write-in aggregation in the UI
     if (seededFloat(`${SEED}:q5skip:${vi}`) >= 0.10) {
       const locIdx = seededInt(`${SEED}:q5loc:${vi}`, 0, WRITE_IN_LOCATIONS.length - 1)
@@ -540,7 +540,7 @@ export async function GET(req: Request) {
 
     q5_optionalWriteIn: {
       question: "Suggest a future meeting location",
-      type: "WRITE_IN",
+      type: "COMMENT",
       required: false,
       answered: q5Votes.length,
       skipped: VOTING_COUNT - q5Votes.length,

@@ -214,14 +214,14 @@ for (const q of audit.questions) {
       else              console.log(`    Winner: ${result.winner ? label(result.winner) : "(none)"}`)
     }
 
-  } else if (q.type === "WRITE_IN") {
+  } else if (q.type === "COMMENT") {
     const texts = qVotes.map(v => v.writeInText).filter(Boolean)
     const grouped = {}
     for (const t of texts) grouped[t] = (grouped[t] ?? 0) + 1
     const entries = Object.entries(grouped).sort(([, a], [, b]) => b - a)
     console.log(`    ${texts.length} response(s) across ${entries.length} unique answer(s):`)
     console.log(`    Note: responses with identical text are grouped. Spelling/capitalization`)
-    console.log(`          variations count as separate entries — normalize before finalizing.`)
+    console.log(`          variations count as separate entries (feedback only, not tallied).`)
     for (const [t, n] of entries) console.log(`      ${n.toString().padStart(4)}  ${t}`)
 
   } else {

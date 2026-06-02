@@ -26,7 +26,7 @@ export async function getResultsForElection(electionId: string) {
   const questionResults = (questions as QuestionWithOptions[]).map((question) => {
     const questionVotes = (votes as Vote[]).filter((v) => v.questionId === question.id)
 
-    if (question.type === "WRITE_IN") {
+    if (question.type === "COMMENT") {
       return {
         questionId: question.id,
         questionText: question.text,

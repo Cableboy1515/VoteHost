@@ -35,7 +35,7 @@ export const ElectionBaseSchema = z.object({
   description: z.string().optional(),
   startsAt: z.string().datetime().optional().nullable(),
   endsAt: z.string().datetime().optional().nullable(),
-  status: z.enum(["DRAFT", "ACTIVE", "COMPLETED"]).optional(),
+  status: z.enum(["DRAFT", "ACTIVE", "PENDING_REVIEW", "COMPLETED"]).optional(),
   archived: z.boolean().optional(),
   emailSubject: z.string().optional().nullable(),
   emailMessage: z.string().optional().nullable(),
@@ -75,7 +75,8 @@ export const ElectionSchema = ElectionBaseSchema.refine(
 export const QuestionSchema = z.object({
   text: z.string().min(1, "Question text is required"),
   description: z.string().max(1000).optional().nullable(),
-  type: z.enum(["SINGLE_CHOICE", "MULTIPLE_CHOICE", "RANKED_CHOICE", "WRITE_IN"]),
+  type: z.enum(["SINGLE_CHOICE", "MULTIPLE_CHOICE", "RANKED_CHOICE", "COMMENT"]),
+  allowWriteIn: z.boolean().default(false),
   order: z.number().int().min(0),
   required: z.boolean().default(true),
   maxSelections: z.number().int().positive().nullish(),
@@ -119,7 +120,7 @@ export const BallotAnswerSchema = z.discriminatedUnion("type", [
   }),
   z.object({
     questionId: z.string(),
-    type: z.literal("WRITE_IN"),
+    type: z.literal("COMMENT"),
     text: z.string().min(1).max(500),
   }),
 ])

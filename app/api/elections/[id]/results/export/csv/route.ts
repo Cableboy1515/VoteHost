@@ -26,7 +26,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
   const rows: Row[] = []
 
   for (const q of questions) {
-    if (q.type === "WRITE_IN") {
+    if (q.type === "COMMENT") {
       for (const wi of q.writeIns) {
         rows.push({
           question: q.questionText,

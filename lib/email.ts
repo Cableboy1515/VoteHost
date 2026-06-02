@@ -95,9 +95,9 @@ export type EmailMode = "invite" | "reminder-early" | "reminder-final" | "result
 
 export type ResultsQuestion = {
   questionText: string
-  type: "SINGLE_CHOICE" | "MULTIPLE_CHOICE" | "RANKED_CHOICE" | "WRITE_IN"
+  type: "SINGLE_CHOICE" | "MULTIPLE_CHOICE" | "RANKED_CHOICE" | "COMMENT"
   options?: Array<{ optionText: string; count: number; pct: number; winner: boolean }>
-  writeInCount?: number
+  // writeInCount removed — COMMENT questions are omitted from voter email by default
 }
 
 export type Payload = {
@@ -377,12 +377,11 @@ function buildResultsHtml(p: Payload, tz: string): string {
   const questionSections = (r?.questions ?? []).map((q, qi) => {
     const qLabel = escapeHtml(q.questionText)
 
-    if (q.type === "WRITE_IN") {
-      return `<tr><td style="padding:0 32px ${qi < (r?.questions.length ?? 1) - 1 ? "20px" : "8px"};">
-        <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:13px;font-weight:600;color:${C.ink};margin-bottom:6px;">${qLabel}</div>
-        <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:13px;color:${C.muted};">${q.writeInCount ?? 0} written-in response${(q.writeInCount ?? 0) !== 1 ? "s" : ""} received.</div>
-      </td></tr>`
-    }
+    // COMMENT (free-text feedback) questions are omitted from the voter results email.
+    // The full grouped responses are available to organizers in the admin dashboard
+    // and the audit export. Broadcasting unmoderated free text to all voters is
+    // risky, and a bare count conveys nothing useful.
+    if (q.type === "COMMENT") return ""
 
     const optionRows = (q.options ?? []).map((opt) => {
       const barColor = opt.winner ? C.accent : "#7d92b0"

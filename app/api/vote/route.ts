@@ -112,7 +112,7 @@ export async function POST(req: Request) {
           { status: 400 }
         )
       }
-    } else if (answer.type === "WRITE_IN") {
+    } else if (answer.type === "COMMENT") {
       if (answer.text.length > 500) {
         return NextResponse.json(
           { error: `Your response for "${question.text}" is too long (max 500 characters).` },
@@ -163,7 +163,7 @@ export async function POST(req: Request) {
       answer.rankedOptionIds.forEach((optionId, index) => {
         voteRecords.push({ electionId: voter.electionId, questionId: answer.questionId, optionId, rank: index + 1, ballotId, weight: voterWeight })
       })
-    } else if (answer.type === "WRITE_IN") {
+    } else if (answer.type === "COMMENT") {
       voteRecords.push({ electionId: voter.electionId, questionId: answer.questionId, writeInText: answer.text, ballotId, weight: voterWeight })
     }
   }

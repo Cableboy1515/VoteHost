@@ -24,14 +24,9 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   const turnoutPct =
     raw.totalVoters > 0 ? Math.round((raw.votedCount / raw.totalVoters) * 100) : 0
 
-  const questions: ResultsQuestion[] = raw.questions.map((q) => {
-    if (q.type === "WRITE_IN") {
-      return {
-        questionText: q.questionText,
-        type: "WRITE_IN" as const,
-        writeInCount: (q as { writeIns?: string[] }).writeIns?.length ?? 0,
-      }
-    }
+  const questions: ResultsQuestion[] = raw.questions.flatMap((q) => {
+    // COMMENT questions are omitted from voter results email
+    if (q.type === "COMMENT") return []
     const rawOptions = (q as { options?: Array<{ optionText: string; count?: number; firstChoiceCount?: number }> }).options ?? []
     const getCount = (o: { count?: number; firstChoiceCount?: number }) =>
       q.type === "RANKED_CHOICE" ? (o.firstChoiceCount ?? 0) : (o.count ?? 0)
@@ -43,11 +38,11 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       pct: total > 0 ? Math.round((getCount(o) / total) * 100) : 0,
       winner: i === 0 && getCount(o) > 0,
     }))
-    return {
+    return [{
       questionText: q.questionText,
       type: q.type as "SINGLE_CHOICE" | "MULTIPLE_CHOICE" | "RANKED_CHOICE",
       options,
-    }
+    }]
   })
 
   const baseUrl = process.env.NEXTAUTH_URL ?? "http://localhost:3000"

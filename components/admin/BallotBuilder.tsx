@@ -10,7 +10,7 @@ import { toast } from "sonner"
 import ImageUploadField from "@/components/admin/ImageUploadField"
 import { Tooltip } from "@/components/ui/tooltip"
 
-type QuestionType = "SINGLE_CHOICE" | "MULTIPLE_CHOICE" | "RANKED_CHOICE" | "WRITE_IN"
+type QuestionType = "SINGLE_CHOICE" | "MULTIPLE_CHOICE" | "RANKED_CHOICE" | "COMMENT"
 
 interface OptionDraft {
   id?: string
@@ -38,7 +38,7 @@ interface QuestionDraft {
 
 interface Props {
   electionId: string
-  electionStatus: "DRAFT" | "ACTIVE" | "COMPLETED"
+  electionStatus: "DRAFT" | "ACTIVE" | "PENDING_REVIEW" | "COMPLETED"
   firstVoteAt: string | null
   initialQuestions: QuestionDraft[]
 }
@@ -47,7 +47,7 @@ const TYPES: { value: QuestionType; label: string; tooltip: string }[] = [
   { value: "SINGLE_CHOICE", label: "Single choice", tooltip: "Voter picks exactly one option." },
   { value: "MULTIPLE_CHOICE", label: "Multiple", tooltip: "Voter can pick up to a chosen maximum." },
   { value: "RANKED_CHOICE", label: "Ranked Choice", tooltip: "Voter ranks options in order of preference. A winner is automatically determined using instant-runoff (IRV) for single-seat, or STV for multi-seat elections." },
-  { value: "WRITE_IN", label: "Write-in", tooltip: "Voter types a free-text response instead of choosing from preset options." },
+  { value: "COMMENT", label: "Comment / free text", tooltip: "Voter types a free-text response (e.g. suggestions, feedback). Responses are collected for organizer review — not tallied or used to pick a winner." },
 ]
 
 const inputCls = "w-full text-sm rounded-[10px] px-3 py-2.5 transition-colors"
@@ -306,7 +306,7 @@ export default function BallotBuilder({ electionId, electionStatus, firstVoteAt,
                             updateQuestion(qIndex, {
                               type: t.value,
                               maxSelections: t.value === "MULTIPLE_CHOICE" ? q.maxSelections : undefined,
-                              options: t.value === "WRITE_IN" ? [] : q.options.length ? q.options : [{ text: "", order: 0 }, { text: "", order: 1 }],
+                              options: t.value === "COMMENT" ? [] : q.options.length ? q.options : [{ text: "", order: 0 }, { text: "", order: 1 }],
                             })
                           }}
                           className="px-2.5 py-1.5 rounded-[8px] text-[12.5px] transition-colors"
@@ -384,7 +384,7 @@ export default function BallotBuilder({ electionId, electionStatus, firstVoteAt,
               </div>
 
               {/* Options */}
-              {q.type !== "WRITE_IN" && (
+              {q.type !== "COMMENT" && (
                 <div className="flex flex-col gap-1.5 pt-1">
                   {q.options.map((o, oIndex) => {
                     const detailKey = `${qIndex}-${oIndex}`

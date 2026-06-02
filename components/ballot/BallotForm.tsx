@@ -40,7 +40,7 @@ interface Question {
   id: string
   text: string
   description?: string | null
-  type: "SINGLE_CHOICE" | "MULTIPLE_CHOICE" | "RANKED_CHOICE" | "WRITE_IN"
+  type: "SINGLE_CHOICE" | "MULTIPLE_CHOICE" | "RANKED_CHOICE" | "COMMENT"
   required: boolean
   maxSelections?: number | null
   randomizeOptions?: boolean
@@ -166,7 +166,7 @@ export default function BallotForm({ token, electionTitle, electionDescription, 
     if (q.type === "SINGLE_CHOICE") return !!(answers[q.id])
     if (q.type === "MULTIPLE_CHOICE") return ((answers[q.id] as string[]) ?? []).length > 0
     if (q.type === "RANKED_CHOICE") return (rankedOrders[q.id] ?? []).length >= 1
-    if (q.type === "WRITE_IN") return !!((answers[q.id] as string) ?? "").trim()
+    if (q.type === "COMMENT") return !!((answers[q.id] as string) ?? "").trim()
     return true
   }
 
@@ -199,12 +199,12 @@ export default function BallotForm({ token, electionTitle, electionDescription, 
           payload.push({ questionId: q.id, type: "RANKED_CHOICE", rankedOptionIds: rankedIds })
         }
         // rankedIds.length === 0 && !q.required → skip (valid partial ballot)
-      } else if (q.type === "WRITE_IN") {
+      } else if (q.type === "COMMENT") {
         const text = (answers[q.id] as string) ?? ""
         if (!text.trim() && q.required) {
           issues.push({ questionId: q.id, questionIndex: i, questionText: q.text, message: "Please write a response." })
         } else if (text.trim()) {
-          payload.push({ questionId: q.id, type: "WRITE_IN", text: text.trim() })
+          payload.push({ questionId: q.id, type: "COMMENT", text: text.trim() })
         }
       }
     }
@@ -498,7 +498,7 @@ export default function BallotForm({ token, electionTitle, electionDescription, 
       )
     }
 
-    if (q.type === "WRITE_IN") {
+    if (q.type === "COMMENT") {
       const text = (answers[q.id] as string) ?? ""
       const counterId = `writein-counter-${q.id}`
       return (

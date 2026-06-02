@@ -64,8 +64,8 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
     qCell.alignment = { vertical: "middle", indent: 1 }
     qRow.height = 22
 
-    if (q.type === "WRITE_IN") {
-      const noteRow = ws.addRow(["(See Write-ins sheet for responses)"])
+    if (q.type === "COMMENT") {
+      const noteRow = ws.addRow(["(See Comments sheet for responses)"])
       noteRow.getCell(1).font = { name: "Calibri", size: 10, italic: true, color: { argb: MUTED } }
     } else if (q.type === "RANKED_CHOICE") {
       // Sub-header: Option + one col per rank + Pct
@@ -119,13 +119,13 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
   ]
 
   // ─── Sheet 2: Write-ins (only if any) ────────────────────────────────
-  const writeInQuestions = questions.filter((q) => q.type === "WRITE_IN") as Extract<
+  const writeInQuestions = questions.filter((q) => q.type === "COMMENT") as Extract<
     typeof questions[number],
-    { type: "WRITE_IN" }
+    { type: "COMMENT" }
   >[]
 
   if (writeInQuestions.length > 0) {
-    const wsWi = workbook.addWorksheet("Write-ins")
+    const wsWi = workbook.addWorksheet("Comments")
     wsWi.columns = [{ width: 60 }]
 
     for (const q of writeInQuestions) {

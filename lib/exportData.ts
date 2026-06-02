@@ -20,7 +20,7 @@ export type EnrichedRcvOption = {
 }
 
 export type EnrichedQuestion =
-  | { type: "WRITE_IN"; questionText: string; writeIns: string[] }
+  | { type: "COMMENT"; questionText: string; writeIns: string[] }
   | { type: "SINGLE_CHOICE" | "MULTIPLE_CHOICE"; questionText: string; options: EnrichedOption[]; isTie: boolean }
   | { type: "RANKED_CHOICE"; questionText: string; options: EnrichedRcvOption[]; maxRank: number; isTie: boolean; rcvKind: "irv" | "stv" | null; rcvRoundsCount: number }
 
@@ -65,9 +65,9 @@ export async function loadExportData(electionId: string): Promise<ExportData | n
   const turnoutPct = raw.totalVoters > 0 ? Math.round((raw.votedCount / raw.totalVoters) * 100) : 0
 
   const questions: EnrichedQuestion[] = raw.questions.map((q) => {
-    if (q.type === "WRITE_IN") {
+    if (q.type === "COMMENT") {
       return {
-        type: "WRITE_IN" as const,
+        type: "COMMENT" as const,
         questionText: q.questionText,
         writeIns: (q as { writeIns?: string[] }).writeIns ?? [],
       }

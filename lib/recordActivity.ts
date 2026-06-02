@@ -34,6 +34,10 @@ export type ActivityAction =
   | "election.results_email_auto_sent"
   | "election.results_email_sent"
   | "election.images_purged"
+  | "election.enter_review"    // write-in elections park here between close and finalize
+  | "election.finalize"        // admin seals tally hash and completes after write-in review
+  | "writein.merge"            // admin maps raw write-in text → canonical candidate label
+  | "writein.unmerge"          // admin removes a merge mapping
   | "user.invite"
   | "user.role_change"
   | "user.delete"
@@ -52,7 +56,7 @@ type ActivityActor =
 export async function recordActivity(input: ActivityActor & {
   action: ActivityAction
   electionId?: string | null
-  targetType: "voter" | "election" | "user" | "settings" | "system"
+  targetType: "voter" | "election" | "user" | "settings" | "system" | "writein"
   targetId?: string | null
   targetLabel?: string | null
   metadata?: Record<string, unknown>
