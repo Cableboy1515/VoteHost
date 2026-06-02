@@ -102,22 +102,48 @@ export const VoterSchema = z.object({
 
 export const VotersSchema = z.array(VoterSchema).max(5000, "Cannot import more than 5000 voters at once")
 
+const writeInTextField = z.string().min(1).max(500)
+
+// A ranked item is either a reference to a pre-listed option OR a write-in candidate name.
+// Using an interleaved array preserves rank position for write-ins mixed with real options.
+export const RankedItemSchema = z.union([
+  z.object({ optionId: z.string() }),
+  z.object({ writeInText: writeInTextField }),
+])
+
 export const BallotAnswerSchema = z.discriminatedUnion("type", [
+  // SINGLE_CHOICE: voter picks exactly one option OR writes in one candidate (XOR).
   z.object({
     questionId: z.string(),
     type: z.literal("SINGLE_CHOICE"),
-    optionId: z.string(),
-  }),
+    optionId: z.string().optional(),
+    writeInText: writeInTextField.optional(),
+  }).refine(
+    (d) => (!!d.optionId) !== (!!d.writeInText),
+    { message: "Exactly one of optionId or writeInText is required" }
+  ),
+
+  // MULTIPLE_CHOICE: any combination of pre-listed options and write-in candidates,
+  // combined count >= 1. writeInTexts defaults to [] for non-write-in questions.
   z.object({
     questionId: z.string(),
     type: z.literal("MULTIPLE_CHOICE"),
-    optionIds: z.array(z.string()).min(1),
-  }),
+    optionIds: z.array(z.string()).default([]),
+    writeInTexts: z.array(writeInTextField).default([]),
+  }).refine(
+    (d) => d.optionIds.length + d.writeInTexts.length >= 1,
+    { message: "At least one option or write-in is required" }
+  ),
+
+  // RANKED_CHOICE: interleaved list of pre-listed options and write-in candidates in
+  // rank order. Two parallel arrays (optionIds + writeInRanks) would make rank position
+  // ambiguous; a single items array is unambiguous and maps directly to Vote rows.
   z.object({
     questionId: z.string(),
     type: z.literal("RANKED_CHOICE"),
-    rankedOptionIds: z.array(z.string()).min(1),
+    rankedItems: z.array(RankedItemSchema).min(1),
   }),
+
   z.object({
     questionId: z.string(),
     type: z.literal("COMMENT"),

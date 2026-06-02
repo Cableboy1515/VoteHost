@@ -36,12 +36,20 @@ interface Option {
   website?: string | null
 }
 
+// A ranked list entry is either a pre-listed option (by id) or a write-in candidate.
+// The interleaved array preserves rank position unambiguously. `key` stabilises React
+// reconciliation for write-in entries (no stable id until submitted).
+type RankedEntry =
+  | { kind: "option"; id: string }
+  | { kind: "writein"; text: string; key: string }
+
 interface Question {
   id: string
   text: string
   description?: string | null
   type: "SINGLE_CHOICE" | "MULTIPLE_CHOICE" | "RANKED_CHOICE" | "COMMENT"
   required: boolean
+  allowWriteIn?: boolean
   maxSelections?: number | null
   randomizeOptions?: boolean
   showOptionAvatars?: boolean
@@ -110,10 +118,14 @@ export default function BallotForm({ token, electionTitle, electionDescription, 
   // 0..questions.length-1 = ballot step; questions.length = review
   const [step, setStep] = useState(0)
   const [answers, setAnswers] = useState<Record<string, unknown>>({})
-  // Ranked choice: ordered array of selected option IDs (starts empty — users tap to add)
-  const [rankedOrders, setRankedOrders] = useState<Record<string, string[]>>(
+  // Ranked choice: interleaved list of option references and write-in entries.
+  // "__WRITEIN__" sentinel in `answers` marks a single-choice write-in selection.
+  const [rankedOrders, setRankedOrders] = useState<Record<string, RankedEntry[]>>(
     Object.fromEntries(questions.filter((q) => q.type === "RANKED_CHOICE").map((q) => [q.id, []]))
   )
+  // Write-in text inputs — separate from `answers` to avoid clobbering option-id state.
+  const [singleWriteInTexts, setSingleWriteInTexts] = useState<Record<string, string>>({})
+  const [multiWriteInText, setMultiWriteInText] = useState<Record<string, string>>({})
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState("")
   const [issuesPanelOpen, setIssuesPanelOpen] = useState(false)
@@ -142,12 +154,26 @@ export default function BallotForm({ token, electionTitle, electionDescription, 
 
   // ── Ranked choice handlers ──────────────────────────────────────────────
 
-  function addToRanked(questionId: string, optionId: string) {
-    setRankedOrders((prev) => ({ ...prev, [questionId]: [...prev[questionId], optionId] }))
+  function addOptionToRanked(questionId: string, optionId: string) {
+    setRankedOrders((prev) => ({ ...prev, [questionId]: [...prev[questionId], { kind: "option", id: optionId }] }))
   }
 
-  function removeFromRanked(questionId: string, optionId: string) {
-    setRankedOrders((prev) => ({ ...prev, [questionId]: prev[questionId].filter((id) => id !== optionId) }))
+  function addWriteInToRanked(questionId: string) {
+    const key = `writein-${Date.now()}-${Math.random().toString(36).slice(2)}`
+    setRankedOrders((prev) => ({ ...prev, [questionId]: [...prev[questionId], { kind: "writein", text: "", key }] }))
+  }
+
+  function updateWriteInRanked(questionId: string, key: string, text: string) {
+    setRankedOrders((prev) => ({
+      ...prev,
+      [questionId]: prev[questionId].map((e) =>
+        e.kind === "writein" && e.key === key ? { ...e, text } : e
+      ),
+    }))
+  }
+
+  function removeFromRanked(questionId: string, index: number) {
+    setRankedOrders((prev) => ({ ...prev, [questionId]: prev[questionId].filter((_, i) => i !== index) }))
   }
 
   function moveRanked(questionId: string, index: number, dir: -1 | 1) {
@@ -163,8 +189,13 @@ export default function BallotForm({ token, electionTitle, electionDescription, 
   // ── Validation ──────────────────────────────────────────────────────────
 
   function isAnswered(q: Question): boolean {
-    if (q.type === "SINGLE_CHOICE") return !!(answers[q.id])
-    if (q.type === "MULTIPLE_CHOICE") return ((answers[q.id] as string[]) ?? []).length > 0
+    if (q.type === "SINGLE_CHOICE") {
+      if (answers[q.id] === "__WRITEIN__") return !!(singleWriteInTexts[q.id] ?? "").trim()
+      return !!(answers[q.id])
+    }
+    if (q.type === "MULTIPLE_CHOICE") {
+      return ((answers[q.id] as string[]) ?? []).length > 0 || !!(multiWriteInText[q.id] ?? "").trim()
+    }
     if (q.type === "RANKED_CHOICE") return (rankedOrders[q.id] ?? []).length >= 1
     if (q.type === "COMMENT") return !!((answers[q.id] as string) ?? "").trim()
     return true
@@ -178,27 +209,41 @@ export default function BallotForm({ token, electionTitle, electionDescription, 
     for (let i = 0; i < questions.length; i++) {
       const q = questions[i]
       if (q.type === "SINGLE_CHOICE") {
-        const optionId = answers[q.id] as string | undefined
-        if (!optionId && q.required) {
-          issues.push({ questionId: q.id, questionIndex: i, questionText: q.text, message: "Please choose an option." })
-        } else if (optionId) {
-          payload.push({ questionId: q.id, type: "SINGLE_CHOICE", optionId })
+        if (answers[q.id] === "__WRITEIN__") {
+          const text = (singleWriteInTexts[q.id] ?? "").trim()
+          if (!text && q.required) {
+            issues.push({ questionId: q.id, questionIndex: i, questionText: q.text, message: "Please enter a write-in candidate name." })
+          } else if (text) {
+            payload.push({ questionId: q.id, type: "SINGLE_CHOICE", writeInText: text })
+          }
+        } else {
+          const optionId = answers[q.id] as string | undefined
+          if (!optionId && q.required) {
+            issues.push({ questionId: q.id, questionIndex: i, questionText: q.text, message: "Please choose an option." })
+          } else if (optionId) {
+            payload.push({ questionId: q.id, type: "SINGLE_CHOICE", optionId })
+          }
         }
       } else if (q.type === "MULTIPLE_CHOICE") {
         const optionIds = (answers[q.id] as string[]) ?? []
-        if (optionIds.length === 0 && q.required) {
+        const writeIn = (multiWriteInText[q.id] ?? "").trim()
+        const writeInTexts = writeIn ? [writeIn] : []
+        if (optionIds.length === 0 && writeInTexts.length === 0 && q.required) {
           issues.push({ questionId: q.id, questionIndex: i, questionText: q.text, message: "Please choose at least one option." })
-        } else if (optionIds.length > 0) {
-          payload.push({ questionId: q.id, type: "MULTIPLE_CHOICE", optionIds })
+        } else if (optionIds.length > 0 || writeInTexts.length > 0) {
+          payload.push({ questionId: q.id, type: "MULTIPLE_CHOICE", optionIds, writeInTexts })
         }
       } else if (q.type === "RANKED_CHOICE") {
-        const rankedIds = rankedOrders[q.id] ?? []
-        if (rankedIds.length === 0 && q.required) {
+        const entries = rankedOrders[q.id] ?? []
+        if (entries.length === 0 && q.required) {
           issues.push({ questionId: q.id, questionIndex: i, questionText: q.text, message: "Please rank at least one option." })
-        } else if (rankedIds.length >= 1) {
-          payload.push({ questionId: q.id, type: "RANKED_CHOICE", rankedOptionIds: rankedIds })
+        } else if (entries.length >= 1) {
+          const rankedItems = entries.map((e) =>
+            e.kind === "option" ? { optionId: e.id } : { writeInText: e.text }
+          )
+          payload.push({ questionId: q.id, type: "RANKED_CHOICE", rankedItems })
         }
-        // rankedIds.length === 0 && !q.required → skip (valid partial ballot)
+        // entries.length === 0 && !q.required → skip (valid partial ballot)
       } else if (q.type === "COMMENT") {
         const text = (answers[q.id] as string) ?? ""
         if (!text.trim() && q.required) {
@@ -315,18 +360,29 @@ export default function BallotForm({ token, electionTitle, electionDescription, 
 
   function getSummaryLines(q: Question): string[] {
     if (q.type === "SINGLE_CHOICE") {
+      if (answers[q.id] === "__WRITEIN__") {
+        const text = (singleWriteInTexts[q.id] ?? "").trim()
+        return text ? [`Write-in: ${text}`] : ["(write-in: not filled in)"]
+      }
       const option = q.options.find((o) => o.id === answers[q.id])
       return option ? [option.text] : ["(no selection)"]
     }
     if (q.type === "MULTIPLE_CHOICE") {
       const optionIds = (answers[q.id] as string[]) ?? []
       const selected = q.options.filter((o) => optionIds.includes(o.id))
-      return selected.length > 0 ? selected.map((o) => o.text) : ["(no selection)"]
+      const writeIn = (multiWriteInText[q.id] ?? "").trim()
+      const lines = [...selected.map((o) => o.text), ...(writeIn ? [`Write-in: ${writeIn}`] : [])]
+      return lines.length > 0 ? lines : ["(no selection)"]
     }
     if (q.type === "RANKED_CHOICE") {
-      const rankedIds = rankedOrders[q.id] ?? []
-      if (rankedIds.length === 0) return ["(not ranked)"]
-      return rankedIds.map((id, i) => `${i + 1}. ${q.options.find((o) => o.id === id)?.text ?? id}`)
+      const entries = rankedOrders[q.id] ?? []
+      if (entries.length === 0) return ["(not ranked)"]
+      return entries.map((e, i) => {
+        const label = e.kind === "option"
+          ? (q.options.find((o) => o.id === e.id)?.text ?? e.id)
+          : (e.text.trim() || "(write-in: empty)")
+        return `${i + 1}. ${label}`
+      })
     }
     const text = (answers[q.id] as string) ?? ""
     return text.trim() ? [text.trim()] : ["(no response)"]
@@ -338,6 +394,7 @@ export default function BallotForm({ token, electionTitle, electionDescription, 
     const groupLabelId = `q-label-${q.id}`
 
     if (q.type === "SINGLE_CHOICE") {
+      const writeInSelected = answers[q.id] === "__WRITEIN__"
       return (
         <div role="group" aria-labelledby={groupLabelId} className="space-y-2.5">
           {shuffledOptionsMap[q.id].map((o) => (
@@ -350,16 +407,50 @@ export default function BallotForm({ token, electionTitle, electionDescription, 
               showAvatar={q.showOptionAvatars !== false}
               type="single"
               checked={answers[q.id] === o.id}
-              onChange={() => setAnswers((a) => ({ ...a, [q.id]: o.id }))}
+              onChange={() => {
+                setAnswers((a) => ({ ...a, [q.id]: o.id }))
+                setSingleWriteInTexts((t) => ({ ...t, [q.id]: "" }))
+              }}
             />
           ))}
+          {q.allowWriteIn && (
+            <div>
+              <OptionCard
+                name="Write in a candidate"
+                showAvatar={false}
+                type="single"
+                checked={writeInSelected}
+                onChange={() => setAnswers((a) => ({ ...a, [q.id]: "__WRITEIN__" }))}
+              />
+              {writeInSelected && (
+                <div className="mt-2 ml-11 relative">
+                  <input
+                    type="text"
+                    placeholder="Candidate name…"
+                    maxLength={500}
+                    value={singleWriteInTexts[q.id] ?? ""}
+                    onChange={(e) => setSingleWriteInTexts((t) => ({ ...t, [q.id]: e.target.value }))}
+                    className="w-full text-sm rounded-[10px] px-3 py-2.5 pr-14"
+                    style={{ border: "1px solid var(--vh-line-strong)", background: "var(--vh-surface)", color: "var(--vh-ink)", outline: "none" }}
+                    autoFocus
+                    aria-label="Write-in candidate name"
+                  />
+                  <span className="absolute bottom-2.5 right-3 text-[11px] text-vh-muted pointer-events-none tabular-nums">
+                    {(singleWriteInTexts[q.id] ?? "").length}/500
+                  </span>
+                </div>
+              )}
+            </div>
+          )}
         </div>
       )
     }
 
     if (q.type === "MULTIPLE_CHOICE") {
       const selected = (answers[q.id] as string[]) ?? []
-      const atLimit = !!q.maxSelections && selected.length >= q.maxSelections
+      const writeIn = multiWriteInText[q.id] ?? ""
+      const writeInCount = writeIn.trim() ? 1 : 0
+      const atLimit = !!q.maxSelections && selected.length + writeInCount >= q.maxSelections
       return (
         <div role="group" aria-labelledby={groupLabelId} className="space-y-2.5">
           {shuffledOptionsMap[q.id].map((o) => {
@@ -387,77 +478,126 @@ export default function BallotForm({ token, electionTitle, electionDescription, 
               />
             )
           })}
+          {q.allowWriteIn && (
+            <div className="pt-1">
+              <p className="text-xs text-vh-muted mb-2">Or write in a candidate:</p>
+              <div className="relative">
+                <input
+                  type="text"
+                  placeholder="Candidate name…"
+                  maxLength={500}
+                  value={writeIn}
+                  disabled={!writeIn.trim() && atLimit}
+                  onChange={(e) => setMultiWriteInText((t) => ({ ...t, [q.id]: e.target.value }))}
+                  className="w-full text-sm rounded-[10px] px-3 py-2.5 pr-14"
+                  style={{ border: "1px solid var(--vh-line-strong)", background: "var(--vh-surface)", color: "var(--vh-ink)", outline: "none", opacity: (!writeIn.trim() && atLimit) ? 0.5 : 1 }}
+                  aria-label="Write-in candidate name"
+                />
+                <span className="absolute bottom-2.5 right-3 text-[11px] text-vh-muted pointer-events-none tabular-nums">
+                  {writeIn.length}/500
+                </span>
+              </div>
+            </div>
+          )}
         </div>
       )
     }
 
     if (q.type === "RANKED_CHOICE") {
-      const rankedIds = rankedOrders[q.id] ?? []
-      // Use the shuffled map so randomizeOptions works for ranked choice too
+      const entries = rankedOrders[q.id] ?? []
       const allOptions = shuffledOptionsMap[q.id]
-      const rankedOptions = rankedIds.map((id) => allOptions.find((o) => o.id === id)).filter(Boolean) as Option[]
-      const unrankedOptions = allOptions.filter((o) => !rankedIds.includes(o.id))
+      const rankedOptionIds = new Set(entries.filter((e) => e.kind === "option").map((e) => e.id))
+      const unrankedOptions = allOptions.filter((o) => !rankedOptionIds.has(o.id))
       const showAvatars = q.showOptionAvatars !== false
 
       return (
         <div aria-labelledby={groupLabelId} className="space-y-3">
-          {rankedOptions.length > 0 && (
+          {entries.length > 0 && (
             <div>
               <p className="text-[11px] font-semibold text-vh-muted uppercase tracking-wider mb-2" aria-hidden>Your Ranking</p>
               <ol aria-label="Your current ranking" className="space-y-2">
-                {rankedOptions.map((o, i) => (
-                  <li
-                    key={o.id}
-                    className="flex items-center gap-3 px-3 py-2.5 rounded-[12px] border"
-                    style={{ background: "var(--vh-accent-soft)", borderColor: "oklch(0.85 0.05 255)" }}
-                  >
-                    {/* Avatar on the left */}
-                    {showAvatars && <RcvAvatar option={o} size={40} />}
-
-                    {/* Name */}
-                    <span className="flex-1 min-w-0 break-words text-sm font-medium text-vh-ink">{o.text}</span>
-
-                    {/* Reorder / remove controls */}
-                    <div className="flex items-center gap-1 flex-shrink-0">
-                      <button
-                        type="button"
-                        disabled={i === 0}
-                        aria-label={`Move ${o.text} up`}
-                        onClick={() => moveRanked(q.id, i, -1)}
-                        className="w-9 h-9 sm:w-7 sm:h-7 inline-grid place-items-center rounded-[6px] text-sm text-vh-muted hover:bg-vh-surface-3 disabled:opacity-30 transition-colors"
-                      >↑</button>
-                      <button
-                        type="button"
-                        disabled={i === rankedOptions.length - 1}
-                        aria-label={`Move ${o.text} down`}
-                        onClick={() => moveRanked(q.id, i, 1)}
-                        className="w-9 h-9 sm:w-7 sm:h-7 inline-grid place-items-center rounded-[6px] text-sm text-vh-muted hover:bg-vh-surface-3 disabled:opacity-30 transition-colors"
-                      >↓</button>
-                      <button
-                        type="button"
-                        aria-label={`Remove ${o.text} from your ranking`}
-                        onClick={() => removeFromRanked(q.id, o.id)}
-                        className="w-9 h-9 sm:w-7 sm:h-7 inline-grid place-items-center rounded-[6px] text-sm text-vh-muted hover:bg-vh-surface-3 transition-colors"
-                      >×</button>
-                    </div>
-
-                    {/* Rank badge on the right */}
-                    <span
-                      aria-hidden
-                      className="w-8 h-8 flex-shrink-0 inline-grid place-items-center rounded-full text-white text-sm font-semibold"
-                      style={{ background: "var(--vh-accent)" }}
+                {entries.map((entry, i) => {
+                  const entryKey = entry.kind === "option" ? entry.id : entry.key
+                  const optionData = entry.kind === "option" ? allOptions.find((o) => o.id === entry.id) : null
+                  const entryLabel = entry.kind === "option" ? (optionData?.text ?? entry.id) : ""
+                  return (
+                    <li
+                      key={entryKey}
+                      className="flex items-center gap-3 px-3 py-2.5 rounded-[12px] border"
+                      style={{ background: "var(--vh-accent-soft)", borderColor: "oklch(0.85 0.05 255)" }}
                     >
-                      {i + 1}
-                    </span>
-                  </li>
-                ))}
+                      {/* Avatar for pre-listed options only */}
+                      {showAvatars && entry.kind === "option" && optionData && (
+                        <RcvAvatar option={optionData} size={40} />
+                      )}
+                      {(!showAvatars || entry.kind === "writein") && (
+                        <span
+                          aria-hidden
+                          className="w-10 h-10 flex-shrink-0 inline-grid place-items-center rounded-full text-sm font-medium"
+                          style={{ background: "var(--vh-surface-3)", color: "var(--vh-ink-soft)", border: "1px solid var(--vh-line)", fontSize: entry.kind === "writein" ? 18 : undefined }}
+                        >
+                          {entry.kind === "writein" ? "✎" : (entryLabel.slice(0, 2).toUpperCase())}
+                        </span>
+                      )}
+
+                      {/* Name or write-in input */}
+                      {entry.kind === "option" ? (
+                        <span className="flex-1 min-w-0 break-words text-sm font-medium text-vh-ink">{entryLabel}</span>
+                      ) : (
+                        <input
+                          type="text"
+                          placeholder="Candidate name…"
+                          maxLength={500}
+                          value={entry.text}
+                          onChange={(e) => updateWriteInRanked(q.id, entry.key, e.target.value)}
+                          className="flex-1 min-w-0 text-sm font-medium bg-transparent border-0 focus:outline-none text-vh-ink"
+                          aria-label={`Write-in candidate at rank ${i + 1}`}
+                          style={{ minWidth: 0 }}
+                        />
+                      )}
+
+                      {/* Reorder / remove controls */}
+                      <div className="flex items-center gap-1 flex-shrink-0">
+                        <button
+                          type="button"
+                          disabled={i === 0}
+                          aria-label={`Move ${entry.kind === "option" ? entryLabel : "write-in"} up`}
+                          onClick={() => moveRanked(q.id, i, -1)}
+                          className="w-9 h-9 sm:w-7 sm:h-7 inline-grid place-items-center rounded-[6px] text-sm text-vh-muted hover:bg-vh-surface-3 disabled:opacity-30 transition-colors"
+                        >↑</button>
+                        <button
+                          type="button"
+                          disabled={i === entries.length - 1}
+                          aria-label={`Move ${entry.kind === "option" ? entryLabel : "write-in"} down`}
+                          onClick={() => moveRanked(q.id, i, 1)}
+                          className="w-9 h-9 sm:w-7 sm:h-7 inline-grid place-items-center rounded-[6px] text-sm text-vh-muted hover:bg-vh-surface-3 disabled:opacity-30 transition-colors"
+                        >↓</button>
+                        <button
+                          type="button"
+                          aria-label={`Remove ${entry.kind === "option" ? entryLabel : "write-in"} from your ranking`}
+                          onClick={() => removeFromRanked(q.id, i)}
+                          className="w-9 h-9 sm:w-7 sm:h-7 inline-grid place-items-center rounded-[6px] text-sm text-vh-muted hover:bg-vh-surface-3 transition-colors"
+                        >×</button>
+                      </div>
+
+                      {/* Rank badge */}
+                      <span
+                        aria-hidden
+                        className="w-8 h-8 flex-shrink-0 inline-grid place-items-center rounded-full text-white text-sm font-semibold"
+                        style={{ background: "var(--vh-accent)" }}
+                      >
+                        {i + 1}
+                      </span>
+                    </li>
+                  )
+                })}
               </ol>
             </div>
           )}
 
-          {unrankedOptions.length > 0 && (
+          {(unrankedOptions.length > 0 || q.allowWriteIn) && (
             <div>
-              {rankedOptions.length > 0 && (
+              {entries.length > 0 && (
                 <p className="text-[11px] font-semibold text-vh-muted uppercase tracking-wider mb-2" aria-hidden>Not ranked</p>
               )}
               <ul aria-label="Unranked options — select to add to your ranking" className="space-y-2 list-none">
@@ -466,32 +606,43 @@ export default function BallotForm({ token, electionTitle, electionDescription, 
                     <button
                       type="button"
                       aria-label={`Add ${o.text} to your ranking`}
-                      onClick={() => addToRanked(q.id, o.id)}
+                      onClick={() => addOptionToRanked(q.id, o.id)}
                       className="w-full flex items-center gap-3 px-3 py-2.5 border-2 border-dashed rounded-[12px] text-left transition-colors"
                       style={{ borderColor: "var(--vh-line-strong)" }}
                       onMouseEnter={(e) => ((e.currentTarget as HTMLElement).style.borderColor = "var(--vh-accent)")}
                       onMouseLeave={(e) => ((e.currentTarget as HTMLElement).style.borderColor = "var(--vh-line-strong)")}
                     >
-                      {/* Avatar or + placeholder */}
                       {showAvatars
                         ? <RcvAvatar option={o} size={40} />
                         : (
-                          <span
-                            aria-hidden
-                            className="w-9 h-9 flex-shrink-0 inline-grid place-items-center rounded-full border border-dashed text-xl text-vh-muted"
-                            style={{ borderColor: "var(--vh-line-strong)" }}
-                          >+</span>
+                          <span aria-hidden className="w-9 h-9 flex-shrink-0 inline-grid place-items-center rounded-full border border-dashed text-xl text-vh-muted" style={{ borderColor: "var(--vh-line-strong)" }}>+</span>
                         )
                       }
                       <span className="flex-1 min-w-0 break-words text-sm text-vh-ink-soft text-left">{o.text}</span>
                     </button>
                   </li>
                 ))}
+                {q.allowWriteIn && (
+                  <li>
+                    <button
+                      type="button"
+                      aria-label="Add a write-in candidate to your ranking"
+                      onClick={() => addWriteInToRanked(q.id)}
+                      className="w-full flex items-center gap-3 px-3 py-2.5 border-2 border-dashed rounded-[12px] text-left transition-colors"
+                      style={{ borderColor: "var(--vh-line-strong)" }}
+                      onMouseEnter={(e) => ((e.currentTarget as HTMLElement).style.borderColor = "var(--vh-accent)")}
+                      onMouseLeave={(e) => ((e.currentTarget as HTMLElement).style.borderColor = "var(--vh-line-strong)")}
+                    >
+                      <span aria-hidden className="w-9 h-9 flex-shrink-0 inline-grid place-items-center rounded-full border border-dashed text-lg text-vh-muted" style={{ borderColor: "var(--vh-line-strong)" }}>✎</span>
+                      <span className="flex-1 min-w-0 text-sm text-vh-ink-soft text-left">Write in a candidate…</span>
+                    </button>
+                  </li>
+                )}
               </ul>
             </div>
           )}
 
-          {rankedIds.length === 0 && (
+          {entries.length === 0 && (
             <p className="text-xs text-vh-muted" aria-live="polite">Tap an option to add it to your ranking. Rank as many or as few as you like.</p>
           )}
         </div>
@@ -558,11 +709,14 @@ export default function BallotForm({ token, electionTitle, electionDescription, 
                 {(rankedOrders[q.id] ?? []).length === 0 ? (
                   <p className="text-base text-vh-muted">(not ranked)</p>
                 ) : (
-                  (rankedOrders[q.id] ?? []).map((id, idx) => {
-                    const opt = q.options.find((o) => o.id === id)
+                  (rankedOrders[q.id] ?? []).map((entry, idx) => {
+                    const label = entry.kind === "option"
+                      ? (q.options.find((o) => o.id === entry.id)?.text ?? entry.id)
+                      : (entry.text.trim() || "(write-in: empty)")
+                    const key = entry.kind === "option" ? entry.id : entry.key
                     return (
                       <div
-                        key={id}
+                        key={key}
                         className="flex items-center gap-3 px-3 py-2 rounded-[12px] border"
                         style={{ background: "var(--vh-accent-soft)", borderColor: "oklch(0.85 0.05 255)" }}
                       >
@@ -573,7 +727,10 @@ export default function BallotForm({ token, electionTitle, electionDescription, 
                           {idx + 1}
                         </span>
                         <span className="flex-1 min-w-0 break-words text-base font-medium text-vh-ink">
-                          {opt?.text ?? id}
+                          {label}
+                          {entry.kind === "writein" && (
+                            <span className="ml-1.5 text-xs font-normal text-vh-muted">(write-in)</span>
+                          )}
                         </span>
                       </div>
                     )
@@ -804,7 +961,7 @@ export default function BallotForm({ token, electionTitle, electionDescription, 
                           <p className="text-sm text-vh-muted mt-1.5">
                             Pick up to {q.maxSelections}{" "}
                             <span className="tabular-nums">
-                              ({((answers[q.id] as string[]) ?? []).length}/{q.maxSelections})
+                              ({((answers[q.id] as string[]) ?? []).length + ((multiWriteInText[q.id] ?? "").trim() ? 1 : 0)}/{q.maxSelections})
                             </span>
                           </p>
                         )}

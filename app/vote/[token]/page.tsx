@@ -102,6 +102,7 @@ export default async function VotePage({ params }: { params: Promise<{ token: st
         description: q.description ?? undefined,
         type: q.type as "SINGLE_CHOICE" | "MULTIPLE_CHOICE" | "RANKED_CHOICE" | "COMMENT",
         required: q.required,
+        allowWriteIn: q.allowWriteIn,
         maxSelections: q.maxSelections ?? undefined,
         randomizeOptions: q.randomizeOptions,
         showOptionAvatars: q.showOptionAvatars,
