@@ -219,19 +219,40 @@ export default function ResultsDashboard({ electionId, initialData, endsAt, elec
                   Write-in
                 </span>
               </div>
-              {"writeIns" in q && q.writeIns.length > 0 ? (
-                <ul className="flex flex-col gap-1.5">
-                  {(q.writeIns as string[]).map((text, i) => (
-                    <li
-                      key={i}
-                      className="text-[13.5px] rounded-[10px] px-3.5 py-2.5"
-                      style={{ background: "var(--vh-surface-2)", color: "var(--vh-ink-soft)" }}
-                    >
-                      {text}
-                    </li>
-                  ))}
-                </ul>
-              ) : (
+              {"writeIns" in q && (q.writeIns as string[]).length > 0 ? (() => {
+                const raw = q.writeIns as string[]
+                const grouped = new Map<string, number>()
+                for (const t of raw) grouped.set(t, (grouped.get(t) ?? 0) + 1)
+                const entries = [...grouped.entries()].sort(([, a], [, b]) => b - a)
+                return (
+                  <>
+                    <ul className="flex flex-col gap-1.5">
+                      {entries.map(([text, count]) => (
+                        <li
+                          key={text}
+                          className="flex items-center justify-between gap-3 text-[13.5px] rounded-[10px] px-3.5 py-2.5"
+                          style={{ background: "var(--vh-surface-2)", color: "var(--vh-ink-soft)" }}
+                        >
+                          <span>{text}</span>
+                          {count > 1 && (
+                            <span
+                              className="flex-shrink-0 text-[12px] font-medium tabular-nums px-2 py-0.5 rounded-full"
+                              style={{ background: "var(--vh-surface-3, var(--vh-line))", color: "var(--vh-muted)" }}
+                            >
+                              ×{count}
+                            </span>
+                          )}
+                        </li>
+                      ))}
+                    </ul>
+                    {raw.length !== grouped.size && (
+                      <p className="text-[11.5px] mt-2" style={{ color: "var(--vh-muted)" }}>
+                        {raw.length} total response{raw.length !== 1 ? "s" : ""}, grouped by exact text. Spelling variations count separately.
+                      </p>
+                    )}
+                  </>
+                )
+              })() : (
                 <p className="text-[14px]" style={{ color: "var(--vh-muted)" }}>No responses yet.</p>
               )}
             </div>
