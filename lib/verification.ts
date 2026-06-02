@@ -34,6 +34,7 @@ type BallotVote = {
   rank: number | null
   writeInText: string | null
   weight?: number
+  ballotId?: string | null // optional — present when sorting tally votes, allows full total order
 }
 
 function sortBallotVotes<T extends BallotVote>(votes: T[]): T[] {
@@ -42,7 +43,14 @@ function sortBallotVotes<T extends BallotVote>(votes: T[]): T[] {
     const ao = a.optionId ?? ""
     const bo = b.optionId ?? ""
     if (ao !== bo) return ao.localeCompare(bo)
-    return (a.rank ?? 0) - (b.rank ?? 0)
+    const rankDiff = (a.rank ?? 0) - (b.rank ?? 0)
+    if (rankDiff !== 0) return rankDiff
+    // ballotId tie-break: makes sort a total order across multi-voter tallies so the
+    // resulting hash is identical regardless of the DB row order fed into this function.
+    const ab = a.ballotId ?? ""
+    const bb = b.ballotId ?? ""
+    if (ab !== bb) return ab.localeCompare(bb)
+    return (a.writeInText ?? "").localeCompare(b.writeInText ?? "")
   })
 }
 

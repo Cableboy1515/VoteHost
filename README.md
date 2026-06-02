@@ -433,13 +433,18 @@ import { readFileSync } from "node:fs"
 const audit = JSON.parse(readFileSync("audit.json", "utf8"))
 
 // ── Helper: canonical sort matching the server's algorithm ──────────────────
+// Total order: (questionId, optionId, rank, ballotId, writeInText)
+// ballotId tie-break ensures the hash is identical regardless of DB row order.
 function sortVotes(votes) {
   return [...votes].sort((a, b) => {
     if (a.questionId !== b.questionId) return a.questionId.localeCompare(b.questionId)
-    const ao = a.optionId ?? ""
-    const bo = b.optionId ?? ""
+    const ao = a.optionId ?? "", bo = b.optionId ?? ""
     if (ao !== bo) return ao.localeCompare(bo)
-    return (a.rank ?? 0) - (b.rank ?? 0)
+    const rankDiff = (a.rank ?? 0) - (b.rank ?? 0)
+    if (rankDiff !== 0) return rankDiff
+    const ab = a.ballotId ?? "", bb = b.ballotId ?? ""
+    if (ab !== bb) return ab.localeCompare(bb)
+    return (a.writeInText ?? "").localeCompare(b.writeInText ?? "")
   })
 }
 
