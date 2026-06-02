@@ -61,6 +61,7 @@ export default async function BallotPage({ params }: { params: Promise<{ id: str
           text: q.text,
           description: q.description ?? undefined,
           type: q.type,
+          allowWriteIn: q.allowWriteIn,
           order: q.order,
           required: q.required,
           maxSelections: q.maxSelections ?? undefined,

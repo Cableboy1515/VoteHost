@@ -27,6 +27,7 @@ interface QuestionDraft {
   text: string
   description?: string
   type: QuestionType
+  allowWriteIn?: boolean
   order: number
   required: boolean
   maxSelections?: number
@@ -98,6 +99,25 @@ export default function BallotBuilder({ electionId, electionStatus, firstVoteAt,
           { text: "", order: 0 },
           { text: "", order: 1 },
         ],
+      },
+    ])
+  }
+
+  // Nomination preset: a single-choice question with write-in enabled and no
+  // pre-listed options — voters write in candidate names that are then merged
+  // and tallied. Requires admin review before results are sealed.
+  function addNominationQuestion() {
+    setQuestions((qs) => [
+      ...qs,
+      {
+        text: "",
+        type: "SINGLE_CHOICE",
+        allowWriteIn: true,
+        order: qs.length,
+        required: true,
+        randomizeOptions: false,
+        showOptionAvatars: true,
+        options: [],
       },
     ])
   }
@@ -210,6 +230,26 @@ export default function BallotBuilder({ electionId, electionStatus, firstVoteAt,
     <div className="flex flex-col gap-3">
       <Toaster />
 
+      {/* Write-in review notice — shown when any question has allowWriteIn enabled */}
+      {!locked && questions.some((q) => q.allowWriteIn) && (
+        <div
+          className="flex items-start gap-3 rounded-[14px] px-[18px] py-3.5"
+          style={{ background: "oklch(0.96 0.04 255)", border: "1px solid oklch(0.78 0.09 255)" }}
+        >
+          <div
+            className="w-8 h-8 rounded-[8px] flex items-center justify-center text-white font-semibold text-sm flex-shrink-0 mt-0.5"
+            style={{ background: "oklch(0.55 0.14 255)" }}
+          >
+            i
+          </div>
+          <div className="text-[13.5px]" style={{ color: "oklch(0.35 0.12 255)" }}>
+            <strong>Write-in enabled — admin review required before results are published.</strong>{" "}
+            When this election closes, it will pause for an admin to merge spelling variants and finalize the tally.
+            Auto-send results will not fire until an admin clicks Finalize.
+          </div>
+        </div>
+      )}
+
       {/* Status banners */}
       {electionStatus === "ACTIVE" && !firstVoteAt && (
         <div
@@ -305,6 +345,7 @@ export default function BallotBuilder({ electionId, electionStatus, firstVoteAt,
                             if (locked) return
                             updateQuestion(qIndex, {
                               type: t.value,
+                              allowWriteIn: t.value === "COMMENT" ? false : q.allowWriteIn,
                               maxSelections: t.value === "MULTIPLE_CHOICE" ? q.maxSelections : undefined,
                               options: t.value === "COMMENT" ? [] : q.options.length ? q.options : [{ text: "", order: 0 }, { text: "", order: 1 }],
                             })
@@ -376,6 +417,23 @@ export default function BallotBuilder({ electionId, electionStatus, firstVoteAt,
                           }}
                         >
                           Show option photos
+                        </button>
+                      </Tooltip>
+                      <Tooltip content="Voters can type a candidate name that isn't on the list. Write-in responses are merged and tallied by an admin before results are sealed — the election will pause for review instead of auto-completing.">
+                        <button
+                          type="button"
+                          disabled={locked}
+                          onClick={() => !locked && updateQuestion(qIndex, { allowWriteIn: !q.allowWriteIn })}
+                          className="px-2.5 py-1.5 rounded-[8px] text-[12.5px] transition-colors"
+                          style={{
+                            border: `1px solid ${q.allowWriteIn ? "var(--vh-accent)" : "var(--vh-line-strong)"}`,
+                            background: q.allowWriteIn ? "var(--vh-accent)" : "var(--vh-surface)",
+                            color: q.allowWriteIn ? "white" : "var(--vh-ink-soft)",
+                            cursor: locked ? "not-allowed" : "pointer",
+                            opacity: locked ? 0.6 : 1,
+                          }}
+                        >
+                          Allow write-in
                         </button>
                       </Tooltip>
                     </>
@@ -605,21 +663,40 @@ export default function BallotBuilder({ electionId, electionStatus, firstVoteAt,
       {/* Add question + Save */}
       {!locked && (
         <>
-          <button
-            type="button"
-            onClick={addQuestion}
-            className="w-full py-5 rounded-[16px] text-[14px] transition-colors"
-            style={{
-              border: "2px dashed var(--vh-line-strong)",
-              background: "transparent",
-              color: "var(--vh-muted)",
-              cursor: "pointer",
-            }}
-            onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.borderColor = "var(--vh-accent)"; (e.currentTarget as HTMLElement).style.color = "var(--vh-accent)" }}
-            onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.borderColor = "var(--vh-line-strong)"; (e.currentTarget as HTMLElement).style.color = "var(--vh-muted)" }}
-          >
-            + Add question
-          </button>
+          <div className="flex gap-2.5">
+            <button
+              type="button"
+              onClick={addQuestion}
+              className="flex-1 py-5 rounded-[16px] text-[14px] transition-colors"
+              style={{
+                border: "2px dashed var(--vh-line-strong)",
+                background: "transparent",
+                color: "var(--vh-muted)",
+                cursor: "pointer",
+              }}
+              onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.borderColor = "var(--vh-accent)"; (e.currentTarget as HTMLElement).style.color = "var(--vh-accent)" }}
+              onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.borderColor = "var(--vh-line-strong)"; (e.currentTarget as HTMLElement).style.color = "var(--vh-muted)" }}
+            >
+              + Add question
+            </button>
+            <Tooltip content="Add a nomination question: voters write in candidate names that are merged and tallied after an admin review. No pre-listed options — pure write-in.">
+              <button
+                type="button"
+                onClick={addNominationQuestion}
+                className="px-4 py-5 rounded-[16px] text-[14px] transition-colors whitespace-nowrap"
+                style={{
+                  border: "2px dashed var(--vh-line-strong)",
+                  background: "transparent",
+                  color: "var(--vh-muted)",
+                  cursor: "pointer",
+                }}
+                onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.borderColor = "var(--vh-accent)"; (e.currentTarget as HTMLElement).style.color = "var(--vh-accent)" }}
+                onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.borderColor = "var(--vh-line-strong)"; (e.currentTarget as HTMLElement).style.color = "var(--vh-muted)" }}
+              >
+                + Nomination
+              </button>
+            </Tooltip>
+          </div>
 
           <div className="flex flex-col sm:flex-row gap-2.5 pt-1">
             <button
