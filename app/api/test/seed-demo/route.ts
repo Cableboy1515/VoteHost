@@ -383,7 +383,7 @@ export async function GET(req: Request) {
 
   // Q2 — IRV
   const q2Votes = allVotes.filter((v) => v.questionId === q2.id)
-  const q2Ballots = groupBallots(q2Votes.map((v) => ({ ballotId: v.ballotId, optionId: v.optionId, rank: v.rank })))
+  const q2Ballots = groupBallots(q2Votes.map((v) => ({ ballotId: v.ballotId, candidateId: v.optionId, rank: v.rank })))
   const q2NameById = new Map(q2Options.map((o) => [o.id, o.text]))
   const irvResult = runIRV(q2Ballots, q2Options.map((o) => o.id))
   const irvRounds = irvResult.rounds.map((r) => ({
@@ -395,7 +395,7 @@ export async function GET(req: Request) {
 
   // Q3 — STV
   const q3Votes = allVotes.filter((v) => v.questionId === q3.id)
-  const q3Ballots = groupBallots(q3Votes.map((v) => ({ ballotId: v.ballotId, optionId: v.optionId, rank: v.rank })))
+  const q3Ballots = groupBallots(q3Votes.map((v) => ({ ballotId: v.ballotId, candidateId: v.optionId, rank: v.rank })))
   const q3NameById = new Map(q3Options.map((o) => [o.id, o.text]))
   const stvResult = runSTV(q3Ballots, q3Options.map((o) => o.id), 3)
   const stvRounds = stvResult.rounds.map((r) => ({
@@ -425,7 +425,7 @@ export async function GET(req: Request) {
 
   // Q6 — tie verification
   const q6Votes = allVotes.filter((v) => v.questionId === q6.id)
-  const q6Ballots = groupBallots(q6Votes.map((v) => ({ ballotId: v.ballotId, optionId: v.optionId, rank: v.rank })))
+  const q6Ballots = groupBallots(q6Votes.map((v) => ({ ballotId: v.ballotId, candidateId: v.optionId, rank: v.rank })))
   const q6NameById = new Map([[q6Pat.id, "Pat"], [q6Robin.id, "Robin"]])
   const q6IrvResult = runIRV(q6Ballots, [q6Pat.id, q6Robin.id])
   const q6FirstChoice: Record<string, number> = { Pat: 0, Robin: 0 }

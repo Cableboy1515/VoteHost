@@ -3,22 +3,24 @@
 
 export type RankedChoiceVoteInput = {
   ballotId: string | null
-  optionId: string | null
+  // Stable candidate identifier: optionId for pre-listed candidates,
+  // "writein:<normalizedLabel>" for write-in candidates.
+  candidateId: string | null
   rank: number | null
 }
 
 /** Reconstruct per-voter ranked preference lists from raw Vote rows. */
 export function groupBallots(votes: RankedChoiceVoteInput[]): string[][] {
-  const map = new Map<string, Array<{ optionId: string; rank: number }>>()
+  const map = new Map<string, Array<{ candidateId: string; rank: number }>>()
   for (const v of votes) {
-    if (!v.ballotId || !v.optionId || v.rank === null) continue
+    if (!v.ballotId || !v.candidateId || v.rank === null) continue
     if (!map.has(v.ballotId)) map.set(v.ballotId, [])
-    map.get(v.ballotId)!.push({ optionId: v.optionId, rank: v.rank })
+    map.get(v.ballotId)!.push({ candidateId: v.candidateId, rank: v.rank })
   }
   const ballots: string[][] = []
   for (const rankings of map.values()) {
     rankings.sort((a, b) => a.rank - b.rank)
-    ballots.push(rankings.map((r) => r.optionId))
+    ballots.push(rankings.map((r) => r.candidateId))
   }
   return ballots
 }

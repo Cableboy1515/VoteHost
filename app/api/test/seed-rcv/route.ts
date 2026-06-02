@@ -199,7 +199,7 @@ export async function GET(req: Request) {
 
   // ── 8. Run IRV on Q1 ──────────────────────────────────────────────────────
   const q1Votes = allVotes.filter((v) => v.questionId === q1.id)
-  const q1Ballots = groupBallots(q1Votes.map((v) => ({ ballotId: v.ballotId, optionId: v.optionId, rank: v.rank })))
+  const q1Ballots = groupBallots(q1Votes.map((v) => ({ ballotId: v.ballotId, candidateId: v.optionId, rank: v.rank })))
   const irvResult = runIRV(q1Ballots, q1Options.map((o) => o.id))
 
   // First-choice counts by name
@@ -231,7 +231,7 @@ export async function GET(req: Request) {
 
   // ── 9. Run STV on Q2 ──────────────────────────────────────────────────────
   const q2Votes = allVotes.filter((v) => v.questionId === q2.id)
-  const q2Ballots = groupBallots(q2Votes.map((v) => ({ ballotId: v.ballotId, optionId: v.optionId, rank: v.rank })))
+  const q2Ballots = groupBallots(q2Votes.map((v) => ({ ballotId: v.ballotId, candidateId: v.optionId, rank: v.rank })))
   const seats = 3
   const droopQuota = Math.floor(q2Ballots.length / (seats + 1)) + 1
   const stvResult = runSTV(q2Ballots, q2Options.map((o) => o.id), seats)
