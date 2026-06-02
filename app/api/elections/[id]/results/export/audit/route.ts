@@ -146,6 +146,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
       id: q.id,
       text: q.text,
       type: q.type,
+      seats: q.seats,
       options: q.options.map((o) => ({ id: o.id, text: o.text, order: o.order })),
     })),
     votes: votes.map((v) => ({
@@ -154,6 +155,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
       optionId: v.optionId,
       rank: v.rank,
       writeInText: v.writeInText,
+      weight: v.weight,
     })),
     ballotReceipts: receipts,
     // Computed tally — verify by re-running the algorithm against the raw votes above.
