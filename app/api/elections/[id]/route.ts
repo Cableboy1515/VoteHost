@@ -4,8 +4,8 @@ import { join } from "node:path"
 import { getSession, requireRole } from "@/lib/auth"
 import { db } from "@/lib/db"
 import { ElectionBaseSchema, ElectionSchema } from "@/lib/validations"
-import { sendElectionCompletedStaffNotice, sendElectionExtendedNoticeToUnvoted, sendElectionExtendedStaffNotice } from "@/lib/email"
-import { getStaffRecipients } from "@/lib/staffRecipients"
+import { sendElectionCompletedStaffNotice, sendElectionExtendedNoticeToUnvoted, sendElectionExtendedStaffNotice, sendElectionPendingReviewStaffNotice } from "@/lib/email"
+import { getStaffRecipients, getViewerPlusRecipients } from "@/lib/staffRecipients"
 import { canActivate, CANNOT_ACTIVATE_MESSAGES } from "@/lib/canActivate"
 import { sendBallotInvitationsToUninvited } from "@/lib/sendBallotInvitationsToUninvited"
 import { computeTallyHash } from "@/lib/verification"
@@ -60,6 +60,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
       archived: true,
       firstVoteAt: true,
       completionEmailSentAt: true,
+      reviewNoticeSentAt: true,
       autoSendResults: true,
       resultsEmailSentAt: true,
       title: true,
@@ -154,6 +155,8 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
       // Do NOT set completionEmailSentAt — the cron will send the staff notice
       // after Finalize transitions to COMPLETED.
       delete updates.completionEmailSentAt
+      // Stamp reviewNoticeSentAt now so the email fires exactly once.
+      if (!before.reviewNoticeSentAt) updates.reviewNoticeSentAt = now
     }
   }
 
@@ -302,7 +305,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     })
     const totalVoters = voters.length
     const votedCount = voters.filter((v) => v.hasVoted).length
-    getStaffRecipients()
+    getViewerPlusRecipients()
       .then((recipients) =>
         sendElectionCompletedStaffNotice(
           { id: election.id, title: election.title, endsAt: election.endsAt },
@@ -318,6 +321,25 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
         console.error("[PATCH election] auto-send results email threw:", err)
       )
     }
+  }
+
+  if (transitioningToEnd && enteringReview && !before.reviewNoticeSentAt) {
+    const voters = await db.voter.findMany({
+      where: { electionId: id },
+      select: { hasVoted: true },
+    })
+    const totalVoters = voters.length
+    const votedCount = voters.filter((v) => v.hasVoted).length
+    getStaffRecipients()
+      .then((recipients) =>
+        sendElectionPendingReviewStaffNotice(
+          { id: election.id, title: election.title },
+          recipients,
+          votedCount,
+          totalVoters,
+        ),
+      )
+      .catch((err) => console.error("[PATCH election] pending-review email threw:", err))
   }
 
   // Determine which activity action this PATCH represented

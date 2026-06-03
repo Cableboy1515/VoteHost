@@ -14,6 +14,7 @@ import CloseElectionEarlyButton from "@/components/admin/CloseElectionEarlyButto
 import CancelActivationButton from "@/components/admin/CancelActivationButton"
 import { GuardLink } from "@/components/admin/UnsavedChangesGuard"
 import { autoCompleteElections } from "@/lib/autoCompleteElections"
+import { electionHasWriteIns } from "@/lib/writeIn"
 
 export default async function EditElectionPage({ params }: { params: Promise<{ id: string }> }) {
   const session = await requireRole("ORGANIZER")
@@ -38,6 +39,9 @@ export default async function EditElectionPage({ params }: { params: Promise<{ i
   const isClosed = election.status === "COMPLETED"
   const isPendingReview = election.status === "PENDING_REVIEW"
   const canDiscard = !!election.firstVoteAt && election.status !== "COMPLETED" && !isPendingReview
+  // Only query write-in status when the election is still ACTIVE (the only state
+  // where the close button is shown), to avoid a pointless query otherwise.
+  const hasWriteIns = election.status === "ACTIVE" ? await electionHasWriteIns(id) : false
   const votedCount = election._count.voters
   const totalVoterCount = election.voters.length
   const invitedCount = election.voters.filter((v) => v.invitedAt !== null).length
@@ -147,7 +151,7 @@ export default async function EditElectionPage({ params }: { params: Promise<{ i
             <CancelActivationButton electionId={id} electionTitle={election.title} />
           )}
           {election.status === "ACTIVE" && !isPendingReview && (
-            <CloseElectionEarlyButton id={id} title={election.title} variant="danger" />
+            <CloseElectionEarlyButton id={id} title={election.title} hasWriteIns={hasWriteIns} variant="danger" />
           )}
           {canDiscard && (
             <DiscardBallotButton electionId={id} electionTitle={election.title} votedCount={election._count.voters} />

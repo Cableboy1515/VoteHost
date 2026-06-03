@@ -15,10 +15,12 @@ import {
 export default function CloseElectionEarlyButton({
   id,
   title,
+  hasWriteIns = false,
   variant = "neutral",
 }: {
   id: string
   title: string
+  hasWriteIns?: boolean
   variant?: "neutral" | "danger"
 }) {
   const router = useRouter()
@@ -78,6 +80,9 @@ export default function CloseElectionEarlyButton({
           </DialogHeader>
           <p className="text-sm text-zinc-500 py-2">
             Closing immediately ends this election. No more voters can be added or invited, and no further votes will be accepted.
+            {hasWriteIns && (
+              <> Because this ballot allows write-in responses, it will move to <strong>write-in review</strong> — an admin must review and merge write-in responses, then Finalize before results are published.</>
+            )}
           </p>
           <DialogFooter>
             <DialogClose render={<Button variant="outline" />}>Cancel</DialogClose>
@@ -98,8 +103,18 @@ export default function CloseElectionEarlyButton({
             <ul className="text-sm text-zinc-600 space-y-1 list-disc list-inside">
               <li>No more voters can be <strong>added or invited</strong>.</li>
               <li>No further <strong>votes</strong> will be accepted.</li>
-              <li>This election will move to <strong>Completed</strong> status.</li>
-              <li>Final results will be sent to staff immediately.</li>
+              {hasWriteIns ? (
+                <>
+                  <li>This election will move to <strong>write-in review</strong> status.</li>
+                  <li>An admin must review &amp; merge write-in responses, then <strong>Finalize</strong>.</li>
+                  <li><strong>Results are not published until Finalize.</strong></li>
+                </>
+              ) : (
+                <>
+                  <li>This election will move to <strong>Completed</strong> status.</li>
+                  <li>Final results will be sent to staff immediately.</li>
+                </>
+              )}
             </ul>
             <label className="flex items-start gap-2.5 cursor-pointer mt-2">
               <input
@@ -109,7 +124,9 @@ export default function CloseElectionEarlyButton({
                 className="mt-0.5 flex-shrink-0"
               />
               <span className="text-sm text-zinc-600">
-                I understand this election will be finalized and cannot be re-opened — to run another vote, create a new election.
+                {hasWriteIns
+                  ? "I understand voting will end and this election will require write-in review before results are published — it cannot be re-opened."
+                  : "I understand this election will be finalized and cannot be re-opened — to run another vote, create a new election."}
               </span>
             </label>
           </div>

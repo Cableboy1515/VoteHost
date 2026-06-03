@@ -990,6 +990,48 @@ export async function sendElectionCompletedStaffNotice(
   await sendStaffBlast("sendElectionCompletedStaffNotice", election.title, recipients, subject, html)
 }
 
+function buildPendingReviewStaffHtml(election: StaffElection, votedCount: number, totalVoters: number): string {
+  const title = escapeHtml(election.title)
+  const reviewUrl = escapeHtml(absolutizeUrl(`/elections/${election.id}/review`))
+  const turnoutPct = totalVoters > 0 ? Math.round((votedCount / totalVoters) * 100) : 0
+  const turnoutLine = totalVoters > 0
+    ? `<strong style="color:${C.ink};">${votedCount}</strong> of <strong style="color:${C.ink};">${totalVoters}</strong> voters cast a ballot (<strong style="color:${C.ink};">${turnoutPct}%</strong> turnout).`
+    : `No voters were recorded for this election.`
+  return emailWrapper(`
+    ${brandRow()}
+    <tr><td style="padding:24px 32px 14px;">
+      <h1 style="margin:0 0 14px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:22px;font-weight:600;color:${C.ink};letter-spacing:-0.02em;">Write-in review needed</h1>
+      <p style="margin:0 0 14px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:14.5px;color:${C.inkSoft};line-height:1.6;">
+        Voting for <strong style="color:${C.ink};">${title}</strong> has closed. ${turnoutLine}
+      </p>
+      <p style="margin:0 0 14px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:14.5px;color:${C.inkSoft};line-height:1.6;">
+        Because this ballot allows write-in responses, an admin must review and merge write-in variants before the tally is sealed. Results will not be published until an admin completes the review and clicks <strong style="color:${C.ink};">Finalize</strong>.
+      </p>
+    </td></tr>
+    <tr><td style="padding:0 32px 14px;">
+      <a href="${reviewUrl}" style="display:inline-block;background:${C.accent};color:#ffffff;text-decoration:none;padding:14px 28px;border-radius:10px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:15px;font-weight:500;">Review write-ins →</a>
+    </td></tr>
+    <tr><td style="padding:0 32px 28px;">
+      <table role="presentation" cellpadding="0" cellspacing="0" width="100%"><tr>
+        <td style="border-top:1px solid ${C.line};padding-top:18px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:12px;color:${C.muted};line-height:1.6;">
+          You received this because you administer or organize elections on ${BRAND_NAME}.
+        </td>
+      </tr></table>
+    </td></tr>
+  `)
+}
+
+export async function sendElectionPendingReviewStaffNotice(
+  election: StaffElection,
+  recipients: Array<{ email: string }>,
+  votedCount: number,
+  totalVoters: number,
+): Promise<void> {
+  const subject = `Review needed — ${election.title}`
+  const html = buildPendingReviewStaffHtml(election, votedCount, totalVoters)
+  await sendStaffBlast("sendElectionPendingReviewStaffNotice", election.title, recipients, subject, html)
+}
+
 function buildElectionStartedStaffHtml(election: StaffElection): string {
   const title = escapeHtml(election.title)
   const resultsUrl = escapeHtml(absolutizeUrl(`/elections/${election.id}/results`))

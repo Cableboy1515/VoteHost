@@ -79,6 +79,8 @@ model Election {
   tallyHash      String?
   tallyHashSetAt DateTime?
 
+  reviewNoticeSentAt DateTime?  // set when PENDING_REVIEW notice is sent to staff
+
   // Write-in review / finalization
   finalizedAt               DateTime?
   finalizedById             String?
@@ -110,7 +112,13 @@ model Question {
   // Only meaningful on SINGLE_CHOICE, MULTIPLE_CHOICE, RANKED_CHOICE.
   // When true, elections with this question park in PENDING_REVIEW at close
   // so an admin can merge spelling variants before the tally is sealed.
-  allowWriteIn Boolean @default(false)
+  allowWriteIn  Boolean @default(false)
+
+  // Number of blank write-in boxes shown to voters on MULTIPLE_CHOICE
+  // write-in questions (e.g. nominations where slots = vacancies to fill).
+  // SINGLE_CHOICE always shows 1; RANKED_CHOICE uses its own add-button.
+  // Only meaningful when allowWriteIn is true.
+  writeInSlots  Int     @default(1)
 
   election Election @relation(fields: [electionId], references: [id], onDelete: Cascade)
   options  Option[]

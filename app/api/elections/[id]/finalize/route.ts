@@ -3,6 +3,8 @@ import { requireRole } from "@/lib/auth"
 import { db } from "@/lib/db"
 import { computeTallyHash } from "@/lib/verification"
 import { sendElectionResultsEmail } from "@/lib/sendElectionResultsEmail"
+import { sendElectionCompletedStaffNotice } from "@/lib/email"
+import { getViewerPlusRecipients } from "@/lib/staffRecipients"
 import { recordActivity } from "@/lib/recordActivity"
 import { computeNormalizationManifestHash } from "@/lib/writeIn"
 
@@ -65,7 +67,23 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
     )
   }
 
-  const mergeCount = await db.writeInMerge.count({ where: { electionId: id } })
+  // Stamp completionEmailSentAt now so the reminders sweep doesn't double-send.
+  await db.election.update({ where: { id }, data: { completionEmailSentAt: now } })
+
+  // Send completed staff notice to Admin+Organizer+Viewer inline (don't wait for sweep).
+  const [voters, viewerPlusRecipients, mergeCount] = await Promise.all([
+    db.voter.findMany({ where: { electionId: id }, select: { hasVoted: true } }),
+    getViewerPlusRecipients(),
+    db.writeInMerge.count({ where: { electionId: id } }),
+  ])
+  const totalVoters = voters.length
+  const votedCount = voters.filter((v) => v.hasVoted).length
+  sendElectionCompletedStaffNotice(
+    { id, title: election.title },
+    viewerPlusRecipients,
+    votedCount,
+    totalVoters,
+  ).catch((err) => console.error(`[finalize] completed staff notice failed for ${id}:`, err))
 
   await recordActivity({
     session,
