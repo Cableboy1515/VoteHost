@@ -190,6 +190,8 @@ export async function getResultsForElection(electionId: string) {
       questionId: question.id,
       questionText: question.text,
       type: question.type,
+      allowWriteIn: question.allowWriteIn,
+      writeInSlots: question.writeInSlots,
       options: optionCounts,
     }
   })

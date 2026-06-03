@@ -278,6 +278,12 @@ export default function ResultsDashboard({ electionId, initialData, endsAt, elec
         const topValue = sortedOptions.length > 0 ? getVotes(sortedOptions[0]) : 0
         const isTie = topValue > 0 && sortedOptions.filter((o) => getVotes(o) === topValue).length > 1
 
+        // Nomination questions (allowWriteIn = true) produce a nominee list, not a
+        // winner-takes-all result. Suppress the Winner/LEAD/Tie badge and top-bucket
+        // accent so no single nominee is visually crowned. When a dedicated nomination
+        // module is added later, swap this one condition to an explicit election-type flag.
+        const isNomination = "allowWriteIn" in q && (q as { allowWriteIn: boolean }).allowWriteIn === true
+
         return (
           <div
             key={q.questionId}
@@ -290,7 +296,7 @@ export default function ResultsDashboard({ electionId, initialData, endsAt, elec
                 className="flex-shrink-0 text-[11.5px] uppercase tracking-wide px-2.5 py-1 rounded-full"
                 style={{ background: "var(--vh-surface-2)", color: "var(--vh-muted)" }}
               >
-                {q.type === "RANKED_CHOICE" ? "Ranked Choice" : q.type === "SINGLE_CHOICE" ? "Single Choice" : q.type === "MULTIPLE_CHOICE" ? "Multiple Choice" : "Comment"}
+                {q.type === "RANKED_CHOICE" ? "Ranked Choice" : isNomination ? "Nomination" : q.type === "SINGLE_CHOICE" ? "Single Choice" : q.type === "MULTIPLE_CHOICE" ? "Multiple Choice" : "Comment"}
               </span>
             </div>
             {/* ── Ranked Choice: round-by-round table ─────────────────────────── */}
@@ -568,7 +574,8 @@ export default function ResultsDashboard({ electionId, initialData, endsAt, elec
                 {sortedOptions.map((o) => {
                   const votes = getVotes(o)
                   const pct = maxVotes > 0 ? Math.round((votes / maxVotes) * 100) : 0
-                  const isTop = votes > 0 && votes === topValue
+                  // Nominations: never crown any nominee as top — show a neutral list.
+                  const isTop = !isNomination && votes > 0 && votes === topValue
                   const chipLabel = !isTop ? null : isTie ? "Tie" : isLive ? "LEAD" : "Winner"
 
                   return (
