@@ -43,12 +43,14 @@ console.log("Hash match:    ", computed === published ? "YES ✓" : "NO ✗ — 
 const manifest = audit.normalizationManifest ?? []
 const manifestHashPublished = audit.normalizationManifestHash ?? null
 if (manifestHashPublished) {
-  // Sorted the same way the server sorts in computeNormalizationManifestHash:
-  // orderBy [questionId ASC, rawText ASC], select {questionId, rawText, canonicalLabel}
-  const sortedManifest = [...manifest].sort((a, b) => {
-    if (a.questionId !== b.questionId) return a.questionId.localeCompare(b.questionId)
-    return a.rawText.localeCompare(b.rawText)
-  })
+  // Sort and project to explicit {questionId, rawText, canonicalLabel} — same algorithm as
+  // computeNormalizationManifestHash in lib/writeIn.ts (JS localeCompare, pinned key order).
+  const sortedManifest = [...manifest]
+    .sort((a, b) => {
+      if (a.questionId !== b.questionId) return a.questionId.localeCompare(b.questionId)
+      return a.rawText.localeCompare(b.rawText)
+    })
+    .map(({ questionId, rawText, canonicalLabel }) => ({ questionId, rawText, canonicalLabel }))
   const computedManifestHash = "sha256:" + sha256(sortedManifest)
   console.log("\nNormalization manifest:")
   console.log("  Published manifest hash:", manifestHashPublished)
@@ -56,6 +58,42 @@ if (manifestHashPublished) {
   console.log("  Manifest hash match:    ", computedManifestHash === manifestHashPublished
     ? "YES ✓" : "NO ✗ — manifest may have been altered")
   console.log(`  Merge mappings: ${manifest.length}`)
+
+  // Build a set of all pre-listed option texts for the listed-option flag
+  const listedOptionTexts = new Map() // questionId → Set<text>
+  for (const q of audit.questions) {
+    listedOptionTexts.set(q.id, new Set(q.options.map(o => o.text)))
+  }
+
+  // Print each mapping with raw-vote count and a flag if it redirects onto a listed candidate
+  if (manifest.length > 0) {
+    console.log("\n  Mapping details (raw write-in → canonical label):")
+    // Count raw votes per (questionId, rawText) to show impact
+    const rawCounts = new Map()
+    for (const v of audit.votes) {
+      if (!v.optionId && v.writeInText) {
+        const k = `${v.questionId}:::${v.writeInText}`
+        rawCounts.set(k, (rawCounts.get(k) ?? 0) + 1)
+      }
+    }
+    // Group by questionId for readability
+    const byQuestion = new Map()
+    for (const m of manifest) {
+      if (!byQuestion.has(m.questionId)) byQuestion.set(m.questionId, [])
+      byQuestion.get(m.questionId).push(m)
+    }
+    for (const [qId, mappings] of byQuestion) {
+      const q = audit.questions.find(q => q.id === qId)
+      console.log(`\n    Question: ${q?.text ?? qId}`)
+      for (const m of mappings) {
+        const count = rawCounts.get(`${m.questionId}:::${m.rawText}`) ?? 0
+        const optTexts = listedOptionTexts.get(m.questionId) ?? new Set()
+        const isListed = optTexts.has(m.canonicalLabel)
+        const flag = isListed ? "  ⚠ MERGES INTO LISTED CANDIDATE" : ""
+        console.log(`      "${m.rawText}" → "${m.canonicalLabel}"  (${count} vote${count !== 1 ? "s" : ""})${flag}`)
+      }
+    }
+  }
 }
 
 // Build per-question merge map for tally reproduction
@@ -284,6 +322,29 @@ for (const q of audit.questions) {
 
   } else {
     // SINGLE_CHOICE / MULTIPLE_CHOICE — weight-aware tally, with write-in normalization.
+    const writeInVotes = qVotes.filter(v => !v.optionId && v.writeInText)
+
+    // Raw (pre-merge) grouping — shown when any write-ins exist, so auditors can see
+    // exactly how the normalization overlay moved votes.
+    if (writeInVotes.length > 0) {
+      const rawCounts = {}
+      for (const o of q.options) {
+        rawCounts[o.id] = qVotes
+          .filter(v => v.optionId === o.id)
+          .reduce((s, v) => s + (v.weight && v.weight > 1 ? v.weight : 1), 0)
+      }
+      for (const v of writeInVotes) {
+        const candidateId = `writein:${v.writeInText}`
+        rawCounts[candidateId] = (rawCounts[candidateId] ?? 0) + (v.weight && v.weight > 1 ? v.weight : 1)
+      }
+      console.log(`    Pre-merge (raw write-ins, before normalization):`)
+      for (const [id, count] of Object.entries(rawCounts)) {
+        const rawLabel = id.startsWith("writein:") ? `${id.slice(8)} (write-in, raw)` : label(id)
+        console.log(`      ${count.toString().padStart(4)}  ${rawLabel}`)
+      }
+      console.log(`    Post-merge (after normalization overlay):`)
+    }
+
     const counts = {}
     // Real options first
     for (const o of q.options) {
@@ -292,7 +353,6 @@ for (const q of audit.questions) {
         .reduce((s, v) => s + (v.weight && v.weight > 1 ? v.weight : 1), 0)
     }
     // Write-in votes: normalize and bucket
-    const writeInVotes = qVotes.filter(v => !v.optionId && v.writeInText)
     for (const v of writeInVotes) {
       const normalized = qMergeMap.get(v.writeInText) ?? v.writeInText
       const realId = optionTextToId.get(normalized)

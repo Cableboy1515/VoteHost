@@ -19,11 +19,16 @@ export default async function ReviewPage({ params }: { params: Promise<{ id: str
   if (election.status === "COMPLETED") redirect(`/elections/${id}/results`)
   if (election.status !== "PENDING_REVIEW") redirect(`/elections/${id}`)
 
-  // Load write-in-enabled questions with their raw responses and existing merges.
+  // Load write-in-enabled questions with their raw responses, existing merges, and
+  // pre-listed options (used by the UI to flag when a canonical label matches a listed candidate).
   const questions = await db.question.findMany({
     where: { electionId: id, allowWriteIn: true },
     orderBy: { order: "asc" },
-    select: { id: true, text: true },
+    select: {
+      id: true,
+      text: true,
+      options: { select: { id: true, text: true }, orderBy: { order: "asc" } },
+    },
   })
 
   const merges = await db.writeInMerge.findMany({
@@ -58,6 +63,7 @@ export default async function ReviewPage({ params }: { params: Promise<{ id: str
       questionId: q.id,
       questionText: q.text,
       totalResponses: [...rawCounts.values()].reduce((s, c) => s + c, 0),
+      options: q.options.map((o) => ({ id: o.id, text: o.text })),
       entries,
     }
   })

@@ -16,8 +16,16 @@ export async function electionHasWriteIns(electionId: string): Promise<boolean> 
 export async function computeNormalizationManifestHash(electionId: string): Promise<string> {
   const merges = await db.writeInMerge.findMany({
     where: { electionId },
-    orderBy: [{ questionId: "asc" }, { rawText: "asc" }],
     select: { questionId: true, rawText: true, canonicalLabel: true },
   })
-  return createHash("sha256").update(JSON.stringify(merges)).digest("hex")
+  // Sort in JS — same convention as computeTallyHash / sortBallotVotes — so the hash is
+  // independent of DB collation and reproducible by any observer with the same comparator.
+  const canonical = [...merges]
+    .sort((a, b) => {
+      const qDiff = a.questionId.localeCompare(b.questionId)
+      if (qDiff !== 0) return qDiff
+      return a.rawText.localeCompare(b.rawText)
+    })
+    .map(({ questionId, rawText, canonicalLabel }) => ({ questionId, rawText, canonicalLabel }))
+  return createHash("sha256").update(JSON.stringify(canonical)).digest("hex")
 }

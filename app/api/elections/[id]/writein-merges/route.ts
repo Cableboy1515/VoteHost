@@ -24,7 +24,13 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
   const questions = await db.question.findMany({
     where: { electionId: id, allowWriteIn: true },
     orderBy: { order: "asc" },
-    select: { id: true, text: true },
+    select: {
+      id: true,
+      text: true,
+      // Return pre-listed option texts so the UI can flag when a canonical label
+      // matches a listed candidate (same rule as the tally overlay in lib/results.ts).
+      options: { select: { id: true, text: true }, orderBy: { order: "asc" } },
+    },
   })
 
   const merges = await db.writeInMerge.findMany({
@@ -60,6 +66,9 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
       questionId: q.id,
       questionText: q.text,
       totalResponses: [...rawCounts.values()].reduce((s, c) => s + c, 0),
+      // Pre-listed options: lets the UI detect when a canonical label matches a listed
+      // candidate (exact, case-sensitive — the same rule as the tally overlay).
+      options: q.options.map((o) => ({ id: o.id, text: o.text })),
       entries,
     }
   })
