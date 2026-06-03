@@ -273,10 +273,11 @@ export default function WriteInReviewPanel({ electionId, questions, autoSendResu
                         // Flag if the draft (in-progress label) would merge into a listed option
                         const draftMatchesListed = draft.trim() !== "" && listedOptionTexts.has(draft.trim())
 
-                        // Similarity hint — uses pool for this question minus the
-                        // entry's own raw text (to avoid trivially suggesting itself).
+                        // Similarity hint — exclude only the entry's exact raw text string.
+                        // Normalizing would wrongly exclude "Chris Dewald" when the raw text
+                        // is "Chris DeWald" — that near-duplicate is precisely what we want to show.
                         const pool = (questionPools[q.questionId] ?? []).filter(
-                          (v) => normalizeName(v) !== normalizeName(entry.rawText)
+                          (v) => v !== entry.rawText
                         )
                         const hintQuery = draft.trim() || entry.rawText
                         const topHint = bestMatches(hintQuery, pool, { threshold: SIMILARITY_THRESHOLD, limit: 1 })[0]
@@ -322,13 +323,17 @@ export default function WriteInReviewPanel({ electionId, questions, autoSendResu
                               )}
                             </div>
 
-                            {/* Quick-fill arrow — clicking copies the raw write-in into the merge box */}
+                            {/* Quick-fill button — clicking copies the raw write-in into the merge box */}
                             <button
                               type="button"
                               onClick={() => quickFill(q.questionId, entry.rawText)}
                               disabled={isSaving}
-                              className="text-[14px] px-0.5 rounded-[3px] transition-opacity opacity-40 hover:opacity-90 disabled:opacity-20 cursor-pointer mt-[3px]"
-                              style={{ color: "var(--vh-accent)" }}
+                              className="flex-shrink-0 text-[12px] font-medium px-2 py-0.5 rounded-[4px] transition-colors disabled:opacity-30 mt-[3px]"
+                              style={{
+                                background: "var(--vh-surface-3, var(--vh-line))",
+                                color: "var(--vh-ink-soft)",
+                                border: "1px solid var(--vh-line-strong)",
+                              }}
                               title={`Use "${entry.rawText}" as the canonical name`}
                             >
                               →
