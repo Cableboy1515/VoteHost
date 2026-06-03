@@ -147,7 +147,7 @@ export async function getResultsForElection(electionId: string) {
           ? matching.reduce((sum, v) => sum + (v.weight ?? 1), 0)
           : matching.length,
         rawCount: matching.length,
-        isWriteIn: false as const,
+        isWriteIn: false as boolean,
       }
     })
 

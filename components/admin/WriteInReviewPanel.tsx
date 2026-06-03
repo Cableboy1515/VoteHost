@@ -1,7 +1,9 @@
 "use client"
 
-import { useState, useTransition } from "react"
+import { useState, useMemo, useTransition } from "react"
 import { useRouter } from "next/navigation"
+import { MergeCombobox } from "@/components/ui/combobox"
+import { bestMatches, SIMILARITY_THRESHOLD, normalizeName } from "@/lib/similarity"
 
 interface Entry {
   rawText: string
@@ -76,8 +78,8 @@ export default function WriteInReviewPanel({ electionId, questions, autoSendResu
     }))
   }
 
-  async function saveMerge(questionId: string, rawText: string) {
-    const canonical = (getDraft(questionId, rawText) || rawText).trim()
+  async function saveMerge(questionId: string, rawText: string, valueOverride?: string) {
+    const canonical = (valueOverride ?? (getDraft(questionId, rawText) || rawText)).trim()
     const key = draftKey(questionId, rawText)
     setSaving((s) => ({ ...s, [key]: true }))
     try {
@@ -120,6 +122,17 @@ export default function WriteInReviewPanel({ electionId, questions, autoSendResu
     }
   }
 
+  /** Copy the raw write-in text into the merge box so the admin can review and save. */
+  function quickFill(questionId: string, rawText: string) {
+    setDraft(questionId, rawText, rawText)
+  }
+
+  /** Set the draft to a suggested canonical label and immediately persist it. */
+  async function applySuggestion(questionId: string, rawText: string, value: string) {
+    setDraft(questionId, rawText, value)
+    await saveMerge(questionId, rawText, value)
+  }
+
   async function handleFinalize() {
     setFinalizing(true)
     setError("")
@@ -135,6 +148,30 @@ export default function WriteInReviewPanel({ electionId, questions, autoSendResu
       setFinalizing(false)
     }
   }
+
+  /**
+   * Build the suggestion pool for a question: listed candidate names +
+   * already-decided canonical labels in this review session.
+   * Deduped by normalized form to avoid near-duplicate suggestions.
+   */
+  const questionPools = useMemo(() => {
+    const pools: Record<string, string[]> = {}
+    for (const q of questions) {
+      const map = new Map<string, string>() // normalized → original (preserve casing)
+      for (const opt of q.options) {
+        const norm = normalizeName(opt.text)
+        if (!map.has(norm)) map.set(norm, opt.text)
+      }
+      for (const [, canonical] of Object.entries(merges[q.questionId] ?? {})) {
+        if (canonical) {
+          const norm = normalizeName(canonical)
+          if (!map.has(norm)) map.set(norm, canonical)
+        }
+      }
+      pools[q.questionId] = [...map.values()]
+    }
+    return pools
+  }, [questions, merges])
 
   return (
     <div className="flex flex-col gap-6">
@@ -219,7 +256,7 @@ export default function WriteInReviewPanel({ electionId, questions, autoSendResu
                     )}
 
                     {/* Column headers — only above first group, or each group */}
-                    <div className="grid items-center gap-3 px-3 pb-1" style={{ gridTemplateColumns: "1fr auto 1fr auto" }}>
+                    <div className="grid items-end gap-3 px-3 pb-1" style={{ gridTemplateColumns: "1fr auto 1fr auto" }}>
                       <span className="text-[11px] font-medium uppercase tracking-wide" style={{ color: "var(--vh-muted)" }}>Raw response</span>
                       <span />
                       <span className="text-[11px] font-medium uppercase tracking-wide" style={{ color: "var(--vh-muted)" }}>Merge to (canonical name)</span>
@@ -236,10 +273,24 @@ export default function WriteInReviewPanel({ electionId, questions, autoSendResu
                         // Flag if the draft (in-progress label) would merge into a listed option
                         const draftMatchesListed = draft.trim() !== "" && listedOptionTexts.has(draft.trim())
 
+                        // Similarity hint — uses pool for this question minus the
+                        // entry's own raw text (to avoid trivially suggesting itself).
+                        const pool = (questionPools[q.questionId] ?? []).filter(
+                          (v) => normalizeName(v) !== normalizeName(entry.rawText)
+                        )
+                        const hintQuery = draft.trim() || entry.rawText
+                        const topHint = bestMatches(hintQuery, pool, { threshold: SIMILARITY_THRESHOLD, limit: 1 })[0]
+                        // Suppress hint when: the active query already equals the suggestion
+                        // (nothing to nudge), or when the exact-match listed-candidate warning
+                        // already covers it (avoid double-warning).
+                        const showHint = topHint != null
+                          && hintQuery !== topHint.value
+                          && !(topHint.exact && draftMatchesListed)
+
                         return (
                           <div
                             key={entry.rawText}
-                            className="grid items-center gap-3 px-3 py-2.5 rounded-[10px]"
+                            className="grid items-start gap-3 px-3 py-2.5 rounded-[10px]"
                             style={{
                               gridTemplateColumns: "1fr auto 1fr auto",
                               background: currentMerge
@@ -257,7 +308,7 @@ export default function WriteInReviewPanel({ electionId, questions, autoSendResu
                             }}
                           >
                             {/* Raw text + count */}
-                            <div className="flex items-center gap-2 min-w-0">
+                            <div className="flex items-center gap-2 min-w-0 pt-[3px]">
                               <span className="text-[13.5px] break-words min-w-0" style={{ color: "var(--vh-ink-soft)" }}>
                                 {entry.rawText}
                               </span>
@@ -271,22 +322,29 @@ export default function WriteInReviewPanel({ electionId, questions, autoSendResu
                               )}
                             </div>
 
-                            {/* Arrow */}
-                            <span className="text-[14px]" style={{ color: "var(--vh-muted)" }}>→</span>
+                            {/* Quick-fill arrow — clicking copies the raw write-in into the merge box */}
+                            <button
+                              type="button"
+                              onClick={() => quickFill(q.questionId, entry.rawText)}
+                              disabled={isSaving}
+                              className="text-[14px] px-0.5 rounded-[3px] transition-opacity opacity-40 hover:opacity-90 disabled:opacity-20 cursor-pointer mt-[3px]"
+                              style={{ color: "var(--vh-accent)" }}
+                              title={`Use "${entry.rawText}" as the canonical name`}
+                            >
+                              →
+                            </button>
 
-                            {/* Canonical label input + live flag */}
+                            {/* Canonical label input + live flags */}
                             <div className="flex flex-col gap-1 min-w-0">
-                              <input
-                                type="text"
-                                placeholder={entry.rawText}
+                              <MergeCombobox
                                 value={draft}
-                                onChange={(e) => setDraft(q.questionId, entry.rawText, e.target.value)}
-                                onKeyDown={(e) => {
-                                  if (e.key === "Enter") saveMerge(q.questionId, entry.rawText)
-                                }}
+                                onValueChange={(v) => setDraft(q.questionId, entry.rawText, v)}
+                                suggestions={pool}
+                                placeholder={entry.rawText}
                                 disabled={isSaving}
                                 maxLength={500}
-                                className="w-full text-sm rounded-[8px] px-2.5 py-1.5"
+                                aria-label={`Canonical name for "${entry.rawText}"`}
+                                onEnterKey={() => saveMerge(q.questionId, entry.rawText)}
                                 style={{
                                   border: `1px solid ${
                                     draftMatchesListed && draftChanged
@@ -297,10 +355,7 @@ export default function WriteInReviewPanel({ electionId, questions, autoSendResu
                                   }`,
                                   background: "var(--vh-surface)",
                                   color: "var(--vh-ink)",
-                                  outline: "none",
-                                  opacity: isSaving ? 0.6 : 1,
                                 }}
-                                aria-label={`Canonical name for "${entry.rawText}"`}
                               />
                               {/* Live flag when typing a label that matches a listed option */}
                               {draftMatchesListed && draftChanged && (
@@ -308,10 +363,37 @@ export default function WriteInReviewPanel({ electionId, questions, autoSendResu
                                   ⚠ will merge into listed candidate
                                 </span>
                               )}
+                              {/* Similarity hint — shown proactively and after quick-fill/typing */}
+                              {showHint && (
+                                <div
+                                  className="flex items-center justify-between gap-2 px-2 py-1 rounded-[6px] text-[11px]"
+                                  style={{
+                                    background: "var(--vh-accent-soft)",
+                                    border: "1px solid oklch(0.85 0.05 255)",
+                                    color: "var(--vh-ink-soft)",
+                                  }}
+                                >
+                                  <span className="min-w-0 truncate">
+                                    {topHint.exact
+                                      ? `Matches "${topHint.value}" — merge to keep them together?`
+                                      : `Similar to existing "${topHint.value}"`}
+                                  </span>
+                                  <button
+                                    type="button"
+                                    onClick={() => applySuggestion(q.questionId, entry.rawText, topHint.value)}
+                                    disabled={isSaving}
+                                    className="flex-shrink-0 text-[11px] font-medium px-1.5 py-0.5 rounded-[4px] transition-colors disabled:opacity-50"
+                                    style={{ background: "var(--vh-accent)", color: "white" }}
+                                    title={`Merge into "${topHint.value}"`}
+                                  >
+                                    Merge
+                                  </button>
+                                </div>
+                              )}
                             </div>
 
                             {/* Action buttons */}
-                            <div className="flex items-center gap-1.5 flex-shrink-0">
+                            <div className="flex items-center gap-1.5 flex-shrink-0 mt-[3px]">
                               {draftChanged && (
                                 <button
                                   type="button"
