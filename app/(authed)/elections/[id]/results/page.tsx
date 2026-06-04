@@ -83,7 +83,10 @@ export default async function ResultsPage({ params }: { params: Promise<{ id: st
             />
           )}
           {election.status === "COMPLETED" && (
-            <ExportResultsButtons electionId={id} />
+            <ExportResultsButtons
+              electionId={id}
+              hasRankedQuestion={initialData.questions.some((q) => q.type === "RANKED_CHOICE")}
+            />
           )}
         </div>
       </div>
