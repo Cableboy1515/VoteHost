@@ -98,6 +98,12 @@ export default function ExportResultsButtons({
                   <span className="block text-[11.5px]" style={{ color: "var(--vh-muted)" }}>One row per ballot · for RCV re-tally</span>
                 </Menu.LinkItem>
               )}
+              {hasRankedQuestion && (
+                <Menu.LinkItem href={`${base}/blt`} download closeOnClick className={itemClass}>
+                  <span className="block text-[13px]" style={{ color: "var(--vh-ink)" }}>Ballot data (BLT)</span>
+                  <span className="block text-[11.5px]" style={{ color: "var(--vh-muted)" }}>Re-tally in OpaVote / OpenSTV</span>
+                </Menu.LinkItem>
+              )}
 
               <Menu.LinkItem href={`${base}/audit`} download closeOnClick className={itemClass}>
                 <span className="block text-[13px]" style={{ color: "var(--vh-ink)" }}>Audit export (JSON)</span>
