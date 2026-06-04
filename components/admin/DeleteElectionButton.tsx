@@ -18,9 +18,10 @@ interface Props {
   role: string
   archived: boolean
   status: string
+  returnTo?: string
 }
 
-export default function DeleteElectionButton({ id, title, role, archived, status }: Props) {
+export default function DeleteElectionButton({ id, title, role, archived, status, returnTo = "/elections" }: Props) {
   const router = useRouter()
   const [stage, setStage] = useState<"closed" | "warn" | "confirm" | "draft-confirm">("closed")
   const [checked, setChecked] = useState(false)
@@ -43,7 +44,8 @@ export default function DeleteElectionButton({ id, title, role, archived, status
     setDeleting(false)
     if (!res.ok) return
     closeAll()
-    router.push("/elections")
+    router.push(returnTo)
+    router.refresh()
   }
 
   return (

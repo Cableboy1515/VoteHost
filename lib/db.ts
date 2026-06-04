@@ -2,7 +2,10 @@ import { PrismaClient } from "./generated/prisma/client"
 import { PrismaPg } from "@prisma/adapter-pg"
 
 function createClient() {
-  const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL! })
+  // Default pg pool max is 10, which is easily exhausted by the sequential
+  // mass-invite loop (1 interactive transaction + 2 concurrent updates per voter).
+  // 20 gives pages and background tasks enough headroom to coexist.
+  const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL!, max: 20 })
   return new PrismaClient({ adapter })
 }
 

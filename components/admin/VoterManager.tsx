@@ -391,6 +391,11 @@ export default function VoterManager({
     wasSendingRef.current = true
   }
 
+  async function handleStopInvites() {
+    await fetch(`/api/elections/${electionId}/stop-invitations`, { method: "POST" }).catch(() => {})
+    // The 2s activation-status poll will update the UI automatically once the loop observes the flag.
+  }
+
   async function handleResend(voter: Voter) {
     setResending((prev) => new Set(prev).add(voter.id))
     try {
@@ -722,11 +727,20 @@ export default function VoterManager({
         >
           <span className="text-lg flex-shrink-0">📨</span>
           {activationStatus?.sending ? (
-            <div className="flex-1 min-w-0">
-              <p className="text-[13px] font-medium mb-2" style={{ color: "var(--vh-accent-strong)" }}>
-                Sending invitations…
-              </p>
-              <InvitationProgress status={activationStatus} />
+            <div className="flex-1 min-w-0 flex items-start gap-3">
+              <div className="flex-1 min-w-0">
+                <p className="text-[13px] font-medium mb-2" style={{ color: "var(--vh-accent-strong)" }}>
+                  Sending invitations…
+                </p>
+                <InvitationProgress status={activationStatus} />
+              </div>
+              <button
+                onClick={handleStopInvites}
+                className="px-3.5 py-2 rounded-[10px] text-[13px] font-medium flex-shrink-0 transition-colors"
+                style={{ border: "1px solid var(--vh-warn)", color: "var(--vh-warn)", background: "transparent" }}
+              >
+                Stop
+              </button>
             </div>
           ) : (
             <>

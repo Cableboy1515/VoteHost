@@ -4,7 +4,7 @@
   "private": true,
   "license": "AGPL-3.0-or-later",
   "scripts": {
-    "dev": "concurrently -k \"prisma dev\" \"bash -c 'until nc -z 127.0.0.1 51214 2>/dev/null; do sleep 0.5; done && next dev'\"",
+    "dev": "concurrently -k \"prisma dev --db-port 51214 --shadow-db-port 51215\" \"bash -c 'until nc -z 127.0.0.1 51214 2>/dev/null; do sleep 0.5; done && next dev'\"",
     "build": "next build",
     "start": "next start",
     "lint": "eslint"

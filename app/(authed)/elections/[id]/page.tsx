@@ -31,7 +31,6 @@ export default async function EditElectionPage({ params }: { params: Promise<{ i
           questions: true,
         },
       },
-      voters: { select: { invitedAt: true } },
     },
   })
   if (!election) notFound()
@@ -43,8 +42,11 @@ export default async function EditElectionPage({ params }: { params: Promise<{ i
   // where the close button is shown), to avoid a pointless query otherwise.
   const hasWriteIns = election.status === "ACTIVE" ? await electionHasWriteIns(id) : false
   const votedCount = election._count.voters
-  const totalVoterCount = election.voters.length
-  const invitedCount = election.voters.filter((v) => v.invitedAt !== null).length
+  // Use SQL counts rather than loading the full voter list into memory.
+  const [totalVoterCount, invitedCount] = await Promise.all([
+    db.voter.count({ where: { electionId: id } }),
+    db.voter.count({ where: { electionId: id, invitedAt: { not: null } } }),
+  ])
   const uninvitedCount = totalVoterCount - invitedCount
 
   const resetByEmail = election.ballotResetById

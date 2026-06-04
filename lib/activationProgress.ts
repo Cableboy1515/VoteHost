@@ -4,9 +4,10 @@ export type ActivationProgressState = {
   failed: number
   total: number
   stopped: boolean
-  stopReason?: "quota" | "consecutive_failures"
+  stopReason?: "quota" | "consecutive_failures" | "manual"
   lastError?: string
   startedAt: number
+  stopRequested: boolean
 }
 
 const tracker = new Map<string, ActivationProgressState>()
@@ -19,7 +20,17 @@ export function startProgress(electionId: string, total: number): void {
     total,
     stopped: false,
     startedAt: Date.now(),
+    stopRequested: false,
   })
+}
+
+export function requestStop(electionId: string): void {
+  const p = tracker.get(electionId)
+  if (p) p.stopRequested = true
+}
+
+export function isStopRequested(electionId: string): boolean {
+  return tracker.get(electionId)?.stopRequested ?? false
 }
 
 export function recordSent(electionId: string): void {
@@ -34,7 +45,7 @@ export function recordFailed(electionId: string): void {
 
 export function finishProgress(
   electionId: string,
-  result: { sent: number; failed: number; stopped: boolean; stopReason?: "quota" | "consecutive_failures"; lastError?: string },
+  result: { sent: number; failed: number; stopped: boolean; stopReason?: "quota" | "consecutive_failures" | "manual"; lastError?: string },
 ): void {
   const p = tracker.get(electionId)
   if (!p) return

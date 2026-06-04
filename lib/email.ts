@@ -461,7 +461,33 @@ export function classifySendError(provider: "resend" | "smtp", err: unknown): Se
   return "transient"
 }
 
+// ─── Dry-run mode ─────────────────────────────────────────────────────────────
+// Set EMAIL_DRY_RUN=1 to skip real sends — useful for load testing and CI.
+// EMAIL_DRY_RUN_LATENCY_MS — simulated round-trip delay per send (default 0).
+//   Set to ~200 to make the sequential invite loop's wall-clock cost visible:
+//   1,000 voters × 200ms ≈ 200s elapsed, matching a real provider's speed.
+// EMAIL_DRY_RUN_FAIL_RATE — fraction of sends that return a transient failure,
+//   0..1 (default 0). Use ~0.1 to exercise the consecutive-failure stop logic.
+async function maybeDryRun(provider: "smtp" | "resend"): Promise<SendResult | null> {
+  if (!process.env.EMAIL_DRY_RUN) return null
+  const latencyMs = parseInt(process.env.EMAIL_DRY_RUN_LATENCY_MS ?? "0", 10) || 0
+  if (latencyMs > 0) await new Promise<void>((r) => setTimeout(r, latencyMs))
+  const failRate = parseFloat(process.env.EMAIL_DRY_RUN_FAIL_RATE ?? "0") || 0
+  if (failRate > 0 && Math.random() < failRate) {
+    return {
+      error: "[dry-run] simulated transient failure",
+      classification: "transient",
+      responseCode: null,
+      responseText: "[dry-run] simulated transient failure",
+      provider,
+    }
+  }
+  return { error: null, classification: "ok", responseCode: null, responseText: null, provider }
+}
+
 async function sendViaResend(config: ResendConfig, payload: Payload, mode: EmailMode, tz: string): Promise<SendResult> {
+  const dry = await maybeDryRun("resend")
+  if (dry) return dry
   const tags: Array<{ name: string; value: string }> = []
   if (payload.voterId) tags.push({ name: "voterId", value: payload.voterId })
   if (payload.electionId) tags.push({ name: "electionId", value: payload.electionId })
@@ -498,6 +524,8 @@ async function sendViaResend(config: ResendConfig, payload: Payload, mode: Email
 }
 
 async function sendViaSmtp(config: SmtpConfig, payload: Payload, mode: EmailMode, tz: string): Promise<SendResult> {
+  const dry = await maybeDryRun("smtp")
+  if (dry) return dry
   try {
     const transporter = nodemailer.createTransport({
       host: config.host,
@@ -647,6 +675,11 @@ async function sendRawEmail(
   subject: string,
   html: string,
 ): Promise<{ error: string | null }> {
+  if (process.env.EMAIL_DRY_RUN) {
+    const latencyMs = parseInt(process.env.EMAIL_DRY_RUN_LATENCY_MS ?? "0", 10) || 0
+    if (latencyMs > 0) await new Promise<void>((r) => setTimeout(r, latencyMs))
+    return { error: null }
+  }
   try {
     if (config.provider === "smtp") {
       const transporter = nodemailer.createTransport({
