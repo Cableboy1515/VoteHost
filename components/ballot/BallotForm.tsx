@@ -50,6 +50,7 @@ interface Question {
   type: "SINGLE_CHOICE" | "MULTIPLE_CHOICE" | "RANKED_CHOICE" | "COMMENT"
   required: boolean
   allowWriteIn?: boolean
+  writeInSlots?: number
   maxSelections?: number | null
   randomizeOptions?: boolean
   showOptionAvatars?: boolean
@@ -125,7 +126,8 @@ export default function BallotForm({ token, electionTitle, electionDescription, 
   )
   // Write-in text inputs — separate from `answers` to avoid clobbering option-id state.
   const [singleWriteInTexts, setSingleWriteInTexts] = useState<Record<string, string>>({})
-  const [multiWriteInText, setMultiWriteInText] = useState<Record<string, string>>({})
+  // Multi-choice write-in: array of strings (one per slot), indexed by question id.
+  const [multiWriteInText, setMultiWriteInText] = useState<Record<string, string[]>>({})
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState("")
   const [issuesPanelOpen, setIssuesPanelOpen] = useState(false)
@@ -194,7 +196,8 @@ export default function BallotForm({ token, electionTitle, electionDescription, 
       return !!(answers[q.id])
     }
     if (q.type === "MULTIPLE_CHOICE") {
-      return ((answers[q.id] as string[]) ?? []).length > 0 || !!(multiWriteInText[q.id] ?? "").trim()
+      const slots = multiWriteInText[q.id] ?? []
+      return ((answers[q.id] as string[]) ?? []).length > 0 || slots.some((t) => t.trim())
     }
     if (q.type === "RANKED_CHOICE") return (rankedOrders[q.id] ?? []).length >= 1
     if (q.type === "COMMENT") return !!((answers[q.id] as string) ?? "").trim()
@@ -226,8 +229,7 @@ export default function BallotForm({ token, electionTitle, electionDescription, 
         }
       } else if (q.type === "MULTIPLE_CHOICE") {
         const optionIds = (answers[q.id] as string[]) ?? []
-        const writeIn = (multiWriteInText[q.id] ?? "").trim()
-        const writeInTexts = writeIn ? [writeIn] : []
+        const writeInTexts = (multiWriteInText[q.id] ?? []).map((t) => t.trim()).filter(Boolean)
         if (optionIds.length === 0 && writeInTexts.length === 0 && q.required) {
           issues.push({ questionId: q.id, questionIndex: i, questionText: q.text, message: "Please choose at least one option." })
         } else if (optionIds.length > 0 || writeInTexts.length > 0) {
@@ -370,8 +372,8 @@ export default function BallotForm({ token, electionTitle, electionDescription, 
     if (q.type === "MULTIPLE_CHOICE") {
       const optionIds = (answers[q.id] as string[]) ?? []
       const selected = q.options.filter((o) => optionIds.includes(o.id))
-      const writeIn = (multiWriteInText[q.id] ?? "").trim()
-      const lines = [...selected.map((o) => o.text), ...(writeIn ? [`Write-in: ${writeIn}`] : [])]
+      const writeIns = (multiWriteInText[q.id] ?? []).map((t) => t.trim()).filter(Boolean)
+      const lines = [...selected.map((o) => o.text), ...writeIns.map((w) => `Write-in: ${w}`)]
       return lines.length > 0 ? lines : ["(no selection)"]
     }
     if (q.type === "RANKED_CHOICE") {
@@ -448,8 +450,8 @@ export default function BallotForm({ token, electionTitle, electionDescription, 
 
     if (q.type === "MULTIPLE_CHOICE") {
       const selected = (answers[q.id] as string[]) ?? []
-      const writeIn = multiWriteInText[q.id] ?? ""
-      const writeInCount = writeIn.trim() ? 1 : 0
+      const writeInSlots = multiWriteInText[q.id] ?? []
+      const writeInCount = writeInSlots.filter((t) => t.trim()).length
       const atLimit = !!q.maxSelections && selected.length + writeInCount >= q.maxSelections
       return (
         <div role="group" aria-labelledby={groupLabelId} className="space-y-2.5">
@@ -479,24 +481,38 @@ export default function BallotForm({ token, electionTitle, electionDescription, 
             )
           })}
           {q.allowWriteIn && (
-            <div className="pt-1">
-              <p className="text-xs text-vh-muted mb-2">Or write in a candidate:</p>
-              <div className="relative">
-                <input
-                  type="text"
-                  placeholder="Candidate name…"
-                  maxLength={500}
-                  value={writeIn}
-                  disabled={!writeIn.trim() && atLimit}
-                  onChange={(e) => setMultiWriteInText((t) => ({ ...t, [q.id]: e.target.value }))}
-                  className="w-full text-sm rounded-[10px] px-3 py-2.5 pr-14"
-                  style={{ border: "1px solid var(--vh-line-strong)", background: "var(--vh-surface)", color: "var(--vh-ink)", outline: "none", opacity: (!writeIn.trim() && atLimit) ? 0.5 : 1 }}
-                  aria-label="Write-in candidate name"
-                />
-                <span className="absolute bottom-2.5 right-3 text-[11px] text-vh-muted pointer-events-none tabular-nums">
-                  {writeIn.length}/500
-                </span>
-              </div>
+            <div className="pt-1 flex flex-col gap-2">
+              <p className="text-xs text-vh-muted">{q.options.length > 0 ? "Or write in a candidate:" : "Write in a candidate:"}</p>
+              {Array.from({ length: q.writeInSlots ?? 1 }).map((_, si) => {
+                const slotVal = (multiWriteInText[q.id] ?? [])[si] ?? ""
+                const slotFilled = slotVal.trim().length > 0
+                const slotDisabled = !slotFilled && atLimit
+                return (
+                  <div key={si} className="relative">
+                    <input
+                      type="text"
+                      placeholder="Candidate name…"
+                      maxLength={500}
+                      value={slotVal}
+                      disabled={slotDisabled}
+                      onChange={(e) => {
+                        const v = e.target.value
+                        setMultiWriteInText((prev) => {
+                          const slots = [...(prev[q.id] ?? [])]
+                          slots[si] = v
+                          return { ...prev, [q.id]: slots }
+                        })
+                      }}
+                      className="w-full text-sm rounded-[10px] px-3 py-2.5 pr-14"
+                      style={{ border: "1px solid var(--vh-line-strong)", background: "var(--vh-surface)", color: "var(--vh-ink)", outline: "none", opacity: slotDisabled ? 0.5 : 1 }}
+                      aria-label={`Write-in candidate ${si + 1}`}
+                    />
+                    <span className="absolute bottom-2.5 right-3 text-[11px] text-vh-muted pointer-events-none tabular-nums">
+                      {slotVal.length}/500
+                    </span>
+                  </div>
+                )
+              })}
             </div>
           )}
         </div>
@@ -961,7 +977,7 @@ export default function BallotForm({ token, electionTitle, electionDescription, 
                           <p className="text-sm text-vh-muted mt-1.5">
                             Pick up to {q.maxSelections}{" "}
                             <span className="tabular-nums">
-                              ({((answers[q.id] as string[]) ?? []).length + ((multiWriteInText[q.id] ?? "").trim() ? 1 : 0)}/{q.maxSelections})
+                              ({((answers[q.id] as string[]) ?? []).length + (multiWriteInText[q.id] ?? []).filter((t) => t.trim()).length}/{q.maxSelections})
                             </span>
                           </p>
                         )}

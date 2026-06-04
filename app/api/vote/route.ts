@@ -91,9 +91,16 @@ export async function POST(req: Request) {
           { status: 400 }
         )
       }
-      const max = question.maxSelections ?? question.options.length
+      const max = question.maxSelections
+        ?? (question.options.length + (question.allowWriteIn ? question.writeInSlots : 0))
       const uniqueOptionIds = [...new Set(answer.optionIds)]
       const uniqueWriteIns = [...new Set(writeInTexts)]
+      if (question.allowWriteIn && uniqueWriteIns.length > question.writeInSlots) {
+        return NextResponse.json(
+          { error: `You can write in up to ${question.writeInSlots} candidate(s) for "${question.text}".` },
+          { status: 400 }
+        )
+      }
       if (uniqueOptionIds.length + uniqueWriteIns.length > max) {
         return NextResponse.json(
           { error: `You selected too many options for "${question.text}". Pick up to ${max}.` },

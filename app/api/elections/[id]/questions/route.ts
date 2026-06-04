@@ -56,6 +56,7 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
           description: q.description ?? null,
           type: q.type,
           allowWriteIn: q.allowWriteIn ?? false,
+          writeInSlots: q.writeInSlots ?? 1,
           order: q.order,
           required: q.required ?? true,
           maxSelections: q.maxSelections ?? null,
@@ -118,7 +119,8 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
         (prev.seats ?? 1) !== (q.seats ?? 1) ||
         (prev.randomizeOptions ?? false) !== (q.randomizeOptions ?? false) ||
         (prev.showOptionAvatars ?? true) !== (q.showOptionAvatars ?? true) ||
-        (prev.allowWriteIn ?? false) !== (q.allowWriteIn ?? false)
+        (prev.allowWriteIn ?? false) !== (q.allowWriteIn ?? false) ||
+        (prev.writeInSlots ?? 1) !== (q.writeInSlots ?? 1)
 
       if (questionFieldsChanged || optionsAdded || optionsRemoved || optionsEdited) {
         edited.push({

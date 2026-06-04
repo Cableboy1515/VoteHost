@@ -77,6 +77,7 @@ export const QuestionSchema = z.object({
   description: z.string().max(1000).optional().nullable(),
   type: z.enum(["SINGLE_CHOICE", "MULTIPLE_CHOICE", "RANKED_CHOICE", "COMMENT"]),
   allowWriteIn: z.boolean().default(false),
+  writeInSlots: z.number().int().min(1).max(50).default(1),
   order: z.number().int().min(0),
   required: z.boolean().default(true),
   maxSelections: z.number().int().positive().nullish(),
