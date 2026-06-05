@@ -4,7 +4,7 @@ interface Props {
   ballotResetByEmail: string | null
   reopenedAt?: string | null
   reopenedByEmail?: string | null
-  electionStatus: "DRAFT" | "ACTIVE" | "COMPLETED"
+  electionStatus: "DRAFT" | "ACTIVE" | "PENDING_REVIEW" | "COMPLETED"
   onSettingsTab?: boolean
 }
 

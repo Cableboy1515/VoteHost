@@ -3,7 +3,7 @@
 import { useState } from "react"
 import { useRouter } from "next/navigation"
 
-export default function ArchiveElectionButton({ id, archived, electionStatus }: { id: string; archived: boolean; electionStatus: "DRAFT" | "ACTIVE" | "COMPLETED" }) {
+export default function ArchiveElectionButton({ id, archived, electionStatus }: { id: string; archived: boolean; electionStatus: "DRAFT" | "ACTIVE" | "PENDING_REVIEW" | "COMPLETED" }) {
   const router = useRouter()
   const [loading, setLoading] = useState(false)
 

@@ -4,13 +4,14 @@ import { join } from "node:path"
 import { getSession, requireRole } from "@/lib/auth"
 import { db } from "@/lib/db"
 import { ElectionBaseSchema, ElectionSchema } from "@/lib/validations"
-import { sendElectionCompletedStaffNotice, sendElectionExtendedNoticeToUnvoted, sendElectionExtendedStaffNotice } from "@/lib/email"
-import { getStaffRecipients } from "@/lib/staffRecipients"
+import { sendElectionCompletedStaffNotice, sendElectionExtendedNoticeToUnvoted, sendElectionExtendedStaffNotice, sendElectionPendingReviewStaffNotice } from "@/lib/email"
+import { getStaffRecipients, getViewerPlusRecipients } from "@/lib/staffRecipients"
 import { canActivate, CANNOT_ACTIVATE_MESSAGES } from "@/lib/canActivate"
 import { sendBallotInvitationsToUninvited } from "@/lib/sendBallotInvitationsToUninvited"
 import { computeTallyHash } from "@/lib/verification"
 import { sendElectionResultsEmail } from "@/lib/sendElectionResultsEmail"
 import { recordActivity } from "@/lib/recordActivity"
+import { electionHasWriteIns } from "@/lib/writeIn"
 
 const UPLOADS_DIR = join(process.cwd(), "public", "uploads")
 
@@ -59,6 +60,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
       archived: true,
       firstVoteAt: true,
       completionEmailSentAt: true,
+      reviewNoticeSentAt: true,
       autoSendResults: true,
       resultsEmailSentAt: true,
       title: true,
@@ -132,6 +134,10 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     before.status !== "COMPLETED" &&
     before.completionEmailSentAt == null
 
+  // Whether a close should route to PENDING_REVIEW (write-ins) vs COMPLETED directly.
+  // Determined after the transitioningToEnd block runs.
+  let enteringReview = false
+
   if (transitioningToEnd) {
     const now = new Date()
     updates.completionEmailSentAt = now
@@ -140,6 +146,18 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     updates.endsAt = now.toISOString()
     updates.reopenedAt = null
     updates.reopenedById = null
+
+    // Write-in elections need an admin review pass before the tally is sealed.
+    if (await electionHasWriteIns(id)) {
+      enteringReview = true
+      updates.status = "PENDING_REVIEW"
+      // Do NOT seal tallyHash or send results yet — that happens at Finalize.
+      // Do NOT set completionEmailSentAt — the cron will send the staff notice
+      // after Finalize transitions to COMPLETED.
+      delete updates.completionEmailSentAt
+      // Stamp reviewNoticeSentAt now so the email fires exactly once.
+      if (!before.reviewNoticeSentAt) updates.reviewNoticeSentAt = now
+    }
   }
 
   // Reverting ACTIVE → DRAFT must go through the /cancel-activation endpoint,
@@ -226,9 +244,18 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     )
   }
 
-  // Lock the voter-facing historical record once completed. Only cosmetic/operational
-  // fields remain editable (archived, autoSendResults, heroColor).
-  if (before.status === "COMPLETED") {
+  // PENDING_REVIEW elections can only transition to COMPLETED via the /finalize endpoint
+  // (which seals the tally hash after admin write-in review). PATCH cannot move them out.
+  if (before.status === "PENDING_REVIEW" && parsed.data.status != null && parsed.data.status !== "PENDING_REVIEW") {
+    return NextResponse.json(
+      { error: "This election is pending write-in review. Use the Finalize button to complete it." },
+      { status: 409 }
+    )
+  }
+
+  // Lock election fields once voting has ended (PENDING_REVIEW or COMPLETED).
+  // Only cosmetic/operational fields remain editable.
+  if (before.status === "COMPLETED" || before.status === "PENDING_REVIEW") {
     const COMPLETED_ALLOWED_KEYS = new Set(["status", "archived", "autoSendResults", "heroColor"])
     const lockedKeys = changedKeysOutside(COMPLETED_ALLOWED_KEYS)
     if (lockedKeys.length > 0) {
@@ -264,7 +291,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     inviteSummary = await sendBallotInvitationsToUninvited(id)
   }
 
-  if (transitioningToEnd) {
+  if (transitioningToEnd && !enteringReview) {
     const votes = await db.vote.findMany({ where: { electionId: id } })
     const hash = computeTallyHash(votes)
     await db.election.update({
@@ -278,7 +305,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     })
     const totalVoters = voters.length
     const votedCount = voters.filter((v) => v.hasVoted).length
-    getStaffRecipients()
+    getViewerPlusRecipients()
       .then((recipients) =>
         sendElectionCompletedStaffNotice(
           { id: election.id, title: election.title, endsAt: election.endsAt },
@@ -296,11 +323,39 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     }
   }
 
+  if (transitioningToEnd && enteringReview && !before.reviewNoticeSentAt) {
+    const voters = await db.voter.findMany({
+      where: { electionId: id },
+      select: { hasVoted: true },
+    })
+    const totalVoters = voters.length
+    const votedCount = voters.filter((v) => v.hasVoted).length
+    getStaffRecipients()
+      .then((recipients) =>
+        sendElectionPendingReviewStaffNotice(
+          { id: election.id, title: election.title },
+          recipients,
+          votedCount,
+          totalVoters,
+        ),
+      )
+      .catch((err) => console.error("[PATCH election] pending-review email threw:", err))
+  }
+
   // Determine which activity action this PATCH represented
   if (transitioningToActive) {
     await recordActivity({
       session,
       action: "election.activate",
+      electionId: id,
+      targetType: "election",
+      targetId: id,
+      targetLabel: election.title,
+    })
+  } else if (transitioningToEnd && enteringReview) {
+    await recordActivity({
+      session,
+      action: "election.enter_review",
       electionId: id,
       targetType: "election",
       targetId: id,
@@ -371,7 +426,8 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
 }
 
 export async function DELETE(_req: Request, { params }: { params: Promise<{ id: string }> }) {
-  const session = await requireRole("ADMIN")
+  // Organizers may delete their own Draft elections; only Admins may delete archived elections
+  const session = await requireRole("ORGANIZER")
   if (!session) return NextResponse.json({ error: "Forbidden" }, { status: 403 })
 
   const { id } = await params
@@ -381,6 +437,7 @@ export async function DELETE(_req: Request, { params }: { params: Promise<{ id: 
     where: { id },
     select: {
       title: true,
+      status: true,
       archived: true,
       emailLogoDeleteUrl: true,
       questions: { select: { options: { select: { photoDeleteUrl: true } } } },
@@ -389,11 +446,18 @@ export async function DELETE(_req: Request, { params }: { params: Promise<{ id: 
 
   if (!election) return NextResponse.json({ error: "Not found" }, { status: 404 })
 
-  if (!election.archived) {
-    return NextResponse.json(
-      { error: "Election must be archived before it can be deleted." },
-      { status: 409 }
-    )
+  if (election.status !== "DRAFT") {
+    // Non-draft elections must be archived first
+    if (!election.archived) {
+      return NextResponse.json(
+        { error: "Election must be archived before it can be deleted." },
+        { status: 409 },
+      )
+    }
+    // Only admins may delete archived (completed) elections
+    if (session.role !== "ADMIN") {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+    }
   }
 
   await db.election.delete({ where: { id } })

@@ -3,7 +3,7 @@ export const runtime = "nodejs"
 import ExcelJS from "exceljs"
 import { BRAND_NAME } from "@/lib/branding"
 import { requireRole } from "@/lib/auth"
-import { loadExportData, exportFilename } from "@/lib/exportData"
+import { loadExportData, exportFilename, csvSafeCell } from "@/lib/exportData"
 import { getDisplayTimeZone } from "@/lib/timezone"
 
 const ACCENT = "FF3F66D9"
@@ -64,8 +64,8 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
     qCell.alignment = { vertical: "middle", indent: 1 }
     qRow.height = 22
 
-    if (q.type === "WRITE_IN") {
-      const noteRow = ws.addRow(["(See Write-ins sheet for responses)"])
+    if (q.type === "COMMENT") {
+      const noteRow = ws.addRow(["(See Comments sheet for responses)"])
       noteRow.getCell(1).font = { name: "Calibri", size: 10, italic: true, color: { argb: MUTED } }
     } else if (q.type === "RANKED_CHOICE") {
       // Sub-header: Option + one col per rank + Pct
@@ -80,7 +80,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
 
       for (const opt of q.options) {
         const rankValues = Array.from({ length: q.maxRank }, (_, i) => opt.rankCounts[i + 1] ?? 0)
-        const optRow = ws.addRow([opt.optionText, ...rankValues, `${opt.pct}%`])
+        const optRow = ws.addRow([csvSafeCell(opt.optionText), ...rankValues, `${opt.pct}%`])
         if (opt.winner) {
           optRow.eachCell({ includeEmpty: false }, (cell) => {
             cell.font = { name: "Calibri", size: 11, bold: true, color: { argb: INK } }
@@ -96,7 +96,8 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
       })
 
       for (const opt of q.options) {
-        const optRow = ws.addRow([opt.optionText, opt.count, `${opt.pct}%`, opt.winner ? "✓" : ""])
+        const winnerLabel = opt.winner ? (q.isTie ? "Tie" : "✓") : ""
+        const optRow = ws.addRow([csvSafeCell(opt.optionText), opt.count, `${opt.pct}%`, winnerLabel])
         if (opt.winner) {
           optRow.eachCell({ includeEmpty: false }, (cell) => {
             cell.font = { name: "Calibri", size: 11, bold: true, color: { argb: INK } }
@@ -118,13 +119,13 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
   ]
 
   // ─── Sheet 2: Write-ins (only if any) ────────────────────────────────
-  const writeInQuestions = questions.filter((q) => q.type === "WRITE_IN") as Extract<
+  const writeInQuestions = questions.filter((q) => q.type === "COMMENT") as Extract<
     typeof questions[number],
-    { type: "WRITE_IN" }
+    { type: "COMMENT" }
   >[]
 
   if (writeInQuestions.length > 0) {
-    const wsWi = workbook.addWorksheet("Write-ins")
+    const wsWi = workbook.addWorksheet("Comments")
     wsWi.columns = [{ width: 60 }]
 
     for (const q of writeInQuestions) {
@@ -137,7 +138,8 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
         emptyRow.getCell(1).font = { name: "Calibri", size: 11, italic: true, color: { argb: MUTED } }
       } else {
         for (const text of q.writeIns) {
-          const r = wsWi.addRow([text ?? ""])
+          // csvSafeCell neutralizes formula-trigger prefixes (CWE-1236) — voter free text.
+          const r = wsWi.addRow([csvSafeCell(text ?? "")])
           r.getCell(1).alignment = { wrapText: true }
         }
       }

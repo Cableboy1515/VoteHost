@@ -33,6 +33,8 @@ export default function InvitationProgress({ status }: Props) {
         ? "Email provider quota reached"
         : stopReason === "consecutive_failures"
         ? "Repeated send failures"
+        : stopReason === "manual"
+        ? "Stopped by user"
         : "Sending stopped"
     statusLine = (
       <span style={{ color: "var(--vh-warn)" }}>

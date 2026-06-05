@@ -95,9 +95,9 @@ export type EmailMode = "invite" | "reminder-early" | "reminder-final" | "result
 
 export type ResultsQuestion = {
   questionText: string
-  type: "SINGLE_CHOICE" | "MULTIPLE_CHOICE" | "RANKED_CHOICE" | "WRITE_IN"
+  type: "SINGLE_CHOICE" | "MULTIPLE_CHOICE" | "RANKED_CHOICE" | "COMMENT"
   options?: Array<{ optionText: string; count: number; pct: number; winner: boolean }>
-  writeInCount?: number
+  // writeInCount removed — COMMENT questions are omitted from voter email by default
 }
 
 export type Payload = {
@@ -377,12 +377,11 @@ function buildResultsHtml(p: Payload, tz: string): string {
   const questionSections = (r?.questions ?? []).map((q, qi) => {
     const qLabel = escapeHtml(q.questionText)
 
-    if (q.type === "WRITE_IN") {
-      return `<tr><td style="padding:0 32px ${qi < (r?.questions.length ?? 1) - 1 ? "20px" : "8px"};">
-        <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:13px;font-weight:600;color:${C.ink};margin-bottom:6px;">${qLabel}</div>
-        <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:13px;color:${C.muted};">${q.writeInCount ?? 0} written-in response${(q.writeInCount ?? 0) !== 1 ? "s" : ""} received.</div>
-      </td></tr>`
-    }
+    // COMMENT (free-text feedback) questions are omitted from the voter results email.
+    // The full grouped responses are available to organizers in the admin dashboard
+    // and the audit export. Broadcasting unmoderated free text to all voters is
+    // risky, and a bare count conveys nothing useful.
+    if (q.type === "COMMENT") return ""
 
     const optionRows = (q.options ?? []).map((opt) => {
       const barColor = opt.winner ? C.accent : "#7d92b0"
@@ -462,7 +461,33 @@ export function classifySendError(provider: "resend" | "smtp", err: unknown): Se
   return "transient"
 }
 
+// ─── Dry-run mode ─────────────────────────────────────────────────────────────
+// Set EMAIL_DRY_RUN=1 to skip real sends — useful for load testing and CI.
+// EMAIL_DRY_RUN_LATENCY_MS — simulated round-trip delay per send (default 0).
+//   Set to ~200 to make the sequential invite loop's wall-clock cost visible:
+//   1,000 voters × 200ms ≈ 200s elapsed, matching a real provider's speed.
+// EMAIL_DRY_RUN_FAIL_RATE — fraction of sends that return a transient failure,
+//   0..1 (default 0). Use ~0.1 to exercise the consecutive-failure stop logic.
+async function maybeDryRun(provider: "smtp" | "resend"): Promise<SendResult | null> {
+  if (!process.env.EMAIL_DRY_RUN) return null
+  const latencyMs = parseInt(process.env.EMAIL_DRY_RUN_LATENCY_MS ?? "0", 10) || 0
+  if (latencyMs > 0) await new Promise<void>((r) => setTimeout(r, latencyMs))
+  const failRate = parseFloat(process.env.EMAIL_DRY_RUN_FAIL_RATE ?? "0") || 0
+  if (failRate > 0 && Math.random() < failRate) {
+    return {
+      error: "[dry-run] simulated transient failure",
+      classification: "transient",
+      responseCode: null,
+      responseText: "[dry-run] simulated transient failure",
+      provider,
+    }
+  }
+  return { error: null, classification: "ok", responseCode: null, responseText: null, provider }
+}
+
 async function sendViaResend(config: ResendConfig, payload: Payload, mode: EmailMode, tz: string): Promise<SendResult> {
+  const dry = await maybeDryRun("resend")
+  if (dry) return dry
   const tags: Array<{ name: string; value: string }> = []
   if (payload.voterId) tags.push({ name: "voterId", value: payload.voterId })
   if (payload.electionId) tags.push({ name: "electionId", value: payload.electionId })
@@ -499,6 +524,8 @@ async function sendViaResend(config: ResendConfig, payload: Payload, mode: Email
 }
 
 async function sendViaSmtp(config: SmtpConfig, payload: Payload, mode: EmailMode, tz: string): Promise<SendResult> {
+  const dry = await maybeDryRun("smtp")
+  if (dry) return dry
   try {
     const transporter = nodemailer.createTransport({
       host: config.host,
@@ -648,6 +675,11 @@ async function sendRawEmail(
   subject: string,
   html: string,
 ): Promise<{ error: string | null }> {
+  if (process.env.EMAIL_DRY_RUN) {
+    const latencyMs = parseInt(process.env.EMAIL_DRY_RUN_LATENCY_MS ?? "0", 10) || 0
+    if (latencyMs > 0) await new Promise<void>((r) => setTimeout(r, latencyMs))
+    return { error: null }
+  }
   try {
     if (config.provider === "smtp") {
       const transporter = nodemailer.createTransport({
@@ -989,6 +1021,48 @@ export async function sendElectionCompletedStaffNotice(
   const subject = `Election closed — ${election.title}`
   const html = buildCompletedStaffHtml(election, votedCount, totalVoters)
   await sendStaffBlast("sendElectionCompletedStaffNotice", election.title, recipients, subject, html)
+}
+
+function buildPendingReviewStaffHtml(election: StaffElection, votedCount: number, totalVoters: number): string {
+  const title = escapeHtml(election.title)
+  const reviewUrl = escapeHtml(absolutizeUrl(`/elections/${election.id}/review`))
+  const turnoutPct = totalVoters > 0 ? Math.round((votedCount / totalVoters) * 100) : 0
+  const turnoutLine = totalVoters > 0
+    ? `<strong style="color:${C.ink};">${votedCount}</strong> of <strong style="color:${C.ink};">${totalVoters}</strong> voters cast a ballot (<strong style="color:${C.ink};">${turnoutPct}%</strong> turnout).`
+    : `No voters were recorded for this election.`
+  return emailWrapper(`
+    ${brandRow()}
+    <tr><td style="padding:24px 32px 14px;">
+      <h1 style="margin:0 0 14px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:22px;font-weight:600;color:${C.ink};letter-spacing:-0.02em;">Write-in review needed</h1>
+      <p style="margin:0 0 14px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:14.5px;color:${C.inkSoft};line-height:1.6;">
+        Voting for <strong style="color:${C.ink};">${title}</strong> has closed. ${turnoutLine}
+      </p>
+      <p style="margin:0 0 14px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:14.5px;color:${C.inkSoft};line-height:1.6;">
+        Because this ballot allows write-in responses, an admin must review and merge write-in variants before the tally is sealed. Results will not be published until an admin completes the review and clicks <strong style="color:${C.ink};">Finalize</strong>.
+      </p>
+    </td></tr>
+    <tr><td style="padding:0 32px 14px;">
+      <a href="${reviewUrl}" style="display:inline-block;background:${C.accent};color:#ffffff;text-decoration:none;padding:14px 28px;border-radius:10px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:15px;font-weight:500;">Review write-ins →</a>
+    </td></tr>
+    <tr><td style="padding:0 32px 28px;">
+      <table role="presentation" cellpadding="0" cellspacing="0" width="100%"><tr>
+        <td style="border-top:1px solid ${C.line};padding-top:18px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:12px;color:${C.muted};line-height:1.6;">
+          You received this because you administer or organize elections on ${BRAND_NAME}.
+        </td>
+      </tr></table>
+    </td></tr>
+  `)
+}
+
+export async function sendElectionPendingReviewStaffNotice(
+  election: StaffElection,
+  recipients: Array<{ email: string }>,
+  votedCount: number,
+  totalVoters: number,
+): Promise<void> {
+  const subject = `Review needed — ${election.title}`
+  const html = buildPendingReviewStaffHtml(election, votedCount, totalVoters)
+  await sendStaffBlast("sendElectionPendingReviewStaffNotice", election.title, recipients, subject, html)
 }
 
 function buildElectionStartedStaffHtml(election: StaffElection): string {

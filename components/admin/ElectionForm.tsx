@@ -33,6 +33,9 @@ interface Props {
     autoSendResults?: boolean | null
     resultsEmailSentAt?: string | null
     firstVoteAt?: string | null
+    weightingEnabled?: boolean | null
+    quorumType?: string | null
+    quorumValue?: number | null
   }
 }
 
@@ -167,6 +170,13 @@ export default function ElectionForm({
   const [endsAtAllDay, setEndsAtAllDay] = useState(
     initialValues?.endsAt ? isEndOfDayLocal(initialValues.endsAt) : true
   )
+  const [weightingEnabled, setWeightingEnabled] = useState(initialValues?.weightingEnabled ?? false)
+  const [quorumType, setQuorumType] = useState<"NONE" | "PERCENT" | "COUNT">(
+    (initialValues?.quorumType as "NONE" | "PERCENT" | "COUNT") ?? "NONE"
+  )
+  const [quorumValue, setQuorumValue] = useState(
+    initialValues?.quorumValue != null ? String(initialValues.quorumValue) : ""
+  )
   const [showPreview, setShowPreview] = useState(false)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState("")
@@ -193,6 +203,9 @@ export default function ElectionForm({
       autoSendResults,
       startsAtAllDay,
       endsAtAllDay,
+      weightingEnabled,
+      quorumType,
+      quorumValue,
     })
   }
 
@@ -226,6 +239,9 @@ export default function ElectionForm({
       firstReminderDays: firstReminderDays !== "" ? parseInt(firstReminderDays, 10) : null,
       autoActivate,
       autoSendResults,
+      weightingEnabled,
+      quorumType,
+      quorumValue: quorumType !== "NONE" && quorumValue !== "" ? parseInt(quorumValue, 10) : null,
     }
 
     const url = electionId ? `/api/elections/${electionId}` : "/api/elections"
@@ -703,6 +719,93 @@ export default function ElectionForm({
               {!endsAt
                 ? "Add an end date in the Schedule section to enable reminders."
                 : "Sends a reminder to non-voters this many days before close. A 24-hour final notice always fires automatically."}
+            </p>
+          </div>
+        </VhCard>
+
+        {/* Weighted voting */}
+        <VhCard title="Weighted voting">
+          <div className="flex flex-col gap-3">
+            <label
+              className="flex items-center gap-2.5"
+              style={{ cursor: settingsLocked ? "not-allowed" : "pointer", opacity: settingsLocked ? 0.5 : 1 }}
+            >
+              <input
+                type="checkbox"
+                checked={weightingEnabled}
+                disabled={settingsLocked}
+                onChange={(e) => setWeightingEnabled(e.target.checked)}
+                className="flex-shrink-0"
+              />
+              <span className="text-[13px]" style={{ color: "var(--vh-ink-soft)" }}>
+                Enable weighted voting — each voter can carry a different vote weight
+              </span>
+            </label>
+            <p className="text-[12.5px]" style={{ color: "var(--vh-muted)" }}>
+              {weightingEnabled
+                ? "Weights are set per-voter on the Voters tab. Tallies, quorum, and exports will all use weighted totals. Lock-in at first vote — weights cannot change once a voter has cast their ballot."
+                : "Off by default. Turn on for HOA unit-based voting, shareholder votes, co-op allocations, or any election where voters should carry unequal weight."}
+            </p>
+          </div>
+        </VhCard>
+
+        {/* Quorum */}
+        <VhCard title="Quorum">
+          <div className="flex flex-col gap-3">
+            <div className="flex gap-1.5 flex-wrap">
+              {(["NONE", "PERCENT", "COUNT"] as const).map((t) => {
+                const labels = { NONE: "No quorum", PERCENT: "% of voters", COUNT: "Fixed count" }
+                const active = quorumType === t
+                return (
+                  <button
+                    key={t}
+                    type="button"
+                    disabled={settingsLocked}
+                    onClick={() => { setQuorumType(t); if (t === "NONE") setQuorumValue("") }}
+                    className="px-2.5 py-1.5 rounded-[8px] text-[12.5px] transition-colors"
+                    style={{
+                      border: `1px solid ${active ? "var(--vh-accent)" : "var(--vh-line-strong)"}`,
+                      background: active ? "var(--vh-accent-soft)" : "var(--vh-surface)",
+                      color: active ? "var(--vh-accent-strong)" : "var(--vh-ink-soft)",
+                      fontWeight: active ? 500 : 400,
+                      cursor: settingsLocked ? "not-allowed" : "pointer",
+                      opacity: settingsLocked ? 0.6 : 1,
+                    }}
+                  >
+                    {labels[t]}
+                  </button>
+                )
+              })}
+            </div>
+
+            {quorumType !== "NONE" && (
+              <div className="flex items-center gap-3">
+                <input
+                  type="number"
+                  min={1}
+                  max={quorumType === "PERCENT" ? 100 : undefined}
+                  inputMode="numeric"
+                  placeholder={quorumType === "PERCENT" ? "e.g. 50" : "e.g. 10"}
+                  value={quorumValue}
+                  onChange={(e) => setQuorumValue(e.target.value)}
+                  disabled={settingsLocked}
+                  className={inputCls}
+                  style={{ ...inputStyle, maxWidth: 120, opacity: settingsLocked ? 0.5 : 1 }}
+                  onFocus={onFocusIn}
+                  onBlur={onFocusOut}
+                />
+                <span className="text-[13px]" style={{ color: "var(--vh-muted)" }}>
+                  {quorumType === "PERCENT" ? "% of eligible voters must participate" : "voters must participate"}
+                </span>
+              </div>
+            )}
+
+            <p className="text-[12.5px]" style={{ color: "var(--vh-muted)" }}>
+              {quorumType === "NONE"
+                ? "No minimum participation required. Results are valid regardless of turnout."
+                : quorumType === "PERCENT"
+                ? "Results will show whether the required participation threshold was met. The election closes and results are reported either way — quorum is informational."
+                : "A fixed number of voters must participate for the quorum indicator to show as met."}
             </p>
           </div>
         </VhCard>

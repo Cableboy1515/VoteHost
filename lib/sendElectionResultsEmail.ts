@@ -17,14 +17,10 @@ export async function sendElectionResultsEmail(
   const turnoutPct =
     raw.totalVoters > 0 ? Math.round((raw.votedCount / raw.totalVoters) * 100) : 0
 
-  const questions: ResultsQuestion[] = raw.questions.map((q) => {
-    if (q.type === "WRITE_IN") {
-      return {
-        questionText: q.questionText,
-        type: "WRITE_IN" as const,
-        writeInCount: (q as { writeIns?: string[] }).writeIns?.length ?? 0,
-      }
-    }
+  const questions: ResultsQuestion[] = raw.questions.flatMap((q) => {
+    // COMMENT questions are omitted from the voter results email. The full grouped
+    // responses are available in the admin dashboard and audit export.
+    if (q.type === "COMMENT") return []
 
     const rawOptions = (
       q as { options?: Array<{ optionText: string; count?: number; firstChoiceCount?: number }> }
@@ -42,11 +38,11 @@ export async function sendElectionResultsEmail(
       winner: i === 0 && getCount(o) > 0,
     }))
 
-    return {
+    return [{
       questionText: q.questionText,
       type: q.type as "SINGLE_CHOICE" | "MULTIPLE_CHOICE" | "RANKED_CHOICE",
       options,
-    }
+    }]
   })
 
   const resultsPayload = { totalVoters: raw.totalVoters, votedCount: raw.votedCount, turnoutPct, questions }

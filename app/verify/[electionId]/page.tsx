@@ -39,6 +39,7 @@ export default async function VerifyPage({
   const statusLabel =
     election.status === "ACTIVE" ? "Active" :
     election.status === "COMPLETED" ? "Completed" :
+    election.status === "PENDING_REVIEW" ? "Pending Review" :
     "Draft"
 
   return (
@@ -57,9 +58,15 @@ export default async function VerifyPage({
             <span
               className="inline-flex items-center px-2 py-0.5 rounded-full text-[11.5px] font-medium border"
               style={{
-                background: election.status === "COMPLETED" ? "var(--vh-accent-soft)" : "var(--vh-surface-3)",
-                color: election.status === "COMPLETED" ? "var(--vh-accent-strong)" : "var(--vh-ink-soft)",
-                borderColor: election.status === "COMPLETED" ? "oklch(0.85 0.05 255)" : "var(--vh-line-strong)",
+                background: election.status === "COMPLETED" ? "var(--vh-accent-soft)"
+                  : election.status === "PENDING_REVIEW" ? "oklch(0.96 0.06 75)"
+                  : "var(--vh-surface-3)",
+                color: election.status === "COMPLETED" ? "var(--vh-accent-strong)"
+                  : election.status === "PENDING_REVIEW" ? "oklch(0.4 0.14 65)"
+                  : "var(--vh-ink-soft)",
+                borderColor: election.status === "COMPLETED" ? "oklch(0.85 0.05 255)"
+                  : election.status === "PENDING_REVIEW" ? "oklch(0.82 0.10 75)"
+                  : "var(--vh-line-strong)",
               }}
             >
               {statusLabel}

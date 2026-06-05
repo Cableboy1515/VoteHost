@@ -14,6 +14,7 @@ import CloseElectionEarlyButton from "@/components/admin/CloseElectionEarlyButto
 import CancelActivationButton from "@/components/admin/CancelActivationButton"
 import { GuardLink } from "@/components/admin/UnsavedChangesGuard"
 import { autoCompleteElections } from "@/lib/autoCompleteElections"
+import { electionHasWriteIns } from "@/lib/writeIn"
 
 export default async function EditElectionPage({ params }: { params: Promise<{ id: string }> }) {
   const session = await requireRole("ORGANIZER")
@@ -30,16 +31,22 @@ export default async function EditElectionPage({ params }: { params: Promise<{ i
           questions: true,
         },
       },
-      voters: { select: { invitedAt: true } },
     },
   })
   if (!election) notFound()
 
   const isClosed = election.status === "COMPLETED"
-  const canDiscard = !!election.firstVoteAt && election.status !== "COMPLETED"
+  const isPendingReview = election.status === "PENDING_REVIEW"
+  const canDiscard = !!election.firstVoteAt && election.status !== "COMPLETED" && !isPendingReview
+  // Only query write-in status when the election is still ACTIVE (the only state
+  // where the close button is shown), to avoid a pointless query otherwise.
+  const hasWriteIns = election.status === "ACTIVE" ? await electionHasWriteIns(id) : false
   const votedCount = election._count.voters
-  const totalVoterCount = election.voters.length
-  const invitedCount = election.voters.filter((v) => v.invitedAt !== null).length
+  // Use SQL counts rather than loading the full voter list into memory.
+  const [totalVoterCount, invitedCount] = await Promise.all([
+    db.voter.count({ where: { electionId: id } }),
+    db.voter.count({ where: { electionId: id, invitedAt: { not: null } } }),
+  ])
   const uninvitedCount = totalVoterCount - invitedCount
 
   const resetByEmail = election.ballotResetById
@@ -102,8 +109,33 @@ export default async function EditElectionPage({ params }: { params: Promise<{ i
           autoSendResults: election.autoSendResults,
           resultsEmailSentAt: election.resultsEmailSentAt?.toISOString() ?? null,
           firstVoteAt: election.firstVoteAt?.toISOString() ?? null,
+          weightingEnabled: election.weightingEnabled,
+          quorumType: election.quorumType,
+          quorumValue: election.quorumValue,
         }}
       />
+      {isPendingReview && (
+        <div
+          className="mt-6 rounded-[14px] px-5 py-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3"
+          style={{ background: "oklch(0.96 0.06 75)", border: "1px solid oklch(0.82 0.10 75)" }}
+        >
+          <div>
+            <p className="text-[14px] font-semibold" style={{ color: "oklch(0.4 0.14 65)" }}>
+              Write-in review required
+            </p>
+            <p className="text-[13px]" style={{ color: "oklch(0.5 0.10 65)" }}>
+              Voting has closed. Review and merge write-in responses before the tally is sealed.
+            </p>
+          </div>
+          <a
+            href={`/elections/${id}/review`}
+            className="flex-shrink-0 px-4 py-2.5 rounded-[10px] text-[13.5px] font-semibold transition-colors"
+            style={{ background: "oklch(0.55 0.14 65)", color: "white" }}
+          >
+            Review write-ins →
+          </a>
+        </div>
+      )}
       {isClosed && (
         <PurgeImagesButton
           electionId={id}
@@ -120,13 +152,13 @@ export default async function EditElectionPage({ params }: { params: Promise<{ i
           {election.status === "ACTIVE" && !election.firstVoteAt && (
             <CancelActivationButton electionId={id} electionTitle={election.title} />
           )}
-          {election.status === "ACTIVE" && (
-            <CloseElectionEarlyButton id={id} title={election.title} variant="danger" />
+          {election.status === "ACTIVE" && !isPendingReview && (
+            <CloseElectionEarlyButton id={id} title={election.title} hasWriteIns={hasWriteIns} variant="danger" />
           )}
           {canDiscard && (
             <DiscardBallotButton electionId={id} electionTitle={election.title} votedCount={election._count.voters} />
           )}
-          <DeleteElectionButton id={id} title={election.title} role={session.role} archived={election.archived} />
+          <DeleteElectionButton id={id} title={election.title} role={session.role} archived={election.archived} status={election.status} />
         </div>
       </div>
     </div>

@@ -67,22 +67,47 @@ export async function POST(req: Request) {
     const validOptionIds = new Set(question.options.map((o) => o.id))
 
     if (answer.type === "SINGLE_CHOICE") {
-      if (!validOptionIds.has(answer.optionId)) {
+      if (answer.writeInText) {
+        if (!question.allowWriteIn) {
+          return NextResponse.json(
+            { error: `Write-in is not allowed for "${question.text}".` },
+            { status: 400 }
+          )
+        }
+        // Length already enforced by Zod (max 500)
+      } else {
+        if (!answer.optionId || !validOptionIds.has(answer.optionId)) {
+          return NextResponse.json(
+            { error: `An option you selected for "${question.text}" isn't valid.` },
+            { status: 400 }
+          )
+        }
+      }
+    } else if (answer.type === "MULTIPLE_CHOICE") {
+      const writeInTexts = answer.writeInTexts ?? []
+      if (writeInTexts.length > 0 && !question.allowWriteIn) {
         return NextResponse.json(
-          { error: `An option you selected for "${question.text}" isn't valid.` },
+          { error: `Write-in is not allowed for "${question.text}".` },
           { status: 400 }
         )
       }
-    } else if (answer.type === "MULTIPLE_CHOICE") {
-      const max = question.maxSelections ?? question.options.length
-      const unique = [...new Set(answer.optionIds)]
-      if (unique.length > max) {
+      const max = question.maxSelections
+        ?? (question.options.length + (question.allowWriteIn ? question.writeInSlots : 0))
+      const uniqueOptionIds = [...new Set(answer.optionIds)]
+      const uniqueWriteIns = [...new Set(writeInTexts)]
+      if (question.allowWriteIn && uniqueWriteIns.length > question.writeInSlots) {
+        return NextResponse.json(
+          { error: `You can write in up to ${question.writeInSlots} candidate(s) for "${question.text}".` },
+          { status: 400 }
+        )
+      }
+      if (uniqueOptionIds.length + uniqueWriteIns.length > max) {
         return NextResponse.json(
           { error: `You selected too many options for "${question.text}". Pick up to ${max}.` },
           { status: 400 }
         )
       }
-      for (const oid of unique) {
+      for (const oid of uniqueOptionIds) {
         if (!validOptionIds.has(oid)) {
           return NextResponse.json(
             { error: `An option you selected for "${question.text}" isn't valid.` },
@@ -91,21 +116,34 @@ export async function POST(req: Request) {
         }
       }
     } else if (answer.type === "RANKED_CHOICE") {
-      const allOptionIds = [...validOptionIds].sort()
-      const ranked = [...answer.rankedOptionIds].sort()
-      if (new Set(answer.rankedOptionIds).size !== answer.rankedOptionIds.length) {
-        return NextResponse.json(
-          { error: `"${question.text}" has the same option ranked twice.` },
-          { status: 400 }
-        )
+      const items = answer.rankedItems
+      const seenOptionIds = new Set<string>()
+      for (const item of items) {
+        if ("optionId" in item) {
+          if (seenOptionIds.has(item.optionId)) {
+            return NextResponse.json(
+              { error: `"${question.text}" has the same option ranked twice.` },
+              { status: 400 }
+            )
+          }
+          seenOptionIds.add(item.optionId)
+          if (!validOptionIds.has(item.optionId)) {
+            return NextResponse.json(
+              { error: `An option you ranked for "${question.text}" isn't valid.` },
+              { status: 400 }
+            )
+          }
+        } else {
+          if (!question.allowWriteIn) {
+            return NextResponse.json(
+              { error: `Write-in is not allowed for "${question.text}".` },
+              { status: 400 }
+            )
+          }
+          // Length already enforced by Zod (max 500)
+        }
       }
-      if (ranked.length !== allOptionIds.length || ranked.some((id, i) => id !== allOptionIds[i])) {
-        return NextResponse.json(
-          { error: `Please rank all ${question.options.length} options for "${question.text}".` },
-          { status: 400 }
-        )
-      }
-    } else if (answer.type === "WRITE_IN") {
+    } else if (answer.type === "COMMENT") {
       if (answer.text.length > 500) {
         return NextResponse.json(
           { error: `Your response for "${question.text}" is too long (max 500 characters).` },
@@ -129,6 +167,10 @@ export async function POST(req: Request) {
 
   const ballotId = generateBallotId()
 
+  // Denormalize voter weight onto anonymous vote rows — preserves ballot secrecy
+  // (no voterId ever written to Vote) while allowing weighted tallies.
+  const voterWeight = voter.weight ?? 1
+
   // Build vote records with no voter linkage — anonymity guarantee
   const voteRecords: {
     electionId: string
@@ -137,22 +179,33 @@ export async function POST(req: Request) {
     rank?: number
     writeInText?: string
     ballotId: string
+    weight: number
   }[] = []
 
   for (const answer of answers) {
     if (answer.type === "SINGLE_CHOICE") {
-      voteRecords.push({ electionId: voter.electionId, questionId: answer.questionId, optionId: answer.optionId, ballotId })
+      if (answer.writeInText) {
+        voteRecords.push({ electionId: voter.electionId, questionId: answer.questionId, writeInText: answer.writeInText, ballotId, weight: voterWeight })
+      } else {
+        voteRecords.push({ electionId: voter.electionId, questionId: answer.questionId, optionId: answer.optionId!, ballotId, weight: voterWeight })
+      }
     } else if (answer.type === "MULTIPLE_CHOICE") {
-      const unique = [...new Set(answer.optionIds)]
-      for (const optionId of unique) {
-        voteRecords.push({ electionId: voter.electionId, questionId: answer.questionId, optionId, ballotId })
+      for (const optionId of [...new Set(answer.optionIds)]) {
+        voteRecords.push({ electionId: voter.electionId, questionId: answer.questionId, optionId, ballotId, weight: voterWeight })
+      }
+      for (const writeInText of [...new Set(answer.writeInTexts ?? [])]) {
+        voteRecords.push({ electionId: voter.electionId, questionId: answer.questionId, writeInText, ballotId, weight: voterWeight })
       }
     } else if (answer.type === "RANKED_CHOICE") {
-      answer.rankedOptionIds.forEach((optionId, index) => {
-        voteRecords.push({ electionId: voter.electionId, questionId: answer.questionId, optionId, rank: index + 1, ballotId })
+      answer.rankedItems.forEach((item, index) => {
+        if ("optionId" in item) {
+          voteRecords.push({ electionId: voter.electionId, questionId: answer.questionId, optionId: item.optionId, rank: index + 1, ballotId, weight: voterWeight })
+        } else {
+          voteRecords.push({ electionId: voter.electionId, questionId: answer.questionId, writeInText: item.writeInText, rank: index + 1, ballotId, weight: voterWeight })
+        }
       })
-    } else if (answer.type === "WRITE_IN") {
-      voteRecords.push({ electionId: voter.electionId, questionId: answer.questionId, writeInText: answer.text, ballotId })
+    } else if (answer.type === "COMMENT") {
+      voteRecords.push({ electionId: voter.electionId, questionId: answer.questionId, writeInText: answer.text, ballotId, weight: voterWeight })
     }
   }
 
@@ -162,6 +215,7 @@ export async function POST(req: Request) {
     optionId: v.optionId ?? null,
     rank: v.rank ?? null,
     writeInText: v.writeInText ?? null,
+    weight: v.weight,
   })))
 
   try {

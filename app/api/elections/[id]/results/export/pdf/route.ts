@@ -66,12 +66,12 @@ function drawHLine(doc: PDFKit.PDFDocument, y: number, color = LINE) {
   doc.save().strokeColor(color).lineWidth(0.5).moveTo(50, y).lineTo(545, y).stroke().restore()
 }
 
-function drawWinnerBadge(doc: PDFKit.PDFDocument, x: number, y: number) {
-  doc.save().fontSize(8).fillColor(ACCENT).text("✓ Winner", x, y + 1).restore()
+function drawWinnerBadge(doc: PDFKit.PDFDocument, x: number, y: number, label = "✓ Winner") {
+  doc.save().fontSize(8).fillColor(ACCENT).text(label, x, y + 1).restore()
 }
 
 function renderContent(doc: PDFKit.PDFDocument, data: ExportData, s: Spacing, tz: string): void {
-  const { election, totalVoters, votedCount, turnoutPct, questions } = data
+  const { election, totalVoters, votedCount, turnoutPct, quorumType, quorumRequired, quorumMet, questions } = data
 
   const closeDate = (election.closedAt ?? election.endsAt ?? election.createdAt)
     .toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric", timeZone: tz })
@@ -114,6 +114,13 @@ function renderContent(doc: PDFKit.PDFDocument, data: ExportData, s: Spacing, tz
   doc.x = 50
   doc.fontSize(11).fillColor(INK_SOFT).font("Helvetica")
     .text(`${votedCount} of ${totalVoters} voters cast a ballot  ·  ${turnoutPct}%`)
+  if (quorumType !== "NONE" && quorumRequired !== null) {
+    doc.moveDown(0.3)
+    doc.x = 50
+    const quorumStatus = quorumMet ? "✓ Met" : "Not met"
+    doc.fontSize(10).fillColor(quorumMet ? "#2d8a4e" : MUTED).font("Helvetica")
+      .text(`Quorum: ${votedCount} of ${quorumRequired} required — ${quorumStatus}`)
+  }
   doc.moveDown(s.turnoutGap)
 
   // ─── Per-question results ─────────────────────────────────────────────
@@ -136,7 +143,7 @@ function renderContent(doc: PDFKit.PDFDocument, data: ExportData, s: Spacing, tz
     const tintH = doc.heightOfString(labeled, { width: 495 - tintPadH * 2 }) + tintPadV * 2
 
     // Keep-together: ensure tint + at least sub-header + 2 rows (or a few write-in lines) fit
-    const minBelow = q.type === "WRITE_IN" ? 30 : subH + s.rowH * 2
+    const minBelow = q.type === "COMMENT" ? 30 : subH + s.rowH * 2
     if (doc.y + tintH + minBelow > 720) doc.addPage()
 
     // Tinted question header bar
@@ -148,7 +155,7 @@ function renderContent(doc: PDFKit.PDFDocument, data: ExportData, s: Spacing, tz
       .text(labeled, 50 + tintPadH, tintY + tintPadV, { width: 495 - tintPadH * 2 })
     doc.y = tintY + tintH
 
-    if (q.type === "WRITE_IN") {
+    if (q.type === "COMMENT") {
       doc.moveDown(0.3)
       doc.x = 50
       doc.fontSize(10).fillColor(INK_SOFT).font("Helvetica-Oblique").text("Write-in responses:")
@@ -181,6 +188,7 @@ function renderContent(doc: PDFKit.PDFDocument, data: ExportData, s: Spacing, tz
     })
     doc.y = subY + subH + 2
 
+    const qIsTie = (q as { isTie?: boolean }).isTie ?? false
     for (const opt of q.options) {
       if (doc.y > 710) doc.addPage()
 
@@ -199,10 +207,30 @@ function renderContent(doc: PDFKit.PDFDocument, data: ExportData, s: Spacing, tz
       doc.text(opt.optionText, colX[0] + 4, rowY + 4, { width: colWidths[0] - 8 })
       doc.text(String(count), colX[1] + 4, rowY + 4, { width: colWidths[1] - 8, align: "right" })
       doc.text(`${opt.pct}%`, colX[2] + 4, rowY + 4, { width: colWidths[2] - 8, align: "right" })
-      if (isWinner) drawWinnerBadge(doc, colX[3] + 4, rowY + 4)
+      if (isWinner) drawWinnerBadge(doc, colX[3] + 4, rowY + 4, qIsTie ? "Tie" : "✓ Winner")
 
       drawHLine(doc, rowY + s.rowH - 2, "#F0F0F0")
       doc.y = rowY + s.rowH
+    }
+
+    // Explanatory note for ranked-choice questions
+    if (q.type === "RANKED_CHOICE") {
+      const rcvQ = q as typeof q & { rcvKind: "irv" | "stv" | null; rcvRoundsCount: number }
+      let note = ""
+      if (rcvQ.rcvKind === "irv") {
+        note = "Column shows first-choice votes; lower rankings transfer only after an elimination."
+        if (rcvQ.rcvRoundsCount === 1) {
+          const winnerName = q.options.find((o) => o.winner)?.optionText
+          if (winnerName) note += ` ${winnerName} won an outright first-round majority — no transfers needed.`
+        }
+      } else if (rcvQ.rcvKind === "stv") {
+        note = "Counts use fractional surplus transfers (Gregory method); near-ties are decided on exact underlying weights."
+      }
+      if (note) {
+        doc.moveDown(0.3)
+        doc.x = 50
+        doc.fontSize(8).fillColor(MUTED).font("Helvetica-Oblique").text(note, { width: 495 })
+      }
     }
 
     doc.moveDown(s.questionGap)

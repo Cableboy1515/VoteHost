@@ -55,14 +55,17 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
           text: q.text,
           description: q.description ?? null,
           type: q.type,
+          allowWriteIn: q.allowWriteIn ?? false,
+          writeInSlots: q.writeInSlots ?? 1,
           order: q.order,
           required: q.required ?? true,
           maxSelections: q.maxSelections ?? null,
+          seats: q.seats ?? 1,
           randomizeOptions: q.randomizeOptions ?? false,
           showOptionAvatars: q.showOptionAvatars ?? true,
         },
       })
-      if (q.options && q.type !== "WRITE_IN") {
+      if (q.options && q.type !== "COMMENT") {
         await tx.option.createMany({
           data: q.options.map((o) => ({
             questionId: question.id,
@@ -113,8 +116,11 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
         (prev.description ?? null) !== (q.description ?? null) ||
         (prev.required ?? true) !== (q.required ?? true) ||
         (prev.maxSelections ?? null) !== (q.maxSelections ?? null) ||
+        (prev.seats ?? 1) !== (q.seats ?? 1) ||
         (prev.randomizeOptions ?? false) !== (q.randomizeOptions ?? false) ||
-        (prev.showOptionAvatars ?? true) !== (q.showOptionAvatars ?? true)
+        (prev.showOptionAvatars ?? true) !== (q.showOptionAvatars ?? true) ||
+        (prev.allowWriteIn ?? false) !== (q.allowWriteIn ?? false) ||
+        (prev.writeInSlots ?? 1) !== (q.writeInSlots ?? 1)
 
       if (questionFieldsChanged || optionsAdded || optionsRemoved || optionsEdited) {
         edited.push({

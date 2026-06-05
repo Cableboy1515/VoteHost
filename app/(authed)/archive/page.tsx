@@ -13,12 +13,14 @@ import { formatDateOnlyInTz, getDisplayTimeZone } from "@/lib/timezone"
 const STATUS_LABEL: Record<ElectionStatus, string> = {
   DRAFT: "Draft",
   ACTIVE: "Active",
+  PENDING_REVIEW: "Pending Review",
   COMPLETED: "Completed",
 }
 
 const STATUS_STYLE: Record<ElectionStatus, React.CSSProperties> = {
   DRAFT: { background: "var(--vh-surface-3)", color: "var(--vh-ink-soft)", borderColor: "var(--vh-line-strong)" },
   ACTIVE: { background: "var(--vh-success-soft)", color: "oklch(0.35 0.10 155)", borderColor: "oklch(0.78 0.08 155)" },
+  PENDING_REVIEW: { background: "oklch(0.96 0.06 75)", color: "oklch(0.4 0.14 65)", borderColor: "oklch(0.82 0.10 75)" },
   COMPLETED: { background: "var(--vh-accent-soft)", color: "var(--vh-accent-strong)", borderColor: "oklch(0.85 0.05 255)" },
 }
 
@@ -143,7 +145,7 @@ export default async function ArchivePage() {
                           Results →
                         </Link>
                         <ArchiveElectionButton id={e.id} archived={true} electionStatus={e.status} />
-                        <DeleteElectionButton id={e.id} title={e.title} role={session.role} archived={true} />
+                        <DeleteElectionButton id={e.id} title={e.title} role={session.role} archived={true} status={e.status} returnTo="/archive" />
                       </div>
                     </div>
                   )

@@ -62,7 +62,7 @@ const SAMPLE_QUESTIONS = [
     id: "q4",
     text: "Additional comments or concerns",
     description: null,
-    type: "WRITE_IN" as const,
+    type: "COMMENT" as const,
     required: false,
     options: [],
   },

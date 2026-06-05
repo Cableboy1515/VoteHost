@@ -8,7 +8,7 @@ import {
   sendFullTurnoutStaffNotice,
 } from "@/lib/email"
 import { recordVoterSendResult } from "@/lib/recordVoterSendResult"
-import { getStaffRecipients } from "@/lib/staffRecipients"
+import { getStaffRecipients, getViewerPlusRecipients } from "@/lib/staffRecipients"
 import { purgeElectionImages } from "@/lib/imageRetention"
 import { autoCompleteElections } from "@/lib/autoCompleteElections"
 import { autoActivateElections } from "@/lib/autoActivateElections"
@@ -49,7 +49,10 @@ export async function POST(req: Request) {
 
   let totalSent = 0
   const errors: string[] = []
+  // staffRecipients (Admin+Organizer) is used for action-required notices (closing-soon, etc.)
+  // viewerPlusRecipients (Admin+Organizer+Viewer) is used for informational completion notices.
   const staffRecipients = await getStaffRecipients()
+  const viewerPlusRecipients = await getViewerPlusRecipients()
 
   for (const election of elections) {
     const msUntilEnd = election.endsAt!.getTime() - now.getTime()
@@ -176,7 +179,7 @@ export async function POST(req: Request) {
     try {
       await sendElectionCompletedStaffNotice(
         { id: election.id, title: election.title, endsAt: election.endsAt },
-        staffRecipients,
+        viewerPlusRecipients,
         votedCount,
         totalVoters,
       )

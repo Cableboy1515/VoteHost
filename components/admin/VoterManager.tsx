@@ -16,6 +16,7 @@ interface Voter {
   id: string
   name: string
   email: string
+  weight: number
   hasVoted: boolean
   invitedAt: string | null
   votedAt: string | null
@@ -32,6 +33,7 @@ interface Props {
   electionAutoActivate: boolean
   electionTitle: string
   questionCount: number
+  weightingEnabled: boolean
   initialVoters: Voter[]
 }
 
@@ -40,6 +42,8 @@ interface CSVRow {
   Name?: string
   email?: string
   Email?: string
+  weight?: string
+  Weight?: string
 }
 
 type SortKey = "name" | "email" | "invited" | "voted"
@@ -167,6 +171,7 @@ export default function VoterManager({
   electionAutoActivate,
   electionTitle,
   questionCount,
+  weightingEnabled,
   initialVoters,
 }: Props) {
   const router = useRouter()
@@ -175,7 +180,7 @@ export default function VoterManager({
   const [activationStatus, setActivationStatus] = useState<ActivationStatus | null>(null)
   const [name, setName] = useState("")
   const [email, setEmail] = useState("")
-  const [csvPreview, setCsvPreview] = useState<{ name: string; email: string }[]>([])
+  const [csvPreview, setCsvPreview] = useState<{ name: string; email: string; weight?: number }[]>([])
   const [sending, setSending] = useState(false)
   const [deleteTarget, setDeleteTarget] = useState<Voter | null>(null)
   const [deleting, setDeleting] = useState(false)
@@ -191,6 +196,10 @@ export default function VoterManager({
   const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false)
   const [bulkBusy, setBulkBusy] = useState<null | "delete" | "resend">(null)
   const [csvFileName, setCsvFileName] = useState<string | null>(null)
+  const [addWeight, setAddWeight] = useState("1")
+  const [weightEditTarget, setWeightEditTarget] = useState<Voter | null>(null)
+  const [weightEditValue, setWeightEditValue] = useState("1")
+  const [weightSaving, setWeightSaving] = useState(false)
   const fileRef = useRef<HTMLInputElement>(null)
   const wasSendingRef = useRef(false)
 
@@ -276,14 +285,17 @@ export default function VoterManager({
 
   async function handleAddVoter(e: React.FormEvent) {
     e.preventDefault()
+    const weightNum = parseInt(addWeight, 10)
+    const body: Record<string, unknown> = { name, email }
+    if (weightingEnabled && weightNum > 0) body.weight = weightNum
     const res = await fetch(`/api/elections/${electionId}/voters`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name, email }),
+      body: JSON.stringify(body),
     })
     if (res.ok) {
       const { created, skipped } = await res.json()
-      setName(""); setEmail("")
+      setName(""); setEmail(""); setAddWeight("1")
       setShowAddModal(false)
       if (created) {
         refreshVoters()
@@ -312,10 +324,15 @@ export default function VoterManager({
       header: true,
       complete: (results) => {
         const rows = results.data
-          .map((row) => ({
-            name: (row.name ?? row.Name ?? "").trim(),
-            email: (row.email ?? row.Email ?? "").trim(),
-          }))
+          .map((row) => {
+            const weightRaw = (row.weight ?? row.Weight ?? "").trim()
+            const parsedWeight = weightRaw ? parseInt(weightRaw, 10) : undefined
+            return {
+              name: (row.name ?? row.Name ?? "").trim(),
+              email: (row.email ?? row.Email ?? "").trim(),
+              ...(parsedWeight && parsedWeight > 0 ? { weight: parsedWeight } : {}),
+            }
+          })
           .filter((r) => r.name && r.email)
         setCsvPreview(rows)
       },
@@ -372,6 +389,11 @@ export default function VoterManager({
     const { total } = await res.json()
     setActivationStatus({ total, invited: 0, failed: 0, sending: true, stopped: false })
     wasSendingRef.current = true
+  }
+
+  async function handleStopInvites() {
+    await fetch(`/api/elections/${electionId}/stop-invitations`, { method: "POST" }).catch(() => {})
+    // The 2s activation-status poll will update the UI automatically once the loop observes the flag.
   }
 
   async function handleResend(voter: Voter) {
@@ -485,6 +507,27 @@ export default function VoterManager({
     const suffix = extras.length > 0 ? ` · ${extras.join(" · ")}` : ""
     if (sent > 0) toast.success(`Resent ${sent} invitation${sent !== 1 ? "s" : ""}${suffix}`)
     else toast.error(`No invitations sent${suffix}`)
+  }
+
+  async function handleSaveWeight() {
+    if (!weightEditTarget) return
+    const w = parseInt(weightEditValue, 10)
+    if (!w || w < 1) return
+    setWeightSaving(true)
+    const res = await fetch(`/api/elections/${electionId}/voters/${weightEditTarget.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ weight: w }),
+    })
+    setWeightSaving(false)
+    if (res.ok) {
+      setWeightEditTarget(null)
+      refreshVoters()
+      toast.success(`Weight updated to ${w}`)
+    } else {
+      const { error } = await res.json().catch(() => ({}))
+      toast.error(error ?? "Failed to update weight")
+    }
   }
 
   const canDelete = electionStatus !== "COMPLETED"
@@ -684,11 +727,20 @@ export default function VoterManager({
         >
           <span className="text-lg flex-shrink-0">📨</span>
           {activationStatus?.sending ? (
-            <div className="flex-1 min-w-0">
-              <p className="text-[13px] font-medium mb-2" style={{ color: "var(--vh-accent-strong)" }}>
-                Sending invitations…
-              </p>
-              <InvitationProgress status={activationStatus} />
+            <div className="flex-1 min-w-0 flex items-start gap-3">
+              <div className="flex-1 min-w-0">
+                <p className="text-[13px] font-medium mb-2" style={{ color: "var(--vh-accent-strong)" }}>
+                  Sending invitations…
+                </p>
+                <InvitationProgress status={activationStatus} />
+              </div>
+              <button
+                onClick={handleStopInvites}
+                className="px-3.5 py-2 rounded-[10px] text-[13px] font-medium flex-shrink-0 transition-colors"
+                style={{ border: "1px solid var(--vh-warn)", color: "var(--vh-warn)", background: "transparent" }}
+              >
+                Stop
+              </button>
             </div>
           ) : (
             <>
@@ -896,6 +948,17 @@ export default function VoterManager({
                       >
                         {v.email}
                       </p>
+                      {weightingEnabled && (
+                        <button
+                          type="button"
+                          disabled={v.hasVoted || electionStatus === "COMPLETED"}
+                          onClick={() => { setWeightEditTarget(v); setWeightEditValue(String(v.weight)) }}
+                          className="text-[11.5px] mt-0.5 tabular-nums"
+                          style={{ color: v.weight !== 1 ? "var(--vh-accent)" : "var(--vh-muted)" }}
+                        >
+                          Weight: ×{v.weight}
+                        </button>
+                      )}
                       {isFailedStatus(v.lastSendStatus) && (
                         <p
                           className="text-[11px] truncate mt-0.5"
@@ -950,7 +1013,9 @@ export default function VoterManager({
             {/* Desktop grid layout */}
             <div
               className="hidden sm:grid"
-              style={{ gridTemplateColumns: selectionMode ? "auto 1.5fr 2fr auto auto" : "1.5fr 2fr auto auto" }}
+              style={{ gridTemplateColumns: selectionMode
+                ? `auto 1.5fr 2fr ${weightingEnabled ? "auto " : ""}auto auto`
+                : `1.5fr 2fr ${weightingEnabled ? "auto " : ""}auto auto` }}
             >
               {sorted.map((v, i) => (
                 <div
@@ -994,6 +1059,22 @@ export default function VoterManager({
                     )}
                   </div>
                   <StatusChip v={v} />
+                  {weightingEnabled && (
+                    <button
+                      type="button"
+                      disabled={v.hasVoted || electionStatus === "COMPLETED"}
+                      onClick={() => { setWeightEditTarget(v); setWeightEditValue(String(v.weight)) }}
+                      className="text-[12.5px] px-2 py-1 rounded-[6px] tabular-nums transition-colors disabled:opacity-50"
+                      style={{
+                        border: "1px solid var(--vh-line-strong)",
+                        background: v.weight !== 1 ? "var(--vh-accent-soft)" : "var(--vh-surface)",
+                        color: v.weight !== 1 ? "var(--vh-accent-strong)" : "var(--vh-muted)",
+                      }}
+                      title={v.hasVoted ? "Weight locked — voter has already cast their ballot" : "Edit vote weight"}
+                    >
+                      ×{v.weight}
+                    </button>
+                  )}
                   <div className="flex gap-1 justify-end">
                     {!selectionMode && (v.invitedAt || isFailedStatus(v.lastSendStatus)) && !v.hasVoted && canDelete && canInvite && (
                       <button
@@ -1070,6 +1151,21 @@ export default function VoterManager({
                 style={{ border: "1px solid var(--vh-line-strong)", background: "var(--vh-surface)", color: "var(--vh-ink)", outline: "none" }}
               />
             </div>
+            {weightingEnabled && (
+              <div>
+                <label className="block text-[13px] font-medium mb-1.5" style={{ color: "var(--vh-ink-soft)" }}>Vote weight</label>
+                <input
+                  type="number"
+                  min={1}
+                  inputMode="numeric"
+                  value={addWeight}
+                  onChange={(e) => setAddWeight(e.target.value)}
+                  className="w-full text-sm rounded-[10px] px-3 py-2.5"
+                  style={{ border: "1px solid var(--vh-line-strong)", background: "var(--vh-surface)", color: "var(--vh-ink)", outline: "none" }}
+                />
+                <p className="mt-1 text-[12px]" style={{ color: "var(--vh-muted)" }}>How many votes this person&rsquo;s ballot counts for. Default is 1.</p>
+              </div>
+            )}
             <DialogFooter>
               <button
                 type="button"
@@ -1100,6 +1196,7 @@ export default function VoterManager({
           <div className="flex flex-col gap-3 pt-1">
             <p className="text-[13px]" style={{ color: "var(--vh-muted)" }}>
               CSV must have <code className="bg-vh-surface-2 px-1 rounded">name</code> and <code className="bg-vh-surface-2 px-1 rounded">email</code> columns.
+              {weightingEnabled && <> An optional <code className="bg-vh-surface-2 px-1 rounded">weight</code> column sets each voter&apos;s vote weight.</>}
             </p>
             <div className="flex items-center gap-3">
               <label
@@ -1180,6 +1277,48 @@ export default function VoterManager({
               style={{ background: "var(--vh-danger)" }}
             >
               {deleting ? "Removing…" : "Remove voter"}
+            </button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Weight edit modal */}
+      <Dialog open={weightEditTarget !== null} onOpenChange={(open) => { if (!open) setWeightEditTarget(null) }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit vote weight — {weightEditTarget?.name}</DialogTitle>
+          </DialogHeader>
+          <div className="flex flex-col gap-3 pt-1">
+            <p className="text-[13px]" style={{ color: "var(--vh-ink-soft)" }}>
+              This voter&apos;s ballot will count as <strong>{weightEditValue || "1"}</strong> vote{weightEditValue !== "1" ? "s" : ""} when tallied.
+            </p>
+            <input
+              type="number"
+              min={1}
+              inputMode="numeric"
+              value={weightEditValue}
+              onChange={(e) => setWeightEditValue(e.target.value)}
+              className="w-full text-sm rounded-[10px] px-3 py-2.5"
+              style={{ border: "1px solid var(--vh-line-strong)", background: "var(--vh-surface)", color: "var(--vh-ink)", outline: "none" }}
+              autoFocus
+            />
+          </div>
+          <DialogFooter>
+            <button
+              disabled={weightSaving}
+              onClick={() => setWeightEditTarget(null)}
+              className="px-4 py-2 rounded-[10px] text-sm transition-colors"
+              style={{ border: "1px solid var(--vh-line-strong)", background: "var(--vh-surface)", color: "var(--vh-ink-soft)" }}
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleSaveWeight}
+              disabled={weightSaving || !weightEditValue || parseInt(weightEditValue, 10) < 1}
+              className="px-4 py-2 rounded-[10px] text-sm font-medium text-white transition-colors disabled:opacity-50"
+              style={{ background: "var(--vh-accent)" }}
+            >
+              {weightSaving ? "Saving…" : "Save weight"}
             </button>
           </DialogFooter>
         </DialogContent>

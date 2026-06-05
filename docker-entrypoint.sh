@@ -78,6 +78,33 @@ async function main() {
 main().catch(err => { console.error('Pre-push history migration error:', err); process.exit(1); });
 "
 
+echo "Running pre-push migration: QuestionType WRITE_IN → COMMENT rename..."
+node -e "
+const { Client } = require('pg');
+async function main() {
+  const c = new Client({ connectionString: process.env.DATABASE_URL });
+  await c.connect();
+  try {
+    const hasOld = await c.query(
+      \"SELECT 1 FROM pg_enum e JOIN pg_type t ON e.enumtypid=t.oid WHERE t.typname='QuestionType' AND e.enumlabel='WRITE_IN' LIMIT 1\"
+    );
+    const hasNew = await c.query(
+      \"SELECT 1 FROM pg_enum e JOIN pg_type t ON e.enumtypid=t.oid WHERE t.typname='QuestionType' AND e.enumlabel='COMMENT' LIMIT 1\"
+    );
+    if (hasOld.rowCount > 0 && hasNew.rowCount === 0) {
+      await c.query('ALTER TYPE \"QuestionType\" RENAME VALUE \\'WRITE_IN\\' TO \\'COMMENT\\'');
+      console.log('QuestionType WRITE_IN → COMMENT rename complete');
+    } else {
+      console.log('QuestionType WRITE_IN → COMMENT: no action needed');
+    }
+  } catch (e) {
+    // Type does not exist yet (fresh install) — safe to ignore
+  }
+  await c.end();
+}
+main().catch(err => { console.error('Pre-push enum migration error:', err); process.exit(1); });
+"
+
 echo "Applying database schema..."
 node node_modules/prisma/build/index.js db push --accept-data-loss
 echo "Schema applied."

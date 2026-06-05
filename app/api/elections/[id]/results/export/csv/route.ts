@@ -2,7 +2,7 @@ export const runtime = "nodejs"
 
 import Papa from "papaparse"
 import { requireRole } from "@/lib/auth"
-import { loadExportData, exportFilename } from "@/lib/exportData"
+import { loadExportData, exportFilename, csvSafeCell } from "@/lib/exportData"
 import { getDisplayTimeZone } from "@/lib/timezone"
 
 export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -13,7 +13,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
   const [data, tz] = await Promise.all([loadExportData(id), getDisplayTimeZone()])
   if (!data) return new Response("Not found or election not completed", { status: 404 })
 
-  const { election, questions, tallyHash } = data
+  const { election, questions, tallyHash, quorumType, quorumRequired, quorumMet, votedCount } = data
 
   type Row = {
     question: string
@@ -26,37 +26,37 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
   const rows: Row[] = []
 
   for (const q of questions) {
-    if (q.type === "WRITE_IN") {
+    if (q.type === "COMMENT") {
       for (const wi of q.writeIns) {
         rows.push({
-          question: q.questionText,
-          option: wi ?? "",
+          question: csvSafeCell(q.questionText),
+          option: csvSafeCell(wi ?? ""),
           votes: 1,
           percent: "",
           winner: "",
         })
       }
       if (q.writeIns.length === 0) {
-        rows.push({ question: q.questionText, option: "(no responses)", votes: "", percent: "", winner: "" })
+        rows.push({ question: csvSafeCell(q.questionText), option: "(no responses)", votes: "", percent: "", winner: "" })
       }
     } else if (q.type === "RANKED_CHOICE") {
       for (const opt of q.options) {
         rows.push({
-          question: q.questionText,
-          option: opt.optionText,
+          question: csvSafeCell(q.questionText),
+          option: csvSafeCell(opt.optionText),
           votes: opt.firstChoiceCount,
           percent: `${opt.pct}`,
-          winner: opt.winner ? "Yes" : "No",
+          winner: opt.winner ? (q.isTie ? "Tie" : "Yes") : "No",
         })
       }
     } else {
       for (const opt of q.options) {
         rows.push({
-          question: q.questionText,
-          option: opt.optionText,
+          question: csvSafeCell(q.questionText),
+          option: csvSafeCell(opt.optionText),
           votes: opt.count,
           percent: `${opt.pct}`,
-          winner: opt.winner ? "Yes" : "No",
+          winner: opt.winner ? (q.isTie ? "Tie" : "Yes") : "No",
         })
       }
     }
@@ -67,8 +67,15 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
     header: true,
   })
 
+  const hasRcv = questions.some((q) => q.type === "RANKED_CHOICE")
   const hashComment = tallyHash ? `# Tally Hash: sha256:${tallyHash}\n` : ""
-  const csv = hashComment + csvBody
+  const quorumComment = quorumType !== "NONE" && quorumRequired !== null
+    ? `# Quorum: ${votedCount} of ${quorumRequired} required — ${quorumMet ? "Met" : "Not met"}\n`
+    : ""
+  const rcvComment = hasRcv
+    ? `# Note: For ranked-choice questions, "votes" = 1st-preference count; winner determined by IRV/STV algorithm.\n`
+    : ""
+  const csv = hashComment + quorumComment + rcvComment + csvBody
 
   const filename = exportFilename(election, "csv", tz)
 

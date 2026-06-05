@@ -10,6 +10,7 @@ datasource db {
 enum ElectionStatus {
   DRAFT
   ACTIVE
+  PENDING_REVIEW // Voting closed; write-in merges in progress before tally is sealed
   COMPLETED
 }
 
@@ -17,7 +18,13 @@ enum QuestionType {
   SINGLE_CHOICE
   MULTIPLE_CHOICE
   RANKED_CHOICE
-  WRITE_IN
+  COMMENT // Free-text / feedback; collected for organizer review, not tallied
+}
+
+enum QuorumType {
+  NONE
+  PERCENT
+  COUNT
 }
 
 model Election {
@@ -64,14 +71,27 @@ model Election {
   heroColor              String?
   dashboardDismissedAt   DateTime?
 
+  weightingEnabled Boolean    @default(false)
+
+  quorumType     QuorumType @default(NONE)
+  quorumValue    Int?
+
   tallyHash      String?
   tallyHashSetAt DateTime?
 
-  questions    Question[]
-  voters       Voter[]
-  votes        Vote[]
-  receipts     BallotReceipt[]
-  activityLogs ActivityLog[]
+  reviewNoticeSentAt DateTime?  // set when PENDING_REVIEW notice is sent to staff
+
+  // Write-in review / finalization
+  finalizedAt               DateTime?
+  finalizedById             String?
+  normalizationManifestHash String?   // sha256 of sorted WriteInMerge manifest, set at Finalize
+
+  questions     Question[]
+  voters        Voter[]
+  votes         Vote[]
+  receipts      BallotReceipt[]
+  activityLogs  ActivityLog[]
+  writeInMerges WriteInMerge[]
 }
 
 model Question {
@@ -83,12 +103,27 @@ model Question {
   order         Int
   required         Boolean      @default(true)
   maxSelections    Int?
+  seats            Int          @default(1)
   randomizeOptions Boolean      @default(false)
   showOptionAvatars Boolean     @default(true)
+
+  // Write-in on choice questions — allow voters to type a candidate name
+  // instead of (or in addition to) picking a pre-listed option.
+  // Only meaningful on SINGLE_CHOICE, MULTIPLE_CHOICE, RANKED_CHOICE.
+  // When true, elections with this question park in PENDING_REVIEW at close
+  // so an admin can merge spelling variants before the tally is sealed.
+  allowWriteIn  Boolean @default(false)
+
+  // Number of blank write-in boxes shown to voters on MULTIPLE_CHOICE
+  // write-in questions (e.g. nominations where slots = vacancies to fill).
+  // SINGLE_CHOICE always shows 1; RANKED_CHOICE uses its own add-button.
+  // Only meaningful when allowWriteIn is true.
+  writeInSlots  Int     @default(1)
 
   election Election @relation(fields: [electionId], references: [id], onDelete: Cascade)
   options  Option[]
   votes    Vote[]
+  writeInMerges WriteInMerge[]
 
   @@index([electionId, order])
 }
@@ -114,6 +149,7 @@ model Voter {
   electionId           String
   name                 String
   email                String
+  weight               Int       @default(1)
   hasVoted             Boolean   @default(false)
   invitedAt            DateTime?
   votedAt              DateTime?
@@ -153,6 +189,7 @@ model Vote {
   rank        Int?
   writeInText String?
   ballotId    String?
+  weight      Int      @default(1)
   createdAt   DateTime @default(now())
 
   election Election  @relation(fields: [electionId], references: [id], onDelete: Cascade)
@@ -173,6 +210,27 @@ model BallotReceipt {
   election Election @relation(fields: [electionId], references: [id], onDelete: Cascade)
 
   @@index([electionId])
+}
+
+// Non-destructive overlay: maps raw write-in text to a canonical candidate name.
+// Raw Vote.writeInText is NEVER mutated — the tally hash is computed over raw
+// votes only. This manifest is published alongside the audit export so any
+// observer can reproduce the merged tally deterministically.
+model WriteInMerge {
+  id             String   @id @default(cuid())
+  electionId     String
+  questionId     String
+  rawText        String   // exact raw Vote.writeInText being merged
+  canonicalLabel String   // the merged candidate name shown in results
+  mergedById     String
+  mergedByEmail  String
+  createdAt      DateTime @default(now())
+
+  election Election  @relation(fields: [electionId], references: [id], onDelete: Cascade)
+  question Question  @relation(fields: [questionId], references: [id], onDelete: Cascade)
+
+  @@unique([electionId, questionId, rawText]) // one mapping per raw string per question
+  @@index([electionId, questionId])
 }
 
 enum AdminRole {

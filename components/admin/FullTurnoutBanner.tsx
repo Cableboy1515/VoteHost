@@ -1,5 +1,6 @@
 import CloseElectionEarlyButton from "@/components/admin/CloseElectionEarlyButton"
 import { formatDateOnlyInTz, getDisplayTimeZone } from "@/lib/timezone"
+import { electionHasWriteIns } from "@/lib/writeIn"
 
 interface Props {
   electionId: string
@@ -20,7 +21,10 @@ export default async function FullTurnoutBanner({
 }: Props) {
   if (status !== "ACTIVE" || invitedCount === 0 || votedCount < invitedCount) return null
 
-  const tz = await getDisplayTimeZone()
+  const [tz, hasWriteIns] = await Promise.all([
+    getDisplayTimeZone(),
+    electionHasWriteIns(electionId),
+  ])
   const closeNote = endsAt
     ? `You can close it now, or let it run until ${formatDateOnlyInTz(endsAt, tz)}.`
     : `You can close it now, or wait until you close it manually.`
@@ -38,7 +42,7 @@ export default async function FullTurnoutBanner({
         </p>
       </div>
       <div className="flex-shrink-0 ml-2">
-        <CloseElectionEarlyButton id={electionId} title={electionTitle} />
+        <CloseElectionEarlyButton id={electionId} title={electionTitle} hasWriteIns={hasWriteIns} />
       </div>
     </div>
   )

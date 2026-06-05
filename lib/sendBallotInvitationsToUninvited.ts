@@ -2,12 +2,13 @@ import { db } from "@/lib/db"
 import { sendBallotInvitation } from "@/lib/email"
 import { recordVoterSendResult } from "@/lib/recordVoterSendResult"
 import { generateVoterToken, appendVoterToken } from "@/lib/voterToken"
+import { isStopRequested } from "@/lib/activationProgress"
 
 export type InviteSendSummary = {
   sent: number
   failed: number
   stopped: boolean
-  stopReason?: "quota" | "consecutive_failures"
+  stopReason?: "quota" | "consecutive_failures" | "manual"
   lastError?: string
   failedAt?: string
 }
@@ -41,6 +42,9 @@ export async function sendBallotInvitationsToUninvited(
   let consecutiveFails = 0
 
   for (const voter of uninvitedVoters) {
+    if (isStopRequested(electionId)) {
+      return { sent, failed, stopped: true, stopReason: "manual" }
+    }
     try {
       const { token, tokenHash } = generateVoterToken()
       await appendVoterToken(voter.id, tokenHash)

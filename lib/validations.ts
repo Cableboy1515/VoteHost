@@ -35,7 +35,7 @@ export const ElectionBaseSchema = z.object({
   description: z.string().optional(),
   startsAt: z.string().datetime().optional().nullable(),
   endsAt: z.string().datetime().optional().nullable(),
-  status: z.enum(["DRAFT", "ACTIVE", "COMPLETED"]).optional(),
+  status: z.enum(["DRAFT", "ACTIVE", "PENDING_REVIEW", "COMPLETED"]).optional(),
   archived: z.boolean().optional(),
   emailSubject: z.string().optional().nullable(),
   emailMessage: z.string().optional().nullable(),
@@ -45,6 +45,9 @@ export const ElectionBaseSchema = z.object({
   firstReminderDays: z.number().int().positive().nullish(),
   autoActivate: z.boolean().optional(),
   autoSendResults: z.boolean().optional(),
+  weightingEnabled: z.boolean().optional(),
+  quorumType: z.enum(["NONE", "PERCENT", "COUNT"]).optional(),
+  quorumValue: z.number().int().min(1).nullish(),
   heroColor: z.union([
     z.enum(HERO_COLOR_KEYS as [string, ...string[]]),
     z.string().regex(/^#[0-9a-fA-F]{6}$/i),
@@ -72,10 +75,13 @@ export const ElectionSchema = ElectionBaseSchema.refine(
 export const QuestionSchema = z.object({
   text: z.string().min(1, "Question text is required"),
   description: z.string().max(1000).optional().nullable(),
-  type: z.enum(["SINGLE_CHOICE", "MULTIPLE_CHOICE", "RANKED_CHOICE", "WRITE_IN"]),
+  type: z.enum(["SINGLE_CHOICE", "MULTIPLE_CHOICE", "RANKED_CHOICE", "COMMENT"]),
+  allowWriteIn: z.boolean().default(false),
+  writeInSlots: z.number().int().min(1).max(50).default(1),
   order: z.number().int().min(0),
   required: z.boolean().default(true),
   maxSelections: z.number().int().positive().nullish(),
+  seats: z.number().int().min(1).optional(),
   randomizeOptions: z.boolean().default(false),
   showOptionAvatars: z.boolean().default(true),
 })
@@ -92,29 +98,56 @@ export const OptionSchema = z.object({
 export const VoterSchema = z.object({
   name: z.string().min(1, "Name is required"),
   email: z.string().email("Invalid email address"),
+  weight: z.number().int().min(1).optional(),
 })
 
 export const VotersSchema = z.array(VoterSchema).max(5000, "Cannot import more than 5000 voters at once")
 
+const writeInTextField = z.string().min(1).max(500)
+
+// A ranked item is either a reference to a pre-listed option OR a write-in candidate name.
+// Using an interleaved array preserves rank position for write-ins mixed with real options.
+export const RankedItemSchema = z.union([
+  z.object({ optionId: z.string() }),
+  z.object({ writeInText: writeInTextField }),
+])
+
 export const BallotAnswerSchema = z.discriminatedUnion("type", [
+  // SINGLE_CHOICE: voter picks exactly one option OR writes in one candidate (XOR).
   z.object({
     questionId: z.string(),
     type: z.literal("SINGLE_CHOICE"),
-    optionId: z.string(),
-  }),
+    optionId: z.string().optional(),
+    writeInText: writeInTextField.optional(),
+  }).refine(
+    (d) => (!!d.optionId) !== (!!d.writeInText),
+    { message: "Exactly one of optionId or writeInText is required" }
+  ),
+
+  // MULTIPLE_CHOICE: any combination of pre-listed options and write-in candidates,
+  // combined count >= 1. writeInTexts defaults to [] for non-write-in questions.
   z.object({
     questionId: z.string(),
     type: z.literal("MULTIPLE_CHOICE"),
-    optionIds: z.array(z.string()).min(1),
-  }),
+    optionIds: z.array(z.string()).default([]),
+    writeInTexts: z.array(writeInTextField).default([]),
+  }).refine(
+    (d) => d.optionIds.length + d.writeInTexts.length >= 1,
+    { message: "At least one option or write-in is required" }
+  ),
+
+  // RANKED_CHOICE: interleaved list of pre-listed options and write-in candidates in
+  // rank order. Two parallel arrays (optionIds + writeInRanks) would make rank position
+  // ambiguous; a single items array is unambiguous and maps directly to Vote rows.
   z.object({
     questionId: z.string(),
     type: z.literal("RANKED_CHOICE"),
-    rankedOptionIds: z.array(z.string()).min(1),
+    rankedItems: z.array(RankedItemSchema).min(1),
   }),
+
   z.object({
     questionId: z.string(),
-    type: z.literal("WRITE_IN"),
+    type: z.literal("COMMENT"),
     text: z.string().min(1).max(500),
   }),
 ])

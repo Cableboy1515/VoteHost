@@ -10,7 +10,7 @@ import { toast } from "sonner"
 import ImageUploadField from "@/components/admin/ImageUploadField"
 import { Tooltip } from "@/components/ui/tooltip"
 
-type QuestionType = "SINGLE_CHOICE" | "MULTIPLE_CHOICE" | "RANKED_CHOICE" | "WRITE_IN"
+type QuestionType = "SINGLE_CHOICE" | "MULTIPLE_CHOICE" | "RANKED_CHOICE" | "COMMENT"
 
 interface OptionDraft {
   id?: string
@@ -27,9 +27,12 @@ interface QuestionDraft {
   text: string
   description?: string
   type: QuestionType
+  allowWriteIn?: boolean
+  writeInSlots?: number
   order: number
   required: boolean
   maxSelections?: number
+  seats?: number
   randomizeOptions?: boolean
   showOptionAvatars?: boolean
   options: OptionDraft[]
@@ -37,7 +40,7 @@ interface QuestionDraft {
 
 interface Props {
   electionId: string
-  electionStatus: "DRAFT" | "ACTIVE" | "COMPLETED"
+  electionStatus: "DRAFT" | "ACTIVE" | "PENDING_REVIEW" | "COMPLETED"
   firstVoteAt: string | null
   initialQuestions: QuestionDraft[]
 }
@@ -45,8 +48,8 @@ interface Props {
 const TYPES: { value: QuestionType; label: string; tooltip: string }[] = [
   { value: "SINGLE_CHOICE", label: "Single choice", tooltip: "Voter picks exactly one option." },
   { value: "MULTIPLE_CHOICE", label: "Multiple", tooltip: "Voter can pick up to a chosen maximum." },
-  { value: "RANKED_CHOICE", label: "Preference Ranking", tooltip: "Voter ranks options in order of preference. Results show a per-rank breakdown — no instant-runoff elimination." },
-  { value: "WRITE_IN", label: "Write-in", tooltip: "Voter types a free-text response instead of choosing from preset options." },
+  { value: "RANKED_CHOICE", label: "Ranked Choice", tooltip: "Voter ranks options in order of preference. A winner is automatically determined using instant-runoff (IRV) for single-seat, or STV for multi-seat elections." },
+  { value: "COMMENT", label: "Comment / free text", tooltip: "Voter types a free-text response (e.g. suggestions, feedback). Responses are collected for organizer review — not tallied or used to pick a winner." },
 ]
 
 const inputCls = "w-full text-sm rounded-[10px] px-3 py-2.5 transition-colors"
@@ -97,6 +100,27 @@ export default function BallotBuilder({ electionId, electionStatus, firstVoteAt,
           { text: "", order: 0 },
           { text: "", order: 1 },
         ],
+      },
+    ])
+  }
+
+  // Nomination preset: a multiple-choice question with write-in enabled and no
+  // pre-listed options. Voters write in one or more candidate names (controlled
+  // by writeInSlots, default 1 = one vacancy). Admin merges spelling variants
+  // and finalises the tally after the election closes (PENDING_REVIEW flow).
+  function addNominationQuestion() {
+    setQuestions((qs) => [
+      ...qs,
+      {
+        text: "",
+        type: "MULTIPLE_CHOICE",
+        allowWriteIn: true,
+        writeInSlots: 1,
+        order: qs.length,
+        required: true,
+        randomizeOptions: false,
+        showOptionAvatars: false,
+        options: [],
       },
     ])
   }
@@ -209,6 +233,26 @@ export default function BallotBuilder({ electionId, electionStatus, firstVoteAt,
     <div className="flex flex-col gap-3">
       <Toaster />
 
+      {/* Write-in review notice — shown when any question has allowWriteIn enabled */}
+      {!locked && questions.some((q) => q.allowWriteIn) && (
+        <div
+          className="flex items-start gap-3 rounded-[14px] px-[18px] py-3.5"
+          style={{ background: "oklch(0.96 0.04 255)", border: "1px solid oklch(0.78 0.09 255)" }}
+        >
+          <div
+            className="w-8 h-8 rounded-[8px] flex items-center justify-center text-white font-semibold text-sm flex-shrink-0 mt-0.5"
+            style={{ background: "oklch(0.55 0.14 255)" }}
+          >
+            i
+          </div>
+          <div className="text-[13.5px]" style={{ color: "oklch(0.35 0.12 255)" }}>
+            <strong>Write-in enabled — admin review required before results are published.</strong>{" "}
+            When this election closes, it will pause for an admin to merge spelling variants and finalize the tally.
+            Auto-send results will not fire until an admin clicks Finalize.
+          </div>
+        </div>
+      )}
+
       {/* Status banners */}
       {electionStatus === "ACTIVE" && !firstVoteAt && (
         <div
@@ -304,8 +348,10 @@ export default function BallotBuilder({ electionId, electionStatus, firstVoteAt,
                             if (locked) return
                             updateQuestion(qIndex, {
                               type: t.value,
+                              allowWriteIn: t.value === "COMMENT" ? false : q.allowWriteIn,
+                              writeInSlots: t.value === "COMMENT" ? undefined : (q.writeInSlots ?? 1),
                               maxSelections: t.value === "MULTIPLE_CHOICE" ? q.maxSelections : undefined,
-                              options: t.value === "WRITE_IN" ? [] : q.options.length ? q.options : [{ text: "", order: 0 }, { text: "", order: 1 }],
+                              options: t.value === "COMMENT" ? [] : q.options.length ? q.options : (q.allowWriteIn ? [] : [{ text: "", order: 0 }, { text: "", order: 1 }]),
                             })
                           }}
                           className="px-2.5 py-1.5 rounded-[8px] text-[12.5px] transition-colors"
@@ -341,7 +387,7 @@ export default function BallotBuilder({ electionId, electionStatus, firstVoteAt,
                       {q.required ? "Required" : "Optional"}
                     </button>
                   </Tooltip>
-                  {(q.type === "SINGLE_CHOICE" || q.type === "MULTIPLE_CHOICE") && (
+                  {(q.type === "SINGLE_CHOICE" || q.type === "MULTIPLE_CHOICE" || q.type === "RANKED_CHOICE") && (
                     <>
                       <Tooltip content="Each voter sees the options in a different random order to reduce position bias.">
                         <button
@@ -377,13 +423,30 @@ export default function BallotBuilder({ electionId, electionStatus, firstVoteAt,
                           Show option photos
                         </button>
                       </Tooltip>
+                      <Tooltip content="Voters can type a candidate name that isn't on the list. Write-in responses are merged and tallied by an admin before results are sealed — the election will pause for review instead of auto-completing.">
+                        <button
+                          type="button"
+                          disabled={locked}
+                          onClick={() => !locked && updateQuestion(qIndex, { allowWriteIn: !q.allowWriteIn })}
+                          className="px-2.5 py-1.5 rounded-[8px] text-[12.5px] transition-colors"
+                          style={{
+                            border: `1px solid ${q.allowWriteIn ? "var(--vh-accent)" : "var(--vh-line-strong)"}`,
+                            background: q.allowWriteIn ? "var(--vh-accent)" : "var(--vh-surface)",
+                            color: q.allowWriteIn ? "white" : "var(--vh-ink-soft)",
+                            cursor: locked ? "not-allowed" : "pointer",
+                            opacity: locked ? 0.6 : 1,
+                          }}
+                        >
+                          Allow write-in
+                        </button>
+                      </Tooltip>
                     </>
                   )}
                 </div>
               </div>
 
               {/* Options */}
-              {q.type !== "WRITE_IN" && (
+              {q.type !== "COMMENT" && (
                 <div className="flex flex-col gap-1.5 pt-1">
                   {q.options.map((o, oIndex) => {
                     const detailKey = `${qIndex}-${oIndex}`
@@ -428,12 +491,12 @@ export default function BallotBuilder({ electionId, electionStatus, firstVoteAt,
                             <button
                               type="button"
                               onClick={() => removeOption(qIndex, oIndex)}
-                              disabled={locked || q.options.length <= 2}
+                              disabled={locked || (!q.allowWriteIn && q.options.length <= 2)}
                               className="text-[16px] px-1.5 transition-colors"
                               style={{
                                 color: "var(--vh-muted)",
-                                opacity: q.options.length <= 2 ? 0.35 : 1,
-                                cursor: q.options.length <= 2 ? "not-allowed" : "pointer",
+                                opacity: (!q.allowWriteIn && q.options.length <= 2) ? 0.35 : 1,
+                                cursor: (!q.allowWriteIn && q.options.length <= 2) ? "not-allowed" : "pointer",
                               }}
                             >
                               ×
@@ -502,7 +565,7 @@ export default function BallotBuilder({ electionId, electionStatus, firstVoteAt,
                     + Add option
                   </button>
 
-                  {q.type === "MULTIPLE_CHOICE" && (
+                  {q.type === "MULTIPLE_CHOICE" && q.options.length > 0 && (
                     <div className="flex flex-wrap items-center gap-2 mt-1">
                       <label className="text-[12.5px] whitespace-nowrap" style={{ color: "var(--vh-muted)" }}>Max selections</label>
                       <input
@@ -522,6 +585,118 @@ export default function BallotBuilder({ electionId, electionStatus, firstVoteAt,
                         style={{ border: "1px solid var(--vh-line-strong)", background: "var(--vh-surface)", color: "var(--vh-ink)", outline: "none" }}
                       />
                       <span className="text-[12px]" style={{ color: "var(--vh-muted)" }}>Leave blank for no limit</span>
+                    </div>
+                  )}
+                  {q.type === "RANKED_CHOICE" && (
+                    <div className="flex flex-wrap items-center gap-2 mt-1">
+                      <Tooltip content="1 seat uses instant-runoff (IRV). More seats uses Single Transferable Vote (STV) — useful for electing a board or committee.">
+                        <label className="text-[12.5px] whitespace-nowrap cursor-default" style={{ color: "var(--vh-muted)" }}>
+                          Seats to fill
+                        </label>
+                      </Tooltip>
+                      <input
+                        type="number"
+                        min={1}
+                        max={Math.max(1, q.options.length - 1)}
+                        inputMode="numeric"
+                        value={q.seats ?? 1}
+                        onChange={(e) =>
+                          updateQuestion(qIndex, {
+                            seats: e.target.value === "" ? 1 : Math.max(1, Number(e.target.value)),
+                          })
+                        }
+                        disabled={locked}
+                        className="w-20 text-sm px-2 py-1.5 rounded-[8px]"
+                        style={{ border: "1px solid var(--vh-line-strong)", background: "var(--vh-surface)", color: "var(--vh-ink)", outline: "none" }}
+                      />
+                      <span className="text-[12px]" style={{ color: "var(--vh-muted)" }}>
+                        {(q.seats ?? 1) === 1 ? "Single winner · IRV" : `${q.seats} winners · STV`}
+                      </span>
+                    </div>
+                  )}
+
+                  {/* Write-in slots — only for MULTIPLE_CHOICE with write-in on */}
+                  {q.type === "MULTIPLE_CHOICE" && q.allowWriteIn && (
+                    <div className="flex flex-wrap items-center gap-2 mt-1">
+                      <Tooltip content="How many blank 'Write in a candidate' boxes each voter sees. Set this to the number of vacancies you're filling.">
+                        <label className="text-[12.5px] whitespace-nowrap cursor-default" style={{ color: "var(--vh-muted)" }}>
+                          Write-in slots
+                        </label>
+                      </Tooltip>
+                      <input
+                        type="number"
+                        min={1}
+                        max={50}
+                        inputMode="numeric"
+                        value={q.writeInSlots ?? 1}
+                        onChange={(e) =>
+                          updateQuestion(qIndex, {
+                            writeInSlots: e.target.value === "" ? 1 : Math.max(1, Math.min(50, Number(e.target.value))),
+                          })
+                        }
+                        disabled={locked}
+                        className="w-20 text-sm px-2 py-1.5 rounded-[8px]"
+                        style={{ border: "1px solid var(--vh-line-strong)", background: "var(--vh-surface)", color: "var(--vh-ink)", outline: "none" }}
+                      />
+                      <span className="text-[12px]" style={{ color: "var(--vh-muted)" }}>
+                        {(q.writeInSlots ?? 1) === 1 ? "voter writes in 1 candidate" : `voter writes in up to ${q.writeInSlots} candidates`}
+                      </span>
+                    </div>
+                  )}
+
+                  {/* Write-in field preview — mirrors what voters will see */}
+                  {q.allowWriteIn && (
+                    <div
+                      className="mt-2 rounded-[10px] p-3 flex flex-col gap-2"
+                      style={{
+                        border: "1px dashed var(--vh-line-strong)",
+                        background: "var(--vh-surface-2)",
+                        opacity: 0.75,
+                      }}
+                    >
+                      <p className="text-[11.5px] font-medium" style={{ color: "var(--vh-muted)" }}>
+                        Preview — write-in field voters will see (not editable here)
+                      </p>
+                      {q.type === "SINGLE_CHOICE" && (
+                        <div className="flex flex-col gap-1.5">
+                          <div
+                            className="flex items-center gap-2.5 px-3 py-2 rounded-[10px]"
+                            style={{ border: "1px solid var(--vh-line-strong)", background: "var(--vh-surface)" }}
+                          >
+                            <span className="w-4 h-4 rounded-full flex-shrink-0" style={{ border: "2px solid var(--vh-line-strong)" }} />
+                            <span className="text-sm" style={{ color: "var(--vh-ink-soft)" }}>Write in a candidate</span>
+                          </div>
+                          <input
+                            disabled
+                            placeholder="Candidate name…"
+                            className="w-full text-sm rounded-[10px] px-3 py-2.5"
+                            style={{ border: "1px solid var(--vh-line-strong)", background: "var(--vh-surface)", color: "var(--vh-ink-soft)", cursor: "not-allowed" }}
+                          />
+                        </div>
+                      )}
+                      {q.type === "MULTIPLE_CHOICE" && Array.from({ length: q.writeInSlots ?? 1 }).map((_, si) => (
+                        <div key={si} className="flex items-center gap-2.5">
+                          <span
+                            className="w-4 h-4 rounded-[3px] flex-shrink-0"
+                            style={{ border: "2px solid var(--vh-line-strong)", background: "var(--vh-surface)" }}
+                          />
+                          <input
+                            disabled
+                            placeholder={`Candidate name… (${si + 1})`}
+                            className="flex-1 text-sm rounded-[10px] px-3 py-2"
+                            style={{ border: "1px solid var(--vh-line-strong)", background: "var(--vh-surface)", color: "var(--vh-ink-soft)", cursor: "not-allowed" }}
+                          />
+                        </div>
+                      ))}
+                      {q.type === "RANKED_CHOICE" && (
+                        <div
+                          className="flex items-center gap-2.5 px-3 py-2 rounded-[12px] border-2 border-dashed"
+                          style={{ borderColor: "var(--vh-line-strong)" }}
+                        >
+                          <span className="w-9 h-9 flex-shrink-0 inline-grid place-items-center rounded-full border border-dashed text-lg" style={{ borderColor: "var(--vh-line-strong)", color: "var(--vh-muted)" }}>✎</span>
+                          <span className="text-sm" style={{ color: "var(--vh-ink-soft)" }}>Write in a candidate…</span>
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
@@ -577,21 +752,40 @@ export default function BallotBuilder({ electionId, electionStatus, firstVoteAt,
       {/* Add question + Save */}
       {!locked && (
         <>
-          <button
-            type="button"
-            onClick={addQuestion}
-            className="w-full py-5 rounded-[16px] text-[14px] transition-colors"
-            style={{
-              border: "2px dashed var(--vh-line-strong)",
-              background: "transparent",
-              color: "var(--vh-muted)",
-              cursor: "pointer",
-            }}
-            onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.borderColor = "var(--vh-accent)"; (e.currentTarget as HTMLElement).style.color = "var(--vh-accent)" }}
-            onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.borderColor = "var(--vh-line-strong)"; (e.currentTarget as HTMLElement).style.color = "var(--vh-muted)" }}
-          >
-            + Add question
-          </button>
+          <div className="flex gap-2.5">
+            <button
+              type="button"
+              onClick={addQuestion}
+              className="flex-1 py-5 rounded-[16px] text-[14px] transition-colors"
+              style={{
+                border: "2px dashed var(--vh-line-strong)",
+                background: "transparent",
+                color: "var(--vh-muted)",
+                cursor: "pointer",
+              }}
+              onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.borderColor = "var(--vh-accent)"; (e.currentTarget as HTMLElement).style.color = "var(--vh-accent)" }}
+              onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.borderColor = "var(--vh-line-strong)"; (e.currentTarget as HTMLElement).style.color = "var(--vh-muted)" }}
+            >
+              + Add question
+            </button>
+            <Tooltip content="Add a nomination question: voters write in candidate names that are merged and tallied after an admin review. No pre-listed options — pure write-in.">
+              <button
+                type="button"
+                onClick={addNominationQuestion}
+                className="px-4 py-5 rounded-[16px] text-[14px] transition-colors whitespace-nowrap"
+                style={{
+                  border: "2px dashed var(--vh-line-strong)",
+                  background: "transparent",
+                  color: "var(--vh-muted)",
+                  cursor: "pointer",
+                }}
+                onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.borderColor = "var(--vh-accent)"; (e.currentTarget as HTMLElement).style.color = "var(--vh-accent)" }}
+                onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.borderColor = "var(--vh-line-strong)"; (e.currentTarget as HTMLElement).style.color = "var(--vh-muted)" }}
+              >
+                + Nomination
+              </button>
+            </Tooltip>
+          </div>
 
           <div className="flex flex-col sm:flex-row gap-2.5 pt-1">
             <button
