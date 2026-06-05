@@ -720,7 +720,7 @@ VoteHost is designed for small-organisation elections (HOAs, clubs, small nonpro
 - **Ballot anonymity** — votes are not linked to voter identity in the database
 - **Voter authenticity** — magic-link tokens are SHA-256 hashed; plain tokens are never stored
 - **Tally integrity** — a SHA-256 hash of the final tally is published at election close; anyone can recompute it from the audit export (see [Election verification](#election-verification))
-- **Admin 2FA** — TOTP two-factor authentication is available for all roles; ADMIN and ORGANIZER users are prompted to enrol on first login (dismissible, not enforced at the gate)
+- **Admin 2FA** — TOTP two-factor authentication is available for all roles; ADMIN and ORGANIZER users are prompted to enroll on first login (dismissible, not enforced at the gate)
 
 VoteHost uses a **server-trust model** — the organisation running the server is trusted. It is not end-to-end verifiable like [Helios](https://heliosvoting.org/) or [Belenios](https://www.belenios.org/). If you need a cryptographically verifiable ballot, those platforms are better suited.
 
