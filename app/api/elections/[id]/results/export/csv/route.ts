@@ -2,7 +2,7 @@ export const runtime = "nodejs"
 
 import Papa from "papaparse"
 import { requireRole } from "@/lib/auth"
-import { loadExportData, exportFilename } from "@/lib/exportData"
+import { loadExportData, exportFilename, csvSafeCell } from "@/lib/exportData"
 import { getDisplayTimeZone } from "@/lib/timezone"
 
 export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -29,21 +29,21 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
     if (q.type === "COMMENT") {
       for (const wi of q.writeIns) {
         rows.push({
-          question: q.questionText,
-          option: wi ?? "",
+          question: csvSafeCell(q.questionText),
+          option: csvSafeCell(wi ?? ""),
           votes: 1,
           percent: "",
           winner: "",
         })
       }
       if (q.writeIns.length === 0) {
-        rows.push({ question: q.questionText, option: "(no responses)", votes: "", percent: "", winner: "" })
+        rows.push({ question: csvSafeCell(q.questionText), option: "(no responses)", votes: "", percent: "", winner: "" })
       }
     } else if (q.type === "RANKED_CHOICE") {
       for (const opt of q.options) {
         rows.push({
-          question: q.questionText,
-          option: opt.optionText,
+          question: csvSafeCell(q.questionText),
+          option: csvSafeCell(opt.optionText),
           votes: opt.firstChoiceCount,
           percent: `${opt.pct}`,
           winner: opt.winner ? (q.isTie ? "Tie" : "Yes") : "No",
@@ -52,8 +52,8 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
     } else {
       for (const opt of q.options) {
         rows.push({
-          question: q.questionText,
-          option: opt.optionText,
+          question: csvSafeCell(q.questionText),
+          option: csvSafeCell(opt.optionText),
           votes: opt.count,
           percent: `${opt.pct}`,
           winner: opt.winner ? (q.isTie ? "Tie" : "Yes") : "No",

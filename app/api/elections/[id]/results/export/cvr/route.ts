@@ -19,7 +19,7 @@ export const runtime = "nodejs"
 import Papa from "papaparse"
 import { requireRole } from "@/lib/auth"
 import { db } from "@/lib/db"
-import { exportFilename } from "@/lib/exportData"
+import { exportFilename, csvSafeCell } from "@/lib/exportData"
 import { getDisplayTimeZone } from "@/lib/timezone"
 
 export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -124,7 +124,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
         const byRank = new Map<number, string>()
         for (const v of qVotes) {
           if (v.rank !== null) {
-            byRank.set(v.rank, (v.optionId ? optionTextById.get(v.optionId) : null) ?? v.writeInText ?? "")
+            byRank.set(v.rank, csvSafeCell((v.optionId ? optionTextById.get(v.optionId) : null) ?? v.writeInText ?? ""))
           }
         }
         for (let r = 1; r <= d.maxRank; r++) {
@@ -132,14 +132,14 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
         }
       } else if (d.kind === "multiple") {
         const texts = qVotes
-          .map((v) => (v.optionId ? optionTextById.get(v.optionId) : null) ?? v.writeInText ?? "")
+          .map((v) => csvSafeCell((v.optionId ? optionTextById.get(v.optionId) : null) ?? v.writeInText ?? ""))
           .filter(Boolean)
           .sort()
         row[d.qLabel] = texts.join(" | ")
       } else {
         // single
         const v = qVotes[0]
-        row[d.qLabel] = v ? ((v.optionId ? optionTextById.get(v.optionId) : null) ?? v.writeInText ?? "") : ""
+        row[d.qLabel] = v ? csvSafeCell((v.optionId ? optionTextById.get(v.optionId) : null) ?? v.writeInText ?? "") : ""
       }
     }
 

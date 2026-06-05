@@ -10,7 +10,7 @@ export const runtime = "nodejs"
  *   Voter-facing : /verify/<id>   — sealed tally hash + receipt-code lookup
  *   Admin/auditor: /elections/<id>/results → audit.json export + activity log
  *
- * Gated by Authorization: Bearer <CRON_SECRET || NEXTAUTH_SECRET>
+ * Development-only (NODE_ENV !== production). Gated by Authorization: Bearer <CRON_SECRET>
  * GET    — create demo, cast votes, return self-verified audit report
  * DELETE — remove demo election
  *
@@ -88,13 +88,16 @@ function seededInt(seed: string, min: number, max: number): number {
 
 function checkAuth(req: Request): boolean {
   const auth = req.headers.get("authorization") ?? ""
-  const secret = process.env.CRON_SECRET || process.env.NEXTAUTH_SECRET || ""
+  // Require an explicit CRON_SECRET — never fall back to NEXTAUTH_SECRET (session-signing key).
+  const secret = process.env.CRON_SECRET ?? ""
   return !!secret && auth === `Bearer ${secret}`
 }
 
 // ─── GET — run the full demo ──────────────────────────────────────────────────
 
 export async function GET(req: Request) {
+  // Never available in production — these endpoints create/destroy elections.
+  if (process.env.NODE_ENV === "production") return NextResponse.json({ error: "Not found" }, { status: 404 })
   if (!checkAuth(req)) {
     return NextResponse.json(
       { error: "Unauthorized — pass Authorization: Bearer <CRON_SECRET>" },
@@ -745,6 +748,7 @@ export async function GET(req: Request) {
 // ─── DELETE — clean up the demo election ─────────────────────────────────────
 
 export async function DELETE(req: Request) {
+  if (process.env.NODE_ENV === "production") return NextResponse.json({ error: "Not found" }, { status: 404 })
   if (!checkAuth(req)) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   const result = await db.election.deleteMany({ where: { title: DEMO_TITLE } })
   return NextResponse.json({

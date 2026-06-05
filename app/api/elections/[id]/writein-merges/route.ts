@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server"
 import { requireRole } from "@/lib/auth"
+import { csrfCheck } from "@/lib/csrf"
 import { db } from "@/lib/db"
 import { recordActivity } from "@/lib/recordActivity"
 import { z } from "zod"
@@ -88,6 +89,8 @@ const MergeBody = z.object({
  * Only allowed while the election is in PENDING_REVIEW.
  */
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
+  const csrf = csrfCheck(req)
+  if (csrf) return csrf
   const session = await requireRole("ADMIN")
   if (!session) return NextResponse.json({ error: "Forbidden — ADMIN role required" }, { status: 403 })
 
@@ -160,6 +163,8 @@ const UnmergeBody = z.object({
  * Remove a single merge mapping. The raw text will tally under its own text.
  */
 export async function DELETE(req: Request, { params }: { params: Promise<{ id: string }> }) {
+  const csrf = csrfCheck(req)
+  if (csrf) return csrf
   const session = await requireRole("ADMIN")
   if (!session) return NextResponse.json({ error: "Forbidden — ADMIN role required" }, { status: 403 })
 

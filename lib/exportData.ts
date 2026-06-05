@@ -46,6 +46,17 @@ export type ExportData = {
   voters: VoterRow[]
 }
 
+/**
+ * Neutralize leading spreadsheet formula triggers in a string cell value.
+ * Prefixes cells whose value starts with = + - @ TAB or CR with an apostrophe
+ * so Excel, Google Sheets, and LibreOffice treat the cell as text rather than
+ * evaluating it as a formula. Applies only to voter/user-supplied free text.
+ * (CWE-1236 / CSV Injection)
+ */
+export function csvSafeCell(value: string): string {
+  return /^[=+\-@\t\r]/.test(value) ? `'${value}` : value
+}
+
 export function slugifyTitle(title: string): string {
   return title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "election"
 }

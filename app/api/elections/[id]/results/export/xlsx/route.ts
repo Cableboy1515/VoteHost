@@ -3,7 +3,7 @@ export const runtime = "nodejs"
 import ExcelJS from "exceljs"
 import { BRAND_NAME } from "@/lib/branding"
 import { requireRole } from "@/lib/auth"
-import { loadExportData, exportFilename } from "@/lib/exportData"
+import { loadExportData, exportFilename, csvSafeCell } from "@/lib/exportData"
 import { getDisplayTimeZone } from "@/lib/timezone"
 
 const ACCENT = "FF3F66D9"
@@ -80,7 +80,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
 
       for (const opt of q.options) {
         const rankValues = Array.from({ length: q.maxRank }, (_, i) => opt.rankCounts[i + 1] ?? 0)
-        const optRow = ws.addRow([opt.optionText, ...rankValues, `${opt.pct}%`])
+        const optRow = ws.addRow([csvSafeCell(opt.optionText), ...rankValues, `${opt.pct}%`])
         if (opt.winner) {
           optRow.eachCell({ includeEmpty: false }, (cell) => {
             cell.font = { name: "Calibri", size: 11, bold: true, color: { argb: INK } }
@@ -97,7 +97,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
 
       for (const opt of q.options) {
         const winnerLabel = opt.winner ? (q.isTie ? "Tie" : "✓") : ""
-        const optRow = ws.addRow([opt.optionText, opt.count, `${opt.pct}%`, winnerLabel])
+        const optRow = ws.addRow([csvSafeCell(opt.optionText), opt.count, `${opt.pct}%`, winnerLabel])
         if (opt.winner) {
           optRow.eachCell({ includeEmpty: false }, (cell) => {
             cell.font = { name: "Calibri", size: 11, bold: true, color: { argb: INK } }
@@ -138,7 +138,8 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
         emptyRow.getCell(1).font = { name: "Calibri", size: 11, italic: true, color: { argb: MUTED } }
       } else {
         for (const text of q.writeIns) {
-          const r = wsWi.addRow([text ?? ""])
+          // csvSafeCell neutralizes formula-trigger prefixes (CWE-1236) — voter free text.
+          const r = wsWi.addRow([csvSafeCell(text ?? "")])
           r.getCell(1).alignment = { wrapText: true }
         }
       }

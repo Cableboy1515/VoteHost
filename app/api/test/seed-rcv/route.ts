@@ -5,7 +5,7 @@ export const runtime = "nodejs"
  * and returns a full audit report for verifying IRV (single-seat) and STV
  * (multi-seat) correctness.
  *
- * Gated by Authorization: Bearer <CRON_SECRET>
+ * Development-only (NODE_ENV !== production). Gated by Authorization: Bearer <CRON_SECRET>
  * GET    — create demo, cast votes, return audit report
  * DELETE — remove demo election
  *
@@ -47,14 +47,16 @@ function seededShuffle<T>(arr: T[], seed: string): T[] {
 
 function checkAuth(req: Request): boolean {
   const auth = req.headers.get("authorization") ?? ""
-  // Accept CRON_SECRET if set, otherwise fall back to NEXTAUTH_SECRET for local dev
-  const secret = process.env.CRON_SECRET || process.env.NEXTAUTH_SECRET || ""
+  // Require an explicit CRON_SECRET — never fall back to NEXTAUTH_SECRET (session-signing key).
+  const secret = process.env.CRON_SECRET ?? ""
   return !!secret && auth === `Bearer ${secret}`
 }
 
 // ─── GET — run the full test ──────────────────────────────────────────────────
 
 export async function GET(req: Request) {
+  // Never available in production — this endpoint creates/destroys elections.
+  if (process.env.NODE_ENV === "production") return NextResponse.json({ error: "Not found" }, { status: 404 })
   if (!checkAuth(req)) return NextResponse.json({ error: "Unauthorized — pass Authorization: Bearer <CRON_SECRET>" }, { status: 401 })
 
   const url = new URL(req.url)
@@ -309,6 +311,7 @@ export async function GET(req: Request) {
 // ─── DELETE — clean up the demo election ────────────────────────────────────
 
 export async function DELETE(req: Request) {
+  if (process.env.NODE_ENV === "production") return NextResponse.json({ error: "Not found" }, { status: 404 })
   if (!checkAuth(req)) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   const result = await db.election.deleteMany({ where: { title: DEMO_TITLE } })
   return NextResponse.json({ ok: true, deleted: result.count, message: result.count > 0 ? "Demo election deleted." : "No demo election found to delete." })

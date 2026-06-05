@@ -48,9 +48,11 @@ export async function PATCH(
 }
 
 export async function DELETE(
-  _req: Request,
+  req: Request,
   { params }: { params: Promise<{ id: string; voterId: string }> }
 ) {
+  const csrf = csrfCheck(req)
+  if (csrf) return csrf
   const session = await requireRole("ORGANIZER")
   if (!session) return NextResponse.json({ error: "Forbidden" }, { status: 403 })
 

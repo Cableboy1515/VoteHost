@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server"
 import { requireRole } from "@/lib/auth"
+import { csrfCheck } from "@/lib/csrf"
 import { db } from "@/lib/db"
 import { computeTallyHash } from "@/lib/verification"
 import { sendElectionResultsEmail } from "@/lib/sendElectionResultsEmail"
@@ -21,7 +22,9 @@ import { computeNormalizationManifestHash } from "@/lib/writeIn"
  * tally hash in the audit file so any observer can reproduce the merged
  * tally from the immutable raw votes + published manifest.
  */
-export async function POST(_req: Request, { params }: { params: Promise<{ id: string }> }) {
+export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
+  const csrf = csrfCheck(req)
+  if (csrf) return csrf
   const session = await requireRole("ADMIN")
   if (!session) return NextResponse.json({ error: "Forbidden — ADMIN role required" }, { status: 403 })
 

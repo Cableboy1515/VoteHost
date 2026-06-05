@@ -2,10 +2,13 @@ export const dynamic = "force-dynamic"
 
 import { NextResponse } from "next/server"
 import { requireRole } from "@/lib/auth"
+import { csrfCheck } from "@/lib/csrf"
 import { db } from "@/lib/db"
 import { requestStop } from "@/lib/activationProgress"
 
-export async function POST(_req: Request, { params }: { params: Promise<{ id: string }> }) {
+export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
+  const csrf = csrfCheck(req)
+  if (csrf) return csrf
   const session = await requireRole("ORGANIZER")
   if (!session) return NextResponse.json({ error: "Forbidden" }, { status: 403 })
 
