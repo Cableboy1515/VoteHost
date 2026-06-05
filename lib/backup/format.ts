@@ -2,10 +2,13 @@ import { BRAND_NAME } from "@/lib/branding"
 
 export const MAGIC = Buffer.from("VHBK", "ascii")
 export const FORMAT_VERSION = 2  // v2 adds GCM AAD over the outer header
-export const CURRENT_SCHEMA_VERSION = "2"
-// All schema versions this build can restore. "1" was mislabeled by the writer
-// before v1.0.0 but contains schema-2-shaped data, so it restores without migration.
-export const SUPPORTED_SCHEMA_VERSIONS = ["1", "2"] as const
+export const CURRENT_SCHEMA_VERSION = "3"
+// All schema versions this build can restore.
+//   "1" — mislabeled by the writer before v1.0.0; contains schema-2-shaped data.
+//   "2" — v1.0.0–v1.0.3; QuestionType used WRITE_IN (renamed to COMMENT in v1.1.0).
+//          Both "1" and "2" archives have WRITE_IN mapped → COMMENT on restore.
+//   "3" — current; adds WriteInMerge + BallotReceipt to backup coverage.
+export const SUPPORTED_SCHEMA_VERSIONS = ["1", "2", "3"] as const
 export const GCM_TAG_LENGTH = 16
 
 export type BackupType = "full" | "elections"
@@ -18,6 +21,9 @@ export type BackupCounts = {
   votes: number
   adminUsers?: number
   settings?: number
+  // Added in schema v3:
+  ballotReceipts?: number
+  writeInMerges?: number
 }
 
 export type BackupHeader = {

@@ -24,7 +24,17 @@ export async function restoreDatabase(
     throw err
   }
 
+  // Schema v1/v2 archives (v1.0.0–v1.0.3) used QuestionType.WRITE_IN, which was
+  // renamed to COMMENT in v1.1.0. Map before insert so the current enum accepts them.
+  const questions = data.questions.map((q) =>
+    (q as { type?: string }).type === "WRITE_IN" ? { ...q, type: "COMMENT" as const } : q
+  )
+
   await db.$transaction(async (tx) => {
+    // Delete children before parents to respect FK constraints.
+    // WriteInMerge FKs both Election and Question; BallotReceipt FKs Election.
+    await tx.writeInMerge.deleteMany()
+    await tx.ballotReceipt.deleteMany()
     await tx.vote.deleteMany()
     await tx.voter.deleteMany()
     await tx.option.deleteMany()
@@ -36,11 +46,12 @@ export async function restoreDatabase(
       await tx.adminUser.deleteMany()
     }
 
+    // Insert parents before children.
     if (data.elections.length > 0) {
       await tx.election.createMany({ data: data.elections })
     }
-    if (data.questions.length > 0) {
-      await tx.question.createMany({ data: data.questions })
+    if (questions.length > 0) {
+      await tx.question.createMany({ data: questions })
     }
     if (data.options.length > 0) {
       await tx.option.createMany({ data: data.options })
@@ -50,6 +61,14 @@ export async function restoreDatabase(
     }
     if (data.votes.length > 0) {
       await tx.vote.createMany({ data: data.votes })
+    }
+    // BallotReceipt FKs Election only — insert after elections.
+    if (data.ballotReceipts && data.ballotReceipts.length > 0) {
+      await tx.ballotReceipt.createMany({ data: data.ballotReceipts })
+    }
+    // WriteInMerge FKs both Election and Question — insert after both.
+    if (data.writeInMerges && data.writeInMerges.length > 0) {
+      await tx.writeInMerge.createMany({ data: data.writeInMerges })
     }
 
     if (type === "full") {
@@ -71,6 +90,8 @@ export async function restoreDatabase(
     options: data.options.length,
     voters: data.voters.length,
     votes: data.votes.length,
+    ballotReceipts: data.ballotReceipts?.length ?? 0,
+    writeInMerges: data.writeInMerges?.length ?? 0,
   }
 
   if (type === "full") {
