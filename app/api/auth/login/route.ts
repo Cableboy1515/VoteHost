@@ -1,9 +1,10 @@
 import { NextResponse } from "next/server"
 import { verifyAdminCredentials, createSession, createChallengeToken, COOKIE, SESSION_COOKIE_OPTIONS } from "@/lib/auth"
 import { rateLimit, rateLimitResponse } from "@/lib/rateLimit"
+import { getClientIp } from "@/lib/clientIp"
 
 export async function POST(req: Request) {
-  const ip = req.headers.get("x-forwarded-for")?.split(",")[0].trim() ?? "unknown"
+  const ip = getClientIp(req)
   const rl = rateLimit(`login:ip:${ip}`, { limit: 5, windowMs: 60_000 })
   if (!rl.ok) return rateLimitResponse(rl.resetAt)
 

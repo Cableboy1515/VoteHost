@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { db } from "@/lib/db"
 import { rateLimit, rateLimitResponse } from "@/lib/rateLimit"
+import { getClientIp } from "@/lib/clientIp"
 
 function normalizeCode(raw: string): string {
   const stripped = raw.toUpperCase().replace(/[^A-Z2-7]/g, "")
@@ -12,7 +13,7 @@ export async function GET(
   req: Request,
   { params }: { params: Promise<{ electionId: string }> }
 ) {
-  const ip = req.headers.get("x-forwarded-for")?.split(",")[0].trim() ?? "unknown"
+  const ip = getClientIp(req)
   const rl = rateLimit(`verify:ip:${ip}`, { limit: 20, windowMs: 60_000 })
   if (!rl.ok) return rateLimitResponse(rl.resetAt)
 

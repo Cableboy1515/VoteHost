@@ -4,6 +4,7 @@ import { verifyTotpCode, decryptTotpSecret, findMatchingRecoveryCode } from "@/l
 import { db } from "@/lib/db"
 import { csrfCheck } from "@/lib/csrf"
 import { rateLimit, rateLimitResponse } from "@/lib/rateLimit"
+import { getClientIp } from "@/lib/clientIp"
 
 // POST /api/admin/2fa/verify
 // Step 2 of the login flow: user provides a TOTP code or recovery code.
@@ -12,7 +13,7 @@ export async function POST(req: Request) {
   const csrf = csrfCheck(req)
   if (csrf) return csrf
 
-  const ip = req.headers.get("x-forwarded-for")?.split(",")[0].trim() ?? "unknown"
+  const ip = getClientIp(req)
   const rl = rateLimit(`2fa:ip:${ip}`, { limit: 10, windowMs: 60_000 })
   if (!rl.ok) return rateLimitResponse(rl.resetAt)
 

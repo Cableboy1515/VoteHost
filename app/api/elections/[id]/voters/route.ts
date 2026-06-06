@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server"
-import { getSession, requireRole } from "@/lib/auth"
+import { requireRole } from "@/lib/auth"
 import { db } from "@/lib/db"
 import { VotersSchema } from "@/lib/validations"
 import { csrfCheck } from "@/lib/csrf"
@@ -7,8 +7,8 @@ import { rateLimit, rateLimitResponse } from "@/lib/rateLimit"
 import { recordActivity } from "@/lib/recordActivity"
 
 export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
-  const session = await getSession()
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  const session = await requireRole("ORGANIZER")
+  if (!session) return NextResponse.json({ error: "Forbidden" }, { status: 403 })
 
   const { id } = await params
   const voters = await db.voter.findMany({
