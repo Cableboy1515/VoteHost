@@ -6,6 +6,7 @@ import { sendBallotRecoveryLink } from "@/lib/email"
 import { csrfCheck } from "@/lib/csrf"
 import { rateLimit, rateLimitResponse } from "@/lib/rateLimit"
 import { absolutizeUrl } from "@/lib/absolutize-url"
+import { getClientIp } from "@/lib/clientIp"
 
 const VOTER_COOLDOWN_MS = 5 * 60 * 1000
 
@@ -13,7 +14,7 @@ export async function POST(req: Request) {
   const csrf = csrfCheck(req)
   if (csrf) return csrf
 
-  const ip = req.headers.get("x-forwarded-for")?.split(",")[0].trim() ?? "unknown"
+  const ip = getClientIp(req)
   const rl = rateLimit(`voter-recover:ip:${ip}`, { limit: 5, windowMs: 60_000 })
   if (!rl.ok) return rateLimitResponse(rl.resetAt)
 

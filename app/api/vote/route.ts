@@ -7,9 +7,10 @@ import { sendBallotReceipt, sendFullTurnoutStaffNotice } from "@/lib/email"
 import { getStaffRecipients } from "@/lib/staffRecipients"
 import { findVoterIdByToken } from "@/lib/voterToken"
 import { recordActivity } from "@/lib/recordActivity"
+import { getClientIp } from "@/lib/clientIp"
 
 export async function POST(req: Request) {
-  const ip = req.headers.get("x-forwarded-for")?.split(",")[0].trim() ?? "unknown"
+  const ip = getClientIp(req)
   const rl = rateLimit(`vote:ip:${ip}`, { limit: 5, windowMs: 60_000 })
   if (!rl.ok) return rateLimitResponse(rl.resetAt)
 
