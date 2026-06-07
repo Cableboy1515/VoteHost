@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { headers } from "next/headers";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { BRAND_NAME, BRAND_TAGLINE } from "@/lib/branding";
@@ -18,11 +19,20 @@ export const metadata: Metadata = {
   description: BRAND_TAGLINE,
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  // Reading a request header opts every route into dynamic rendering.
+  // This is required for the nonce-based CSP in proxy.ts to work in production:
+  // Next.js only stamps the per-request nonce onto its framework <script> tags
+  // when the page is rendered dynamically. Without this, statically prerendered
+  // pages (/login, /, /vote/recover, …) ship scripts with no nonce, and the
+  // strict-dynamic CSP blocks them so the page never hydrates.
+  // (Works in `next dev` because dev always renders dynamically.)
+  await headers();
+
   return (
     <html
       lang="en"
