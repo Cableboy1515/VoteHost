@@ -37,6 +37,7 @@ export const ACTION_LABELS: Record<ActivityAction, string> = {
   "election.finalize":               "Results finalized",
   "writein.merge":                   "Write-in merged",
   "writein.unmerge":                 "Write-in unmerged",
+  "ballot.replaced":                 "Ballot replaced",
   "user.invite":              "User invited",
   "user.role_change":         "User role changed",
   "user.delete":              "User deleted",
@@ -88,6 +89,7 @@ export const ACTION_CATEGORIES: Record<ActivityAction, ActionCategory> = {
   "election.finalize":               "lifecycle",
   "writein.merge":                   "lifecycle",
   "writein.unmerge":                 "lifecycle",
+  "ballot.replaced":                 "lifecycle",
   "user.invite":              "settings",
   "user.role_change":         "settings",
   "user.delete":              "settings",
@@ -123,6 +125,7 @@ export const FIELD_LABELS: Record<string, string> = {
   emailFooter:        "Email footer",
   firstReminderDays:  "Reminder days",
   autoActivate:       "Auto-activate",
+  allowBallotReplacement: "Allow ballot replacement",
   heroColor:          "Accent color",
   autoSendResults:    "Auto-send results",
   // General settings

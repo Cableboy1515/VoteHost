@@ -46,6 +46,7 @@ export const ElectionBaseSchema = z.object({
   autoActivate: z.boolean().optional(),
   autoSendResults: z.boolean().optional(),
   weightingEnabled: z.boolean().optional(),
+  allowBallotReplacement: z.boolean().optional(),
   quorumType: z.enum(["NONE", "PERCENT", "COUNT"]).optional(),
   quorumValue: z.number().int().min(1).nullish(),
   heroColor: z.union([
@@ -155,6 +156,7 @@ export const BallotAnswerSchema = z.discriminatedUnion("type", [
 export const BallotSubmissionSchema = z.object({
   token: z.string().uuid(),
   answers: z.array(BallotAnswerSchema),
+  receiptCode: z.string().max(32).optional(),
 })
 
 export const CreateUserSchema = z.object({

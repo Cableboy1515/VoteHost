@@ -112,6 +112,7 @@ export default async function EditElectionPage({ params }: { params: Promise<{ i
           weightingEnabled: election.weightingEnabled,
           quorumType: election.quorumType,
           quorumValue: election.quorumValue,
+          allowBallotReplacement: election.allowBallotReplacement,
         }}
       />
       {isPendingReview && (

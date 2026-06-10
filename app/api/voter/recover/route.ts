@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server"
 import { db } from "@/lib/db"
 import { VoterRecoveryRequestSchema } from "@/lib/validations"
-import { generateVoterToken, appendVoterToken } from "@/lib/voterToken"
+import { generateVoterToken, replaceAllVoterTokens } from "@/lib/voterToken"
 import { sendBallotRecoveryLink } from "@/lib/email"
 import { csrfCheck } from "@/lib/csrf"
 import { rateLimit, rateLimitResponse } from "@/lib/rateLimit"
@@ -55,7 +55,7 @@ export async function POST(req: Request) {
     if (tooSoon) continue
 
     const { token, tokenHash } = generateVoterToken()
-    await appendVoterToken(voter.id, tokenHash)
+    await replaceAllVoterTokens(voter.id, tokenHash)
     const magicLink = absolutizeUrl(`/vote/${token}`)
 
     await sendBallotRecoveryLink({

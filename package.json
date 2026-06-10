@@ -8,7 +8,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "test": "npx tsx lib/similarity.test.ts"
+    "test": "npx tsx lib/similarity.test.ts && npx tsx lib/verification.test.ts"
   },
   "dependencies": {
     "@base-ui/react": "^1.4.1",

@@ -36,6 +36,7 @@ export type ActivityAction =
   | "election.images_purged"
   | "election.enter_review"    // write-in elections park here between close and finalize
   | "election.finalize"        // admin seals tally hash and completes after write-in review
+  | "ballot.replaced"          // voter replaced their ballot using a receipt code
   | "writein.merge"            // admin maps raw write-in text → canonical candidate label
   | "writein.unmerge"          // admin removes a merge mapping
   | "user.invite"

@@ -73,6 +73,8 @@ model Election {
 
   weightingEnabled Boolean    @default(false)
 
+  allowBallotReplacement Boolean @default(true)
+
   quorumType     QuorumType @default(NONE)
   quorumValue    Int?
 

@@ -63,6 +63,19 @@ We aim to acknowledge reports within 48 hours and resolve critical issues within
 - **8-hour session TTL** — sessions expire after 8 hours of inactivity
 - **Session revocation** — token version bump immediately invalidates all active sessions
 
+## Ballot replacement and receipt codes
+
+When ballot replacement is enabled for an election (the default), a voter's receipt code acts as a replacement credential in addition to a verification token. The following should be understood:
+
+- Anyone who holds a voter's receipt code can learn the content of that ballot by cross-referencing the receipt code hash against the audit export.
+- Anyone who holds both a receipt code and a valid voting link for the same voter can replace that voter's ballot until the election closes.
+- Voters should keep their receipt confirmation emails private.
+- A voter can detect an unexpected replacement because their old receipt code will no longer verify on the `/verify` page after it has been superseded.
+- This feature improves coercion resistance: a voter who was coerced into voting a certain way can privately replace their ballot using their own receipt code before the election closes.
+- The system does not provide receipt-freeness. Voters can prove how they voted to a third party by sharing their receipt code, which means this feature does not eliminate the possibility of vote-buying or coercion — it only reduces it.
+
+Organizers who want to eliminate the replacement credential risk entirely can disable ballot replacement in the election settings.
+
 ## Known accepted advisories
 
 The following advisories appear in `npm audit` but have been triaged and accepted. Revisit when upstream packages release fixes.

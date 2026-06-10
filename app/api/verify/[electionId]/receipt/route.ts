@@ -2,12 +2,7 @@ import { NextResponse } from "next/server"
 import { db } from "@/lib/db"
 import { rateLimit, rateLimitResponse } from "@/lib/rateLimit"
 import { getClientIp } from "@/lib/clientIp"
-
-function normalizeCode(raw: string): string {
-  const stripped = raw.toUpperCase().replace(/[^A-Z2-7]/g, "")
-  if (stripped.length !== 16) return ""
-  return `${stripped.slice(0, 4)}-${stripped.slice(4, 8)}-${stripped.slice(8, 12)}-${stripped.slice(12, 16)}`
-}
+import { normalizeReceiptCode } from "@/lib/verification"
 
 export async function GET(
   req: Request,
@@ -20,7 +15,7 @@ export async function GET(
   const { electionId } = await params
   const url = new URL(req.url)
   const rawCode = url.searchParams.get("code") ?? ""
-  const code = normalizeCode(rawCode)
+  const code = normalizeReceiptCode(rawCode)
 
   if (!code) {
     return NextResponse.json({ found: false })

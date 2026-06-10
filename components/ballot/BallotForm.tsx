@@ -131,6 +131,8 @@ export default function BallotForm({ token, electionTitle, electionDescription, 
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState("")
   const [issuesPanelOpen, setIssuesPanelOpen] = useState(false)
+  const [canReplace, setCanReplace] = useState(false)
+  const [receiptCodeInput, setReceiptCodeInput] = useState("")
 
   const questionRefs = useRef<Record<string, HTMLElement | null>>({})
   const stepHeadingRef = useRef<HTMLHeadingElement>(null)
@@ -274,7 +276,7 @@ export default function BallotForm({ token, electionTitle, electionDescription, 
     setStep(questions.length)
   }
 
-  async function handleConfirmSubmit() {
+  async function handleConfirmSubmit(useReceiptCode?: string) {
     const result = buildPayload()
     if (!result.ok) {
       setIssuesPanelOpen(true)
@@ -285,20 +287,41 @@ export default function BallotForm({ token, electionTitle, electionDescription, 
       return
     }
     setSubmitting(true)
+    const body: Record<string, unknown> = { token, answers: result.payload }
+    if (useReceiptCode) body.receiptCode = useReceiptCode
     const res = await fetch("/api/vote", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ token, answers: result.payload }),
+      body: JSON.stringify(body),
     })
     setSubmitting(false)
     if (res.ok) {
       const data = await res.json().catch(() => ({}))
-      const receipt = (data as { receiptCode?: string }).receiptCode
-      router.push(`/vote/${token}/confirmed${receipt ? `?receipt=${encodeURIComponent(receipt)}` : ""}`)
+      const receipt = (data as { receiptCode?: string; replaced?: boolean }).receiptCode
+      const replaced = (data as { replaced?: boolean }).replaced
+      router.push(`/vote/${token}/confirmed${receipt ? `?receipt=${encodeURIComponent(receipt)}${replaced ? "&replaced=1" : ""}` : ""}`)
+    } else if (res.status === 409) {
+      const data = await res.json().catch(() => ({}))
+      const d = data as { error?: string; canReplace?: boolean }
+      if (d.canReplace) {
+        setCanReplace(true)
+        setError("")
+      } else {
+        setError(d.error ?? "You have already voted")
+      }
     } else {
       const data = await res.json().catch(() => ({}))
       setError(formatServerError(data))
     }
+  }
+
+  async function handleReplaceSubmit() {
+    const code = receiptCodeInput.trim()
+    if (!code) {
+      setError("Enter your receipt code to replace your ballot.")
+      return
+    }
+    await handleConfirmSubmit(code)
   }
 
   // Derived — recomputed every render; only non-empty when issuesPanelOpen and items remain
@@ -767,17 +790,53 @@ export default function BallotForm({ token, electionTitle, electionDescription, 
           🔒 Once submitted, your ballot is final and recorded anonymously.
         </p>
 
-        {error && <p className="text-base text-center" style={{ color: "var(--vh-danger)" }}>{error}</p>}
+        {canReplace && (
+          <div
+            className="rounded-[12px] border p-4 space-y-3"
+            style={{ background: "oklch(0.98 0.01 255)", borderColor: "var(--vh-accent)" }}
+          >
+            <p className="text-sm font-semibold" style={{ color: "var(--vh-ink)" }}>
+              You have already voted
+            </p>
+            <p className="text-sm" style={{ color: "var(--vh-ink-soft)" }}>
+              You can replace your ballot by entering the receipt code from your confirmation email. Your old ballot will be deleted and a new receipt code will be issued.
+            </p>
+            <input
+              type="text"
+              placeholder="e.g. ABCD-EFGH-IJKL-MNOP"
+              value={receiptCodeInput}
+              onChange={(e) => setReceiptCodeInput(e.target.value)}
+              className="w-full text-sm rounded-[10px] px-3 py-2.5 font-mono"
+              style={{ border: "1px solid var(--vh-line-strong)", background: "var(--vh-surface)", color: "var(--vh-ink)", outline: "none" }}
+              autoFocus
+              aria-label="Receipt code"
+            />
+            {error && <p className="text-sm" style={{ color: "var(--vh-danger)" }}>{error}</p>}
+            <button
+              type="button"
+              onClick={handleReplaceSubmit}
+              disabled={submitting}
+              className="w-full py-3 font-semibold text-white text-sm rounded-[var(--vh-radius-sm)] transition-opacity disabled:opacity-60"
+              style={{ background: "var(--vh-accent)" }}
+            >
+              {submitting ? "Replacing ballot…" : "Replace my ballot"}
+            </button>
+          </div>
+        )}
 
-        <button
-          type="button"
-          onClick={handleConfirmSubmit}
-          disabled={submitting}
-          className="w-full py-3.5 font-semibold text-white text-base rounded-[var(--vh-radius-sm)] transition-opacity disabled:opacity-60"
-          style={{ background: "var(--vh-accent)" }}
-        >
-          {submitting ? "Submitting…" : "Submit my ballot"}
-        </button>
+        {!canReplace && error && <p className="text-base text-center" style={{ color: "var(--vh-danger)" }}>{error}</p>}
+
+        {!canReplace && (
+          <button
+            type="button"
+            onClick={() => handleConfirmSubmit()}
+            disabled={submitting}
+            className="w-full py-3.5 font-semibold text-white text-base rounded-[var(--vh-radius-sm)] transition-opacity disabled:opacity-60"
+            style={{ background: "var(--vh-accent)" }}
+          >
+            {submitting ? "Submitting…" : "Submit my ballot"}
+          </button>
+        )}
       </>
     )
 

@@ -12,6 +12,13 @@ export function generateVoterToken(): { token: string; tokenHash: string } {
 
 export const MAX_VOTER_TOKEN_HISTORY = 3
 
+export async function replaceAllVoterTokens(voterId: string, tokenHash: string): Promise<void> {
+  await db.$transaction(async (tx) => {
+    await tx.voterTokenHistory.deleteMany({ where: { voterId } })
+    await tx.voterTokenHistory.create({ data: { voterId, tokenHash } })
+  })
+}
+
 export async function appendVoterToken(voterId: string, tokenHash: string): Promise<void> {
   await db.$transaction(async (tx) => {
     await tx.voterTokenHistory.create({ data: { voterId, tokenHash } })
