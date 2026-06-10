@@ -819,12 +819,12 @@ export default function ElectionForm({
           <div className="flex flex-col gap-3">
             <label
               className="flex items-center gap-2.5"
-              style={{ cursor: settingsLocked ? "not-allowed" : "pointer", opacity: settingsLocked ? 0.5 : 1 }}
+              style={{ cursor: isCompleted ? "not-allowed" : "pointer", opacity: isCompleted ? 0.5 : 1 }}
             >
               <input
                 type="checkbox"
                 checked={allowBallotReplacement}
-                disabled={settingsLocked}
+                disabled={isCompleted}
                 onChange={(e) => setAllowBallotReplacement(e.target.checked)}
                 className="flex-shrink-0"
               />

@@ -22,6 +22,18 @@ export default async function ConfirmedPage({
 
   if (!voter || !voter.hasVoted) notFound()
 
+  const canReplace = voter.election.allowBallotReplacement
+
+  const verifyLink = (
+    <a
+      href={`/verify/${voter.electionId}`}
+      className="underline"
+      style={{ color: "var(--vh-accent)" }}
+    >
+      Verify now →
+    </a>
+  )
+
   return (
     <div className="min-h-screen bg-vh-bg flex flex-col">
       <header className="px-4 sm:px-6 py-5 border-b border-vh-line bg-vh-surface">
@@ -37,7 +49,9 @@ export default async function ConfirmedPage({
         <p className="text-[15px] text-vh-muted max-w-xs leading-relaxed">
           {isReplaced
             ? <>Your previous ballot for <strong className="text-vh-ink-soft">{voter.election.title}</strong> has been replaced. Your new receipt code is below.</>
-            : <>Thank you for participating in{" "}<strong className="text-vh-ink-soft">{voter.election.title}</strong>. Your ballot is anonymous and cannot be changed.</>
+            : canReplace
+              ? <>Thank you for participating in{" "}<strong className="text-vh-ink-soft">{voter.election.title}</strong>. Save your receipt code — you&apos;ll need it to replace your ballot before the election closes.</>
+              : <>Thank you for participating in{" "}<strong className="text-vh-ink-soft">{voter.election.title}</strong>. Your ballot is anonymous and cannot be changed.</>
           }
         </p>
 
@@ -60,8 +74,10 @@ export default async function ConfirmedPage({
             </div>
             <p className="mt-3 text-[12px] leading-relaxed" style={{ color: "var(--vh-muted)" }}>
               {isReplaced
-                ? <>This new code replaces your old one. Save it — you can use it to verify your vote or replace your ballot again before the election closes.{" "}<a href={`/verify/${voter.electionId}`} className="underline" style={{ color: "var(--vh-accent)" }}>Verify now →</a></>
-                : <>Save this code — you can use it to verify your vote was counted.{" "}<a href={`/verify/${voter.electionId}`} className="underline" style={{ color: "var(--vh-accent)" }}>Verify now →</a></>
+                ? <>This new code replaces your old one. Save it — you can use it to verify your vote or replace your ballot again before the election closes.{" "}{verifyLink}</>
+                : canReplace
+                  ? <>Save this code — you need it to replace your ballot before the election closes.{" "}{verifyLink}</>
+                  : <>Save this code — you can use it to verify your vote was counted.{" "}{verifyLink}</>
               }
             </p>
           </div>

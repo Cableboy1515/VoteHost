@@ -156,7 +156,7 @@ export const BallotAnswerSchema = z.discriminatedUnion("type", [
 export const BallotSubmissionSchema = z.object({
   token: z.string().uuid(),
   answers: z.array(BallotAnswerSchema),
-  receiptCode: z.string().max(32).optional(),
+  receiptCode: z.string().max(64).optional(),
 })
 
 export const CreateUserSchema = z.object({

@@ -65,16 +65,17 @@ We aim to acknowledge reports within 48 hours and resolve critical issues within
 
 ## Ballot replacement and receipt codes
 
-When ballot replacement is enabled for an election (the default), a voter's receipt code acts as a replacement credential in addition to a verification token. The following should be understood:
+When ballot replacement is enabled for an election (the default), a voter's receipt code is a **bearer credential**. The following properties must be understood:
 
-- Anyone who holds a voter's receipt code can learn the content of that ballot by cross-referencing the receipt code hash against the audit export.
-- Anyone who holds both a receipt code and a valid voting link for the same voter can replace that voter's ballot until the election closes.
-- Voters should keep their receipt confirmation emails private.
-- A voter can detect an unexpected replacement because their old receipt code will no longer verify on the `/verify` page after it has been superseded.
+- Anyone who holds a receipt code can learn the content of that ballot by cross-referencing the code against the published audit export.
+- Anyone who holds a receipt code can replace the corresponding ballot **using any valid voting link for that election** — they do not need the original voter's own link. This means a leaked receipt code allows an attacker to silently delete another voter's ballot while the attacker's own ballot remains (effectively a double-count suppression). This cannot be prevented without breaking ballot anonymity, since the system cannot link a receipt to a specific voter at replacement time.
+- Voters should keep their receipt confirmation emails strictly private.
+- A voter can detect an unexpected replacement because their old receipt code will no longer verify on the `/verify` page once it has been superseded.
 - This feature improves coercion resistance: a voter who was coerced into voting a certain way can privately replace their ballot using their own receipt code before the election closes.
-- The system does not provide receipt-freeness. Voters can prove how they voted to a third party by sharing their receipt code, which means this feature does not eliminate the possibility of vote-buying or coercion — it only reduces it.
+- The system does not provide receipt-freeness. Voters can prove how they voted to a third party by sharing their receipt code.
+- Organizers can disable ballot replacement mid-election (via the election settings) if a receipt leak is suspected — this is exactly when the kill switch matters.
 
-Organizers who want to eliminate the replacement credential risk entirely can disable ballot replacement in the election settings.
+Organizers who want to eliminate the replacement credential risk entirely can disable ballot replacement in the election settings before or after voting starts.
 
 ## Known accepted advisories
 

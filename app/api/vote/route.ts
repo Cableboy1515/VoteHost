@@ -9,6 +9,13 @@ import { findVoterIdByToken } from "@/lib/voterToken"
 import { recordActivity } from "@/lib/recordActivity"
 import { getClientIp } from "@/lib/clientIp"
 
+function alreadyVotedResponse(canReplace: boolean) {
+  if (canReplace) {
+    return NextResponse.json({ error: "You have already voted", canReplace: true }, { status: 409 })
+  }
+  return NextResponse.json({ error: "You have already voted" }, { status: 409 })
+}
+
 export async function POST(req: Request) {
   const ip = getClientIp(req)
   const rl = rateLimit(`vote:ip:${ip}`, { limit: 5, windowMs: 60_000 })
@@ -42,17 +49,47 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Election has ended" }, { status: 403 })
   }
 
-  // Early hasVoted checks — before expensive validation
+  // ── Early hasVoted checks — receipt validation before expensive answer validation ──
+  let resolvedBallotId: string | null = null
+  let existingReceiptId: string | null = null
   if (voter.hasVoted) {
     if (!voter.election.allowBallotReplacement) {
-      return NextResponse.json({ error: "You have already voted" }, { status: 409 })
+      return alreadyVotedResponse(false)
     }
     if (!submittedReceiptCode) {
-      return NextResponse.json({ error: "You have already voted", canReplace: true }, { status: 409 })
+      return alreadyVotedResponse(true)
     }
     // Rate-limit replacement attempts per voter
     const revoteRl = rateLimit(`revote:voter:${voterId}`, { limit: 3, windowMs: 3_600_000 })
     if (!revoteRl.ok) return rateLimitResponse(revoteRl.resetAt)
+
+    // Validate receipt code and resolve ballotId early — before expensive answer validation
+    const normalizedCode = normalizeReceiptCode(submittedReceiptCode)
+    if (!normalizedCode) {
+      return NextResponse.json({ error: "Invalid receipt code" }, { status: 400 })
+    }
+    const existingReceipt = await db.ballotReceipt.findUnique({
+      where: { receiptCode: normalizedCode },
+    })
+    if (!existingReceipt || existingReceipt.electionId !== voter.electionId) {
+      return NextResponse.json({ error: "Invalid receipt code" }, { status: 400 })
+    }
+    existingReceiptId = existingReceipt.id
+
+    // Fast-path: use stored ballotId if available (receipts created after this deploy)
+    if (existingReceipt.ballotId) {
+      resolvedBallotId = existingReceipt.ballotId
+    } else {
+      // Fallback: O(all votes) scan for receipts created before ballotId column was added
+      const allVotes = await db.vote.findMany({
+        where: { electionId: voter.electionId },
+        select: { ballotId: true, questionId: true, optionId: true, rank: true, writeInText: true, weight: true },
+      })
+      resolvedBallotId = findBallotIdByHash(allVotes, existingReceipt.ballotHash)
+    }
+    if (!resolvedBallotId) {
+      return NextResponse.json({ error: "Invalid receipt code" }, { status: 400 })
+    }
   }
 
   // Load the election's actual questions and options for server-side validation
@@ -233,36 +270,16 @@ export async function POST(req: Request) {
   })))
 
   // ── Ballot replacement path ──────────────────────────────────────────────
-  if (voter.hasVoted && submittedReceiptCode) {
-    const normalizedCode = normalizeReceiptCode(submittedReceiptCode)
-    if (!normalizedCode) {
-      return NextResponse.json({ error: "Invalid receipt code" }, { status: 400 })
-    }
-
-    const existingReceipt = await db.ballotReceipt.findUnique({
-      where: { receiptCode: normalizedCode },
-    })
-    if (!existingReceipt || existingReceipt.electionId !== voter.electionId) {
-      return NextResponse.json({ error: "Invalid receipt code" }, { status: 400 })
-    }
-
-    const allVotes = await db.vote.findMany({
-      where: { electionId: voter.electionId },
-      select: { ballotId: true, questionId: true, optionId: true, rank: true, writeInText: true, weight: true },
-    })
-    const matchedBallotId = findBallotIdByHash(allVotes, existingReceipt.ballotHash)
-    if (!matchedBallotId) {
-      return NextResponse.json({ error: "Invalid receipt code" }, { status: 400 })
-    }
-
+  // resolvedBallotId and existingReceiptId are set in the early hasVoted block above.
+  if (voter.hasVoted && submittedReceiptCode && resolvedBallotId && existingReceiptId) {
     try {
       await db.$transaction(async (tx: Parameters<Parameters<typeof db.$transaction>[0]>[0]) => {
-        const deleted = await tx.vote.deleteMany({ where: { ballotId: matchedBallotId } })
+        const deleted = await tx.vote.deleteMany({ where: { ballotId: resolvedBallotId! } })
         if (deleted.count === 0) throw new Error("CONCURRENT_REPLACEMENT")
-        await tx.ballotReceipt.delete({ where: { id: existingReceipt.id } })
+        await tx.ballotReceipt.delete({ where: { id: existingReceiptId! } })
         await tx.vote.createMany({ data: voteRecords })
         await tx.ballotReceipt.create({
-          data: { electionId: voter.electionId, receiptCode, ballotHash },
+          data: { electionId: voter.electionId, receiptCode, ballotHash, ballotId },
         })
         await tx.voter.update({
           where: { id: voterId },
@@ -306,7 +323,7 @@ export async function POST(req: Request) {
       if (updated.count === 0) throw new Error("ALREADY_VOTED")
       await tx.vote.createMany({ data: voteRecords })
       await tx.ballotReceipt.create({
-        data: { electionId: voter.electionId, receiptCode, ballotHash },
+        data: { electionId: voter.electionId, receiptCode, ballotHash, ballotId },
       })
       await tx.election.updateMany({
         where: { id: voter.electionId, firstVoteAt: null },
@@ -315,10 +332,7 @@ export async function POST(req: Request) {
     })
   } catch (err) {
     if (err instanceof Error && err.message === "ALREADY_VOTED") {
-      if (!voter.election.allowBallotReplacement) {
-        return NextResponse.json({ error: "You have already voted" }, { status: 409 })
-      }
-      return NextResponse.json({ error: "You have already voted", canReplace: true }, { status: 409 })
+      return alreadyVotedResponse(voter.election.allowBallotReplacement)
     }
     throw err
   }
@@ -371,6 +385,7 @@ export async function POST(req: Request) {
     electionTitle: voter.election.title,
     receiptCode,
     electionId: voter.electionId,
+    allowBallotReplacement: voter.election.allowBallotReplacement,
   }).catch(() => {})
 
   return NextResponse.json({ success: true, receiptCode })

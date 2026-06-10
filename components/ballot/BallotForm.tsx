@@ -69,6 +69,7 @@ interface Props {
   electionTitle: string
   electionDescription?: string | null
   questions: Question[]
+  replaceMode?: boolean
 }
 
 function formatServerError(data: unknown): string {
@@ -113,7 +114,7 @@ function RcvAvatar({ option, size = 40 }: { option: Option; size?: number }) {
   )
 }
 
-export default function BallotForm({ token, electionTitle, electionDescription, questions }: Props) {
+export default function BallotForm({ token, electionTitle, electionDescription, questions, replaceMode = false }: Props) {
   const router = useRouter()
 
   // 0..questions.length-1 = ballot step; questions.length = review
@@ -131,7 +132,7 @@ export default function BallotForm({ token, electionTitle, electionDescription, 
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState("")
   const [issuesPanelOpen, setIssuesPanelOpen] = useState(false)
-  const [canReplace, setCanReplace] = useState(false)
+  const [canReplace, setCanReplace] = useState(replaceMode)
   const [receiptCodeInput, setReceiptCodeInput] = useState("")
 
   const questionRefs = useRef<Record<string, HTMLElement | null>>({})
@@ -723,6 +724,19 @@ export default function BallotForm({ token, electionTitle, electionDescription, 
   if (step === questions.length) {
     const reviewCards = (
       <>
+        {replaceMode && (
+          <div
+            className="rounded-[12px] border p-4"
+            style={{ background: "oklch(0.98 0.02 50)", borderColor: "oklch(0.75 0.10 50)" }}
+          >
+            <p className="text-sm font-semibold mb-1" style={{ color: "var(--vh-ink)" }}>
+              You have already voted
+            </p>
+            <p className="text-sm" style={{ color: "var(--vh-ink-soft)" }}>
+              Submitting again will replace your previous ballot — you&apos;ll need the receipt code from your original confirmation email.
+            </p>
+          </div>
+        )}
         {questions.map((q, i) => (
           <div key={q.id} className="bg-vh-surface border border-vh-line rounded-card p-4">
             <div className="flex items-start justify-between gap-3 mb-3">
@@ -787,7 +801,9 @@ export default function BallotForm({ token, electionTitle, electionDescription, 
         ))}
 
         <p className="text-sm text-vh-muted text-center py-1">
-          🔒 Once submitted, your ballot is final and recorded anonymously.
+          {replaceMode
+            ? "🔒 Submitting will replace your previous ballot. This action is recorded anonymously."
+            : "🔒 Once submitted, your ballot is final and recorded anonymously."}
         </p>
 
         {canReplace && (
@@ -805,9 +821,13 @@ export default function BallotForm({ token, electionTitle, electionDescription, 
               type="text"
               placeholder="e.g. ABCD-EFGH-IJKL-MNOP"
               value={receiptCodeInput}
-              onChange={(e) => setReceiptCodeInput(e.target.value)}
+              onChange={(e) => setReceiptCodeInput(e.target.value.toUpperCase())}
               className="w-full text-sm rounded-[10px] px-3 py-2.5 font-mono"
               style={{ border: "1px solid var(--vh-line-strong)", background: "var(--vh-surface)", color: "var(--vh-ink)", outline: "none" }}
+              spellCheck={false}
+              autoCorrect="off"
+              autoCapitalize="characters"
+              maxLength={20}
               autoFocus
               aria-label="Receipt code"
             />

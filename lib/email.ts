@@ -1148,26 +1148,33 @@ export type BallotReceiptPayload = {
   electionTitle: string
   receiptCode: string
   electionId: string
+  allowBallotReplacement?: boolean
 }
 
-function buildBallotReceiptHtml(p: BallotReceiptPayload): string {
+interface BallotReceiptEmailParams {
+  heading: string
+  intro: string
+  codeLabel: string
+  footerNote: string
+}
+
+function buildBallotReceiptEmailHtml(p: BallotReceiptPayload, opts: BallotReceiptEmailParams): string {
   const name = escapeHtml(p.voterName)
-  const title = escapeHtml(p.electionTitle)
   const code = escapeHtml(p.receiptCode)
   const verifyUrl = escapeHtml(absolutizeUrl(`/verify/${p.electionId}`))
   return emailWrapper(`
     ${brandRow()}
     <tr><td style="padding:24px 32px 14px;">
-      <h1 style="margin:0 0 14px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:22px;font-weight:600;color:${C.ink};letter-spacing:-0.02em;">Your ballot receipt</h1>
+      <h1 style="margin:0 0 14px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:22px;font-weight:600;color:${C.ink};letter-spacing:-0.02em;">${escapeHtml(opts.heading)}</h1>
       <p style="margin:0 0 14px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:14.5px;color:${C.inkSoft};line-height:1.6;">Hi ${name},</p>
       <p style="margin:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:14.5px;color:${C.inkSoft};line-height:1.6;">
-        Your vote in <strong style="color:${C.ink};">${title}</strong> has been recorded. Save the receipt code below to verify your ballot was counted.
+        ${opts.intro}
       </p>
     </td></tr>
     <tr><td style="padding:0 32px 20px;">
       <table role="presentation" cellpadding="0" cellspacing="0" width="100%"><tr>
         <td style="background:${C.accentSoft};border:1px solid oklch(0.85 0.05 255);border-radius:10px;padding:18px 20px;text-align:center;">
-          <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:11.5px;color:${C.muted};letter-spacing:0.06em;text-transform:uppercase;margin-bottom:8px;">Receipt code</div>
+          <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:11.5px;color:${C.muted};letter-spacing:0.06em;text-transform:uppercase;margin-bottom:8px;">${escapeHtml(opts.codeLabel)}</div>
           <div style="font-family:'Courier New',Courier,monospace;font-size:22px;font-weight:700;color:${C.ink};letter-spacing:0.1em;">${code}</div>
         </td>
       </tr></table>
@@ -1178,13 +1185,28 @@ function buildBallotReceiptHtml(p: BallotReceiptPayload): string {
     <tr><td style="padding:0 32px 28px;">
       <table role="presentation" cellpadding="0" cellspacing="0" width="100%"><tr>
         <td style="border-top:1px solid ${C.line};padding-top:18px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:12px;color:${C.muted};line-height:1.6;">
-          This code does not reveal what you voted for. It only proves your ballot was recorded.
-          Anyone can enter this code on the verification page to confirm it exists in the election ledger.
-          Keep this email private — your receipt code can be used by anyone with your voting link to replace your ballot until the election closes.
+          ${opts.footerNote}
         </td>
       </tr></table>
     </td></tr>
   `)
+}
+
+function buildBallotReceiptHtml(p: BallotReceiptPayload): string {
+  const title = escapeHtml(p.electionTitle)
+  const replaceable = p.allowBallotReplacement ?? false
+  return buildBallotReceiptEmailHtml(p, {
+    heading: "Your ballot receipt",
+    intro: `Your vote in <strong style="color:${C.ink};">${title}</strong> has been recorded. Save the receipt code below to verify your ballot was counted.`,
+    codeLabel: "Receipt code",
+    footerNote: replaceable
+      ? `This code does not reveal what you voted for. It only proves your ballot was recorded.
+          Anyone can enter this code on the verification page to confirm it exists in the election ledger.
+          Keep this email private — anyone who obtains this code can look up your ballot in the published audit data and replace it (with any valid voting link for this election) until the election closes.`
+      : `This code does not reveal what you voted for. It only proves your ballot was recorded.
+          Anyone can enter this code on the verification page to confirm it exists in the election ledger.
+          Keep it private — it can be used to look up your ballot's contents in the published audit data.`,
+  })
 }
 
 export async function sendBallotReceipt(payload: BallotReceiptPayload): Promise<{ error: string | null }> {
@@ -1198,39 +1220,14 @@ export async function sendBallotReceipt(payload: BallotReceiptPayload): Promise<
 }
 
 function buildBallotReplacedNoticeHtml(p: BallotReceiptPayload): string {
-  const name = escapeHtml(p.voterName)
   const title = escapeHtml(p.electionTitle)
-  const code = escapeHtml(p.receiptCode)
-  const verifyUrl = escapeHtml(absolutizeUrl(`/verify/${p.electionId}`))
-  return emailWrapper(`
-    ${brandRow()}
-    <tr><td style="padding:24px 32px 14px;">
-      <h1 style="margin:0 0 14px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:22px;font-weight:600;color:${C.ink};letter-spacing:-0.02em;">Your ballot has been replaced</h1>
-      <p style="margin:0 0 14px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:14.5px;color:${C.inkSoft};line-height:1.6;">Hi ${name},</p>
-      <p style="margin:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:14.5px;color:${C.inkSoft};line-height:1.6;">
-        Your previous ballot for <strong style="color:${C.ink};">${title}</strong> has been replaced. Your new receipt code is below. Your old receipt code is no longer valid.
-      </p>
-    </td></tr>
-    <tr><td style="padding:0 32px 20px;">
-      <table role="presentation" cellpadding="0" cellspacing="0" width="100%"><tr>
-        <td style="background:${C.accentSoft};border:1px solid oklch(0.85 0.05 255);border-radius:10px;padding:18px 20px;text-align:center;">
-          <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:11.5px;color:${C.muted};letter-spacing:0.06em;text-transform:uppercase;margin-bottom:8px;">New receipt code</div>
-          <div style="font-family:'Courier New',Courier,monospace;font-size:22px;font-weight:700;color:${C.ink};letter-spacing:0.1em;">${code}</div>
-        </td>
-      </tr></table>
-    </td></tr>
-    <tr><td style="padding:0 32px 14px;">
-      <a href="${verifyUrl}" style="display:inline-block;background:${C.accent};color:#ffffff;text-decoration:none;padding:12px 24px;border-radius:10px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:14px;font-weight:500;">Verify my ballot →</a>
-    </td></tr>
-    <tr><td style="padding:0 32px 28px;">
-      <table role="presentation" cellpadding="0" cellspacing="0" width="100%"><tr>
-        <td style="border-top:1px solid ${C.line};padding-top:18px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:12px;color:${C.muted};line-height:1.6;">
-          If you did not do this, contact your election organizer immediately.
-          Keep this email private — anyone who can see this receipt code can learn your vote from the audit export and, combined with your voting link, replace your ballot again until the election closes.
-        </td>
-      </tr></table>
-    </td></tr>
-  `)
+  return buildBallotReceiptEmailHtml(p, {
+    heading: "Your ballot has been replaced",
+    intro: `Your previous ballot for <strong style="color:${C.ink};">${title}</strong> has been replaced. Your new receipt code is below. Your old receipt code is no longer valid.`,
+    codeLabel: "New receipt code",
+    footerNote: `If you did not do this, contact your election organizer immediately.
+          Keep this email private — anyone who obtains this code can look up your ballot in the published audit data and replace it again (with any valid voting link for this election) until the election closes.`,
+  })
 }
 
 export async function sendBallotReplacedNotice(payload: BallotReceiptPayload): Promise<{ error: string | null }> {

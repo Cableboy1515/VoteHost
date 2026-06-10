@@ -207,11 +207,13 @@ model BallotReceipt {
   electionId  String
   receiptCode String   @unique
   ballotHash  String
+  ballotId    String?
   createdAt   DateTime @default(now())
 
   election Election @relation(fields: [electionId], references: [id], onDelete: Cascade)
 
   @@index([electionId])
+  @@index([ballotId])
 }
 
 // Non-destructive overlay: maps raw write-in text to a canonical candidate name.
