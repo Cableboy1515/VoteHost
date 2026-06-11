@@ -69,12 +69,14 @@ export async function PUT(req: Request) {
 
     const upsert = (key: string, value: string | undefined, existingKey: string) => {
       // If client sends SENTINEL back for a secret field, retain the existing DB value
-      if ((SECRET_KEYS as readonly string[]).includes(existingKey) && value === SENTINEL) return Promise.resolve()
-      if (value === undefined) return Promise.resolve()
+      if ((SECRET_KEYS as readonly string[]).includes(existingKey) && value === SENTINEL) return null
+      if (value === undefined) return null
       return db.setting.upsert({ where: { key }, update: { value }, create: { key, value } })
     }
 
-    await Promise.all([
+    // Single batch transaction: one connection, all-or-nothing — avoids partial
+    // saves and connection bursts that the local prisma dev server can't handle.
+    await db.$transaction([
       upsert("email_provider",        body.email_provider        ?? "resend",   "email_provider"),
       upsert("email_preset",          body.email_preset          ?? "resend",   "email_preset"),
       upsert("resend_api_key",        body.resend_api_key,                       "resend_api_key"),
@@ -87,7 +89,7 @@ export async function PUT(req: Request) {
       upsert("smtp_user",             body.smtp_user             ?? "",          "smtp_user"),
       upsert("smtp_pass",             body.smtp_pass,                            "smtp_pass"),
       upsert("smtp_secure",           body.smtp_secure           ?? "false",     "smtp_secure"),
-    ])
+    ].filter((op) => op !== null))
 
     const submittedKeys = Object.keys(body).filter((k) => [...EMAIL_KEYS].includes(k as typeof EMAIL_KEYS[number]))
     const changes: Record<string, { from: unknown; to: unknown }> = {}
