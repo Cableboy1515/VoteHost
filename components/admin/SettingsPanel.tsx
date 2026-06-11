@@ -267,6 +267,27 @@ function GeneralSettings({ hasActiveElections }: { hasActiveElections: boolean }
 
 type EmailPreset = "smtp" | "resend" | "gmail" | "icloud" | "outlook" | "yahoo"
 
+type StoredVerification = {
+  status: "ok" | "failed"
+  verifiedAt: string
+  current: boolean
+  message?: string
+} | null
+
+type SendHealth = {
+  recentFailures: number
+  lastFailureAt: string | null
+  lastErrorMessage: string | null
+}
+
+type VerifyResult = {
+  ok: boolean
+  code: string
+  message: string
+  hint?: string
+  detail?: string
+}
+
 type EmailSettings = {
   email_provider: "resend" | "smtp"
   email_preset: EmailPreset
@@ -295,6 +316,16 @@ const DEFAULT_SETTINGS: EmailSettings = {
   smtp_user: "",
   smtp_pass: "",
   smtp_secure: "false",
+}
+
+function relativeTime(iso: string): string {
+  const diff = Date.now() - new Date(iso).getTime()
+  const mins = Math.floor(diff / 60_000)
+  if (mins < 2) return "just now"
+  if (mins < 60) return `${mins}m ago`
+  const hrs = Math.floor(mins / 60)
+  if (hrs < 24) return `${hrs}h ago`
+  return `${Math.floor(hrs / 24)}d ago`
 }
 
 const selectClass =
@@ -433,6 +464,13 @@ function EmailSettingsTab() {
   const [testing, setTesting] = useState(false)
   const [testStatus, setTestStatus] = useState<"idle" | "sent" | "error">("idle")
   const [testError, setTestError] = useState("")
+  const [testHint, setTestHint] = useState("")
+  const [testDetail, setTestDetail] = useState("")
+  const [verifying, setVerifying] = useState(false)
+  const [verifyResult, setVerifyResult] = useState<VerifyResult | null>(null)
+  const [verification, setVerification] = useState<StoredVerification>(null)
+  const [dryRun, setDryRun] = useState(false)
+  const [sendHealth, setSendHealth] = useState<SendHealth | null>(null)
 
   useEffect(() => {
     fetch("/api/settings/email")
@@ -443,6 +481,9 @@ function EmailSettingsTab() {
       .then((data) => {
         if (data.error) throw new Error(data.error)
         setSettings(data)
+        setVerification(data.verification ?? null)
+        setDryRun(!!data.dryRun)
+        setSendHealth(data.sendHealth ?? null)
         setLoading(false)
       })
       .catch((err) => {
@@ -469,6 +510,30 @@ function EmailSettingsTab() {
     }))
   }
 
+  async function handleVerify() {
+    setVerifying(true)
+    setVerifyResult(null)
+    try {
+      const res = await fetch("/api/settings/email/verify", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(settings),
+      })
+      const data: VerifyResult = await res.json()
+      setVerifyResult(data)
+      // Refresh stored verification badge
+      if (data.ok || data.code === "ok_restricted_key") {
+        setVerification({ status: "ok", verifiedAt: new Date().toISOString(), current: true, message: data.message })
+      } else if (data.code !== "dry_run") {
+        setVerification({ status: "failed", verifiedAt: new Date().toISOString(), current: true, message: data.message })
+      }
+    } catch (err) {
+      setVerifyResult({ ok: false, code: "unknown", message: String(err) })
+    } finally {
+      setVerifying(false)
+    }
+  }
+
   async function handleSave(e: React.FormEvent) {
     e.preventDefault()
     setSaving(true)
@@ -482,6 +547,8 @@ function EmailSettingsTab() {
       })
       if (res.ok) {
         setSaveStatus("saved")
+        // Auto-verify after successful save (fire-and-forget, doesn't block "Saved." feedback)
+        handleVerify()
       } else {
         const data = await res.json().catch(() => ({}))
         setSaveStatus("error")
@@ -502,6 +569,8 @@ function EmailSettingsTab() {
     setTesting(true)
     setTestStatus("idle")
     setTestError("")
+    setTestHint("")
+    setTestDetail("")
     try {
       const res = await fetch("/api/settings/email/test", {
         method: "POST",
@@ -511,9 +580,13 @@ function EmailSettingsTab() {
       const data = await res.json()
       if (res.ok) {
         setTestStatus("sent")
+        // Test success updates badge
+        setVerification({ status: "ok", verifiedAt: new Date().toISOString(), current: true, message: "Verified by successful test send." })
       } else {
         setTestStatus("error")
         setTestError(data.error ?? "Unknown error")
+        setTestHint(data.hint ?? "")
+        setTestDetail(data.detail ?? "")
       }
     } catch (err) {
       setTestStatus("error")
@@ -530,6 +603,22 @@ function EmailSettingsTab() {
 
   return (
     <div>
+      {/* Dry-run banner */}
+      {dryRun && (
+        <div className="mb-5 rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+          <strong>EMAIL_DRY_RUN is enabled</strong> — no real emails are being sent. Unset it in <code className="text-amber-900">.env</code> to send mail.
+        </div>
+      )}
+
+      {/* Send-health banner */}
+      {sendHealth && sendHealth.recentFailures > 0 && (
+        <div className="mb-5 rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+          <strong>{sendHealth.recentFailures} email{sendHealth.recentFailures !== 1 ? "s" : ""} failed to send in the last 7 days</strong>
+          {sendHealth.lastErrorMessage && <> — last error: {sendHealth.lastErrorMessage}</>}
+          . Re-verify your credentials below.
+        </div>
+      )}
+
       <form onSubmit={handleSave} className="space-y-5">
 
         {/* Provider preset selector */}
@@ -708,12 +797,64 @@ function EmailSettingsTab() {
           </div>
         )}
 
-        <div className="flex items-center gap-3">
-          <Button type="submit" disabled={saving}>
-            {saving ? "Saving…" : "Save settings"}
-          </Button>
-          {saveStatus === "saved" && <span className="text-sm text-green-600">Settings saved.</span>}
-          {saveStatus === "error" && <span className="text-sm text-red-600">Failed to save: {saveError}</span>}
+        <div className="space-y-3">
+          <div className="flex flex-wrap items-center gap-3">
+            <Button type="submit" disabled={saving}>
+              {saving ? "Saving…" : "Save settings"}
+            </Button>
+            <Button type="button" variant="outline" disabled={verifying} onClick={handleVerify}>
+              {verifying ? "Verifying…" : "Verify connection"}
+            </Button>
+            {/* Verification badge */}
+            {verification && (
+              <span
+                className="text-xs font-medium px-2 py-1 rounded-full"
+                style={
+                  !verification.current
+                    ? { background: "var(--vh-warn-soft, #fef4e0)", color: "var(--vh-warn-text, #7d4a00)" }
+                    : verification.status === "ok"
+                    ? { background: "var(--vh-success-soft, #eaf6f0)", color: "var(--vh-success, #1a8f60)" }
+                    : { background: "var(--vh-danger-soft, #fef2f2)", color: "var(--vh-danger, #dc2626)" }
+                }
+                title={verification.message}
+              >
+                {!verification.current
+                  ? "Settings changed — re-verify"
+                  : verification.status === "ok"
+                  ? `✓ Verified · ${relativeTime(verification.verifiedAt)}`
+                  : `✗ Last verification failed`}
+              </span>
+            )}
+            {saveStatus === "saved" && <span className="text-sm text-green-600">Settings saved.</span>}
+            {saveStatus === "error" && <span className="text-sm text-red-600">Failed to save: {saveError}</span>}
+          </div>
+
+          {/* Verify result */}
+          {verifyResult && (
+            <div
+              className="rounded-lg px-4 py-3 text-sm"
+              style={
+                verifyResult.ok || verifyResult.code === "ok_restricted_key"
+                  ? { background: "var(--vh-success-soft, #eaf6f0)", border: "1px solid oklch(0.85 0.07 160)", color: "var(--vh-success, #1a8f60)" }
+                  : { background: "var(--vh-danger-soft, #fef2f2)", border: "1px solid oklch(0.85 0.05 15)" }
+              }
+            >
+              {verifyResult.ok || verifyResult.code === "ok_restricted_key" ? (
+                <span>{verifyResult.message}</span>
+              ) : (
+                <>
+                  <p className="font-medium" style={{ color: "var(--vh-danger, #dc2626)" }}>{verifyResult.message}</p>
+                  {verifyResult.hint && <p className="mt-1 text-zinc-600">{verifyResult.hint}</p>}
+                  {verifyResult.detail && (
+                    <details className="mt-2">
+                      <summary className="cursor-pointer text-xs text-zinc-400 hover:text-zinc-600">Technical details</summary>
+                      <pre className="mt-1 text-xs text-zinc-500 whitespace-pre-wrap break-all">{verifyResult.detail}</pre>
+                    </details>
+                  )}
+                </>
+              )}
+            </div>
+          )}
         </div>
       </form>
 
@@ -745,7 +886,16 @@ function EmailSettingsTab() {
         <p className="text-sm text-green-600 mt-3">Test email sent successfully.</p>
       )}
       {testStatus === "error" && (
-        <p className="text-sm text-red-600 mt-3">Failed: {testError}</p>
+        <div className="mt-3 rounded-lg px-4 py-3 text-sm" style={{ background: "var(--vh-danger-soft, #fef2f2)", border: "1px solid oklch(0.85 0.05 15)" }}>
+          <p className="font-medium" style={{ color: "var(--vh-danger, #dc2626)" }}>{testError}</p>
+          {testHint && <p className="mt-1 text-zinc-600">{testHint}</p>}
+          {testDetail && (
+            <details className="mt-2">
+              <summary className="cursor-pointer text-xs text-zinc-400 hover:text-zinc-600">Technical details</summary>
+              <pre className="mt-1 text-xs text-zinc-500 whitespace-pre-wrap break-all">{testDetail}</pre>
+            </details>
+          )}
+        </div>
       )}
     </div>
   )

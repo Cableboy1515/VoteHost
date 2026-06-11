@@ -436,6 +436,7 @@ export type SendResult = {
   responseCode: string | null
   responseText: string | null
   provider: "smtp" | "resend"
+  errorCode?: string | null
 }
 
 export function classifySendError(provider: "resend" | "smtp", err: unknown): SendClassification {
@@ -523,16 +524,23 @@ async function sendViaResend(config: ResendConfig, payload: Payload, mode: Email
   }
 }
 
+function makeSmtpTransport(config: { host: string; port: number; secure: boolean; user: string; pass: string }) {
+  return nodemailer.createTransport({
+    host: config.host,
+    port: config.port,
+    secure: config.secure,
+    auth: { user: config.user, pass: config.pass },
+    connectionTimeout: 15_000,
+    greetingTimeout: 15_000,
+    socketTimeout: 30_000,
+  })
+}
+
 async function sendViaSmtp(config: SmtpConfig, payload: Payload, mode: EmailMode, tz: string): Promise<SendResult> {
   const dry = await maybeDryRun("smtp")
   if (dry) return dry
   try {
-    const transporter = nodemailer.createTransport({
-      host: config.host,
-      port: config.port,
-      secure: config.secure,
-      auth: { user: config.user, pass: config.pass },
-    })
+    const transporter = makeSmtpTransport(config)
     const headers: Record<string, string> = {}
     if (payload.voterId) headers["X-VoteHost-Voter-Id"] = payload.voterId
     if (payload.electionId) headers["X-VoteHost-Election-Id"] = payload.electionId
@@ -545,13 +553,14 @@ async function sendViaSmtp(config: SmtpConfig, payload: Payload, mode: EmailMode
     })
     return { error: null, classification: "ok", responseCode: null, responseText: null, provider: "smtp" }
   } catch (err) {
-    const e = err as { responseCode?: number; response?: string; message?: string }
+    const e = err as { code?: string; responseCode?: number; response?: string; message?: string }
     return {
       error: String(err),
       classification: classifySendError("smtp", err),
       responseCode: e.responseCode != null ? String(e.responseCode) : null,
       responseText: (e.response ?? e.message ?? String(err)).slice(0, 500),
       provider: "smtp",
+      errorCode: e.code ?? null,
     }
   }
 }
@@ -682,12 +691,7 @@ async function sendRawEmail(
   }
   try {
     if (config.provider === "smtp") {
-      const transporter = nodemailer.createTransport({
-        host: config.host,
-        port: config.port,
-        secure: config.secure,
-        auth: { user: config.user, pass: config.pass },
-      })
+      const transporter = makeSmtpTransport(config)
       await transporter.sendMail({ from: `${config.fromName} <${config.fromAddress}>`, to, subject, html, ...(config.replyTo ? { replyTo: config.replyTo } : {}) })
     } else {
       const resend = new Resend(config.apiKey)
