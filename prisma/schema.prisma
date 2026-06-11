@@ -209,6 +209,10 @@ model BallotReceipt {
   ballotHash  String
   ballotId    String?
   createdAt   DateTime @default(now())
+  // Set when this receipt's ballot is replaced. Superseded receipts are kept
+  // (not deleted) so the public /verify endpoint cannot reveal that a voter
+  // re-voted — see SECURITY.md "deniable replacement".
+  supersededAt DateTime?
 
   election Election @relation(fields: [electionId], references: [id], onDelete: Cascade)
 

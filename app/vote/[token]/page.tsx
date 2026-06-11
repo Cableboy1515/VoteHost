@@ -102,6 +102,7 @@ export default async function VotePage({ params }: { params: Promise<{ token: st
   return (
     <BallotForm
       token={token}
+      electionId={voter.election.id}
       electionTitle={voter.election.title}
       electionDescription={voter.election.description ?? undefined}
       replaceMode={quick.hasVoted}

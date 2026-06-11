@@ -21,6 +21,11 @@ export async function GET(
     return NextResponse.json({ found: false })
   }
 
+  // Deliberately matches superseded receipts too (no supersededAt filter) and never
+  // reveals replacement status: this endpoint attests "a ballot with this receipt was
+  // recorded", not "is currently counted". A coercer who collected a voter's receipt
+  // must not be able to detect that the voter later replaced their ballot — see
+  // SECURITY.md "deniable replacement".
   const receipt = await db.ballotReceipt.findUnique({
     where: { receiptCode: code },
     select: { electionId: true, createdAt: true },
