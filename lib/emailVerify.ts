@@ -141,6 +141,7 @@ export function mapSmtpError(
       ok: false,
       code: "timed_out",
       message: `Connection to "${ctx.host}:${ctx.port}" timed out.`,
+      hint: "Check the SMTP host and port, and that a firewall isn't blocking outbound connections.",
       detail: rawDetail,
     }
   }
@@ -210,9 +211,12 @@ export function mapResendError(err: unknown): VerifyResult {
     }
   }
 
+  // The SDK reports a malformed/unknown key as validation_error 400 with
+  // "API key is invalid" — observed live, not just invalid_api_key/401.
   if (
     name === "invalid_api_key" ||
     name === "missing_api_key" ||
+    /api key is invalid/i.test(e.message ?? "") ||
     status === 401 ||
     status === 403
   ) {

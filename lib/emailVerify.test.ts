@@ -65,11 +65,11 @@ import { mapSmtpError, mapResendError, emailConfigFingerprint } from "./emailVer
   assert.ok(r.hint?.includes("Implicit TLS"), "port-465 timeout hint mentions Implicit TLS: " + r.hint)
 }
 
-// ETIMEDOUT with normal port → timed_out, no hint
+// ETIMEDOUT with normal port → timed_out with generic host/port/firewall hint
 {
   const r = mapSmtpError({ code: "ETIMEDOUT", message: "connect ETIMEDOUT" }, { host: "smtp.example.com", port: 587, secure: false })
   assert.equal(r.code, "timed_out", "ETIMEDOUT port 587 → timed_out")
-  assert.ok(!r.hint, "normal timeout → no hint")
+  assert.ok(r.hint?.includes("firewall"), "normal timeout → generic hint: " + r.hint)
 }
 
 // ESOCKET + "wrong version number" → tls_wrong_mode with STARTTLS hint
@@ -103,6 +103,14 @@ import { mapSmtpError, mapResendError, emailConfigFingerprint } from "./emailVer
   assert.equal(r.code, "invalid_api_key", "invalid_api_key → invalid_api_key")
   assert.equal(r.ok, false, "invalid_api_key → ok=false")
   assert.ok(r.hint?.includes("resend.com/api-keys"), "invalid_api_key → resend hint")
+}
+
+// validation_error 400 "API key is invalid" — the shape the SDK actually returns
+// for a malformed/unknown key (observed live against api.resend.com)
+{
+  const r = mapResendError({ name: "validation_error", statusCode: 400, message: "API key is invalid" })
+  assert.equal(r.code, "invalid_api_key", "validation_error 'API key is invalid' → invalid_api_key")
+  assert.equal(r.ok, false, "validation_error invalid key → ok=false")
 }
 
 // restricted_api_key → ok
