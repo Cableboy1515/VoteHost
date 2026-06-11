@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { requireRole } from "@/lib/auth"
 import { db } from "@/lib/db"
+import type { Prisma } from "@/lib/generated/prisma/client"
 import { csrfCheck } from "@/lib/csrf"
 import { getDisplayTimeZone, invalidateTimezoneCache, isValidTimeZone, SETTING_KEY as TZ_SETTING_KEY } from "@/lib/timezone"
 import { recordActivity } from "@/lib/recordActivity"
@@ -30,7 +31,7 @@ export async function PUT(req: Request) {
   if (!session) return NextResponse.json({ error: "Forbidden" }, { status: 403 })
 
   const body = await req.json().catch(() => ({}))
-  const updates: Promise<unknown>[] = []
+  const updates: Prisma.PrismaPromise<unknown>[] = []
 
   if ("image_retention_days" in body) {
     const days = String(body.image_retention_days ?? "30").trim()
@@ -71,7 +72,7 @@ export async function PUT(req: Request) {
       : Promise.resolve(null),
   ])
 
-  await Promise.all(updates)
+  await db.$transaction(updates)
 
   // Invalidate AFTER the DB write so the next getDisplayTimeZone() reads the new value.
   if ("display_time_zone" in body) invalidateTimezoneCache()
