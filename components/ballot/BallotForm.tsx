@@ -66,6 +66,7 @@ interface BallotIssue {
 
 interface Props {
   token: string
+  electionId: string
   electionTitle: string
   electionDescription?: string | null
   questions: Question[]
@@ -114,7 +115,7 @@ function RcvAvatar({ option, size = 40 }: { option: Option; size?: number }) {
   )
 }
 
-export default function BallotForm({ token, electionTitle, electionDescription, questions, replaceMode = false }: Props) {
+export default function BallotForm({ token, electionId, electionTitle, electionDescription, questions, replaceMode = false }: Props) {
   const router = useRouter()
 
   // 0..questions.length-1 = ballot step; questions.length = review
@@ -134,6 +135,15 @@ export default function BallotForm({ token, electionTitle, electionDescription, 
   const [issuesPanelOpen, setIssuesPanelOpen] = useState(false)
   const [canReplace, setCanReplace] = useState(replaceMode)
   const [receiptCodeInput, setReceiptCodeInput] = useState("")
+  // Replacement gate: already-voted voters must enter their receipt code before
+  // the ballot is shown. The code is pre-checked against the public verify
+  // endpoint, kept in receiptCodeInput, and submitted with the ballot.
+  const [gateUnlocked, setGateUnlocked] = useState(!replaceMode)
+  const [gateChecking, setGateChecking] = useState(false)
+  const [gateError, setGateError] = useState("")
+  // True when the review step must show an editable receipt input — either the
+  // gate was bypassed (legacy 409 path) or the server rejected the gated code.
+  const [receiptEditable, setReceiptEditable] = useState(false)
 
   const questionRefs = useRef<Record<string, HTMLElement | null>>({})
   const stepHeadingRef = useRef<HTMLHeadingElement>(null)
@@ -303,15 +313,26 @@ export default function BallotForm({ token, electionTitle, electionDescription, 
       router.push(`/vote/${token}/confirmed${receipt ? `?receipt=${encodeURIComponent(receipt)}${replaced ? "&replaced=1" : ""}` : ""}`)
     } else if (res.status === 409) {
       const data = await res.json().catch(() => ({}))
-      const d = data as { error?: string; canReplace?: boolean }
-      if (d.canReplace) {
+      const d = data as { error?: string; canReplace?: boolean; receiptInvalid?: boolean }
+      if (d.receiptInvalid) {
+        // The gated code was rejected (superseded, or invalidated since the gate
+        // check) — re-show the editable receipt input with the server's reason.
         setCanReplace(true)
+        setReceiptEditable(true)
+        setError(d.error ?? "Invalid receipt code")
+      } else if (d.canReplace) {
+        setCanReplace(true)
+        setReceiptEditable(true)
         setError("")
       } else {
         setError(d.error ?? "You have already voted")
       }
     } else {
       const data = await res.json().catch(() => ({}))
+      if ((data as { receiptInvalid?: boolean }).receiptInvalid) {
+        setCanReplace(true)
+        setReceiptEditable(true)
+      }
       setError(formatServerError(data))
     }
   }
@@ -323,6 +344,33 @@ export default function BallotForm({ token, electionTitle, electionDescription, 
       return
     }
     await handleConfirmSubmit(code)
+  }
+
+  async function handleGateContinue() {
+    const code = receiptCodeInput.trim()
+    if (!code) {
+      setGateError("Enter your receipt code to continue.")
+      return
+    }
+    setGateChecking(true)
+    setGateError("")
+    try {
+      const res = await fetch(`/api/verify/${electionId}/receipt?code=${encodeURIComponent(code)}`)
+      if (res.status === 429) {
+        setGateError("Too many attempts — please wait a minute and try again.")
+        return
+      }
+      const data = await res.json().catch(() => ({}))
+      if ((data as { found?: boolean }).found) {
+        setGateUnlocked(true)
+      } else {
+        setGateError("That receipt code wasn't recognized for this election — check it for typos.")
+      }
+    } catch {
+      setGateError("Couldn't check the receipt code — please try again.")
+    } finally {
+      setGateChecking(false)
+    }
   }
 
   // Derived — recomputed every render; only non-empty when issuesPanelOpen and items remain
@@ -719,6 +767,71 @@ export default function BallotForm({ token, electionTitle, electionDescription, 
     return null
   }
 
+  // ── Replacement gate ────────────────────────────────────────────────────
+  // Already-voted voters see this before the ballot: an upfront signal that
+  // they are replacing, plus the receipt code requirement. There is no admin
+  // remedy for a lost code (receipts are the only voter→ballot link), so the
+  // copy is honest about that.
+
+  if (replaceMode && !gateUnlocked) {
+    return (
+      <div className="min-h-screen bg-vh-bg flex flex-col">
+        <header className="px-4 sm:px-6 py-5 border-b border-vh-line bg-vh-surface">
+          <BrandMark size={28} />
+        </header>
+
+        <div className="flex flex-1 flex-col items-center justify-center px-4 sm:px-6 py-10 sm:py-16">
+          <span
+            className="inline-grid place-items-center text-4xl mb-6 bg-vh-accent-soft"
+            style={{ width: 72, height: 72, borderRadius: 18 }}
+            aria-hidden
+          >
+            🗳
+          </span>
+
+          <h1 className="text-2xl font-semibold text-vh-ink mb-3 text-center max-w-sm">You have already voted</h1>
+          <p className="text-[15px] text-vh-muted max-w-md leading-relaxed text-center">
+            <span className="font-medium text-vh-ink-soft">{electionTitle}</span> allows ballot replacement.
+            To fill out a new ballot, enter the receipt code from your confirmation screen or email.
+            Your previous ballot will be deleted when you submit the new one.
+          </p>
+
+          <div className="w-full max-w-sm mt-8 space-y-3">
+            <input
+              type="text"
+              placeholder="e.g. ABCD-EFGH-IJKL-MNOP"
+              value={receiptCodeInput}
+              onChange={(e) => setReceiptCodeInput(e.target.value.toUpperCase())}
+              onKeyDown={(e) => { if (e.key === "Enter" && !gateChecking) handleGateContinue() }}
+              className="w-full text-sm rounded-[10px] px-3 py-2.5 font-mono"
+              style={{ border: "1px solid var(--vh-line-strong)", background: "var(--vh-surface)", color: "var(--vh-ink)", outline: "none" }}
+              spellCheck={false}
+              autoCorrect="off"
+              autoCapitalize="characters"
+              maxLength={20}
+              autoFocus
+              aria-label="Receipt code"
+            />
+            {gateError && <p className="text-sm text-center" style={{ color: "var(--vh-danger)" }}>{gateError}</p>}
+            <button
+              type="button"
+              onClick={handleGateContinue}
+              disabled={gateChecking}
+              className="w-full py-3 font-semibold text-white text-sm rounded-[var(--vh-radius-sm)] transition-opacity disabled:opacity-60"
+              style={{ background: "var(--vh-accent)" }}
+            >
+              {gateChecking ? "Checking…" : "Continue to replacement ballot"}
+            </button>
+          </div>
+
+          <p className="mt-6 text-[13px] text-vh-muted max-w-sm text-center leading-relaxed">
+            Lost your receipt code? Your original ballot still counts — without the code it cannot be replaced.
+          </p>
+        </div>
+      </div>
+    )
+  }
+
   // ── Review step ─────────────────────────────────────────────────────────
 
   if (step === questions.length) {
@@ -730,10 +843,10 @@ export default function BallotForm({ token, electionTitle, electionDescription, 
             style={{ background: "oklch(0.98 0.02 50)", borderColor: "oklch(0.75 0.10 50)" }}
           >
             <p className="text-sm font-semibold mb-1" style={{ color: "var(--vh-ink)" }}>
-              You have already voted
+              Replacing your previous ballot
             </p>
             <p className="text-sm" style={{ color: "var(--vh-ink-soft)" }}>
-              Submitting again will replace your previous ballot — you&apos;ll need the receipt code from your original confirmation email.
+              Submitting will delete your previous ballot and issue a new receipt code.
             </p>
           </div>
         )}
@@ -806,7 +919,29 @@ export default function BallotForm({ token, electionTitle, electionDescription, 
             : "🔒 Once submitted, your ballot is final and recorded anonymously."}
         </p>
 
-        {canReplace && (
+        {canReplace && !receiptEditable && (
+          <div
+            className="rounded-[12px] border p-4 space-y-3"
+            style={{ background: "oklch(0.98 0.01 255)", borderColor: "var(--vh-accent)" }}
+          >
+            <p className="text-sm" style={{ color: "var(--vh-ink-soft)" }}>
+              Replacing previous ballot — receipt code{" "}
+              <span className="font-mono font-medium" style={{ color: "var(--vh-ink)" }}>{receiptCodeInput}</span>
+            </p>
+            {error && <p className="text-sm" style={{ color: "var(--vh-danger)" }}>{error}</p>}
+            <button
+              type="button"
+              onClick={handleReplaceSubmit}
+              disabled={submitting}
+              className="w-full py-3 font-semibold text-white text-sm rounded-[var(--vh-radius-sm)] transition-opacity disabled:opacity-60"
+              style={{ background: "var(--vh-accent)" }}
+            >
+              {submitting ? "Replacing ballot…" : "Replace my ballot"}
+            </button>
+          </div>
+        )}
+
+        {canReplace && receiptEditable && (
           <div
             className="rounded-[12px] border p-4 space-y-3"
             style={{ background: "oklch(0.98 0.01 255)", borderColor: "var(--vh-accent)" }}

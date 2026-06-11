@@ -81,6 +81,7 @@ export default function BallotPreviewPage() {
       <div className="pt-8">
         <BallotForm
           token="preview"
+          electionId="preview"
           electionTitle="2025 Annual HOA Election"
           electionDescription="This is a preview of the voter ballot. Your selections won't be saved."
           questions={SAMPLE_QUESTIONS}

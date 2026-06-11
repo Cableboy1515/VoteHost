@@ -43,8 +43,12 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
       where: { electionId: id },
       orderBy: [{ questionId: "asc" }],
     }),
+    // Current receipts only — superseded receipts reference deleted ballots and would
+    // break the receipts↔ballots audit invariant. Their count is reported in aggregate
+    // below; listing their codes would let a published export reveal which voters
+    // re-voted (see SECURITY.md "deniable replacement").
     db.ballotReceipt.findMany({
-      where: { electionId: id },
+      where: { electionId: id, supersededAt: null },
       select: { receiptCode: true, ballotHash: true },
       orderBy: { createdAt: "asc" },
     }),
@@ -62,6 +66,9 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
 
   const totalVoters = voterStats._count.id
   const votedCount = await db.voter.count({ where: { electionId: id, hasVoted: true } })
+  const supersededReceiptCount = await db.ballotReceipt.count({
+    where: { electionId: id, supersededAt: { not: null } },
+  })
   let quorumRequired: number | null = null
   let quorumMet: boolean | null = null
   if (election.quorumType === "PERCENT" && election.quorumValue !== null && totalVoters > 0) {
@@ -177,6 +184,9 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
       weight: v.weight,
     })),
     ballotReceipts: receipts,
+    // Aggregate only — identifies how many ballots were replaced during voting,
+    // never which ones. Each replacement superseded one receipt.
+    supersededReceiptCount,
     // Computed tally — verify by re-running the algorithm against the raw votes above.
     // Counts use option text for readability; IDs are in the questions[] section above.
     tallyResults,

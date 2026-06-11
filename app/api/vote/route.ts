@@ -63,16 +63,26 @@ export async function POST(req: Request) {
     const revoteRl = rateLimit(`revote:voter:${voterId}`, { limit: 3, windowMs: 3_600_000 })
     if (!revoteRl.ok) return rateLimitResponse(revoteRl.resetAt)
 
-    // Validate receipt code and resolve ballotId early — before expensive answer validation
+    // Validate receipt code and resolve ballotId early — before expensive answer validation.
+    // receiptInvalid signals the ballot UI to re-show the receipt input.
     const normalizedCode = normalizeReceiptCode(submittedReceiptCode)
     if (!normalizedCode) {
-      return NextResponse.json({ error: "Invalid receipt code" }, { status: 400 })
+      return NextResponse.json({ error: "Invalid receipt code", receiptInvalid: true }, { status: 400 })
     }
     const existingReceipt = await db.ballotReceipt.findUnique({
       where: { receiptCode: normalizedCode },
     })
     if (!existingReceipt || existingReceipt.electionId !== voter.electionId) {
-      return NextResponse.json({ error: "Invalid receipt code" }, { status: 400 })
+      return NextResponse.json({ error: "Invalid receipt code", receiptInvalid: true }, { status: 400 })
+    }
+    if (existingReceipt.supersededAt) {
+      return NextResponse.json(
+        {
+          error: "This receipt code has already been used to replace a ballot — use the code from your most recent confirmation.",
+          receiptInvalid: true,
+        },
+        { status: 409 }
+      )
     }
     existingReceiptId = existingReceipt.id
 
@@ -276,7 +286,12 @@ export async function POST(req: Request) {
       await db.$transaction(async (tx: Parameters<Parameters<typeof db.$transaction>[0]>[0]) => {
         const deleted = await tx.vote.deleteMany({ where: { ballotId: resolvedBallotId! } })
         if (deleted.count === 0) throw new Error("CONCURRENT_REPLACEMENT")
-        await tx.ballotReceipt.delete({ where: { id: existingReceiptId! } })
+        // Supersede (not delete) the old receipt — it must keep verifying publicly
+        // so a third party cannot detect that this ballot was replaced.
+        await tx.ballotReceipt.update({
+          where: { id: existingReceiptId! },
+          data: { supersededAt: new Date() },
+        })
         await tx.vote.createMany({ data: voteRecords })
         await tx.ballotReceipt.create({
           data: { electionId: voter.electionId, receiptCode, ballotHash, ballotId },
@@ -288,7 +303,7 @@ export async function POST(req: Request) {
       })
     } catch (err) {
       if (err instanceof Error && err.message === "CONCURRENT_REPLACEMENT") {
-        return NextResponse.json({ error: "Invalid receipt code" }, { status: 400 })
+        return NextResponse.json({ error: "Invalid receipt code", receiptInvalid: true }, { status: 400 })
       }
       throw err
     }
