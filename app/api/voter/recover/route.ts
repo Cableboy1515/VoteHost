@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server"
 import { db } from "@/lib/db"
 import { VoterRecoveryRequestSchema } from "@/lib/validations"
-import { generateVoterToken, appendVoterToken } from "@/lib/voterToken"
+import { generateVoterToken, replaceAllVoterTokens } from "@/lib/voterToken"
 import { sendBallotRecoveryLink } from "@/lib/email"
 import { csrfCheck } from "@/lib/csrf"
 import { rateLimit, rateLimitResponse } from "@/lib/rateLimit"
@@ -28,8 +28,11 @@ export async function POST(req: Request) {
   const matches = await db.voter.findMany({
     where: {
       email,
-      hasVoted: false,
       election: { status: { in: ["DRAFT", "ACTIVE"] } },
+      OR: [
+        { hasVoted: false },
+        { hasVoted: true, election: { allowBallotReplacement: true } },
+      ],
     },
     select: {
       id: true,
@@ -55,15 +58,23 @@ export async function POST(req: Request) {
     if (tooSoon) continue
 
     const { token, tokenHash } = generateVoterToken()
-    await appendVoterToken(voter.id, tokenHash)
     const magicLink = absolutizeUrl(`/vote/${token}`)
 
-    await sendBallotRecoveryLink({
-      voter: { name: voter.name, email: voter.email },
-      election: voter.election,
-      magicLink,
-    }).catch((err) => console.error("[voter-recover] send threw:", err))
+    let sent = false
+    try {
+      await sendBallotRecoveryLink({
+        voter: { name: voter.name, email: voter.email },
+        election: voter.election,
+        magicLink,
+      })
+      sent = true
+    } catch (err) {
+      console.error("[voter-recover] send threw:", err)
+    }
 
+    if (!sent) continue
+
+    await replaceAllVoterTokens(voter.id, tokenHash)
     await db.voter.update({
       where: { id: voter.id },
       data: { recoveryRequestedAt: new Date() },

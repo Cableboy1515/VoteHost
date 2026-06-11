@@ -63,6 +63,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
 
   await db.$transaction(async (tx) => {
     await tx.vote.deleteMany({ where: { electionId: id } })
+    await tx.ballotReceipt.deleteMany({ where: { electionId: id } })
     await tx.voter.updateMany({
       where: { electionId: id },
       data: { hasVoted: false, votedAt: null, firstReminderSentAt: null, secondReminderSentAt: null },

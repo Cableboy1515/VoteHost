@@ -66,6 +66,37 @@ export function computeBallotHash(votes: BallotVote[]): string {
   return createHash("sha256").update(JSON.stringify(canonical)).digest("hex")
 }
 
+export function normalizeReceiptCode(raw: string): string {
+  const stripped = raw.toUpperCase().replace(/[^A-Z2-7]/g, "")
+  if (stripped.length !== 16) return ""
+  return `${stripped.slice(0, 4)}-${stripped.slice(4, 8)}-${stripped.slice(8, 12)}-${stripped.slice(12, 16)}`
+}
+
+export function findBallotIdByHash(
+  votes: Array<BallotVote & { ballotId?: string | null }>,
+  ballotHash: string,
+): string | null {
+  const groups = new Map<string, Array<BallotVote>>()
+  for (const v of votes) {
+    const id = v.ballotId ?? ""
+    if (!id) continue
+    const group = groups.get(id) ?? []
+    group.push(v)
+    groups.set(id, group)
+  }
+  for (const [ballotId, group] of groups) {
+    const hash = computeBallotHash(group.map((v) => ({
+      questionId: v.questionId,
+      optionId: v.optionId ?? null,
+      rank: v.rank ?? null,
+      writeInText: v.writeInText ?? null,
+      weight: v.weight,
+    })))
+    if (hash === ballotHash) return ballotId
+  }
+  return null
+}
+
 type TallyVote = BallotVote & { ballotId: string | null }
 
 export function computeTallyHash(votes: TallyVote[]): string {

@@ -31,6 +31,7 @@ export default async function VotePage({ params }: { params: Promise<{ token: st
           startsAt: true,
           endsAt: true,
           autoActivate: true,
+          allowBallotReplacement: true,
           _count: { select: { questions: true, voters: true } },
         },
       },
@@ -38,7 +39,6 @@ export default async function VotePage({ params }: { params: Promise<{ token: st
   })
 
   if (!quick) return <ErrorScreen type="invalid" contactEmail={contactEmail} />
-  if (quick.hasVoted) return <ErrorScreen type="already-voted" />
 
   const now = new Date()
 
@@ -74,7 +74,15 @@ export default async function VotePage({ params }: { params: Promise<{ token: st
   if (quick.election.status !== "ACTIVE") return <ErrorScreen type="closed" />
   if (quick.election.endsAt && now > quick.election.endsAt) return <ErrorScreen type="closed" />
 
-  // Phase 2: active election and voter hasn't voted — load the full ballot.
+  // Already voted: allow replacement if enabled, otherwise show error screen.
+  if (quick.hasVoted) {
+    if (!quick.election.allowBallotReplacement) {
+      return <ErrorScreen type="already-voted" />
+    }
+    // Fall through to Phase 2 with replaceMode=true — election is open and replacement is enabled.
+  }
+
+  // Phase 2: active election — load the full ballot.
   const voter = await db.voter.findUnique({
     where: { id: quick.id },
     include: {
@@ -94,8 +102,10 @@ export default async function VotePage({ params }: { params: Promise<{ token: st
   return (
     <BallotForm
       token={token}
+      electionId={voter.election.id}
       electionTitle={voter.election.title}
       electionDescription={voter.election.description ?? undefined}
+      replaceMode={quick.hasVoted}
       questions={voter.election.questions.map((q) => ({
         id: q.id,
         text: q.text,

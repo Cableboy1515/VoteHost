@@ -36,6 +36,7 @@ interface Props {
     weightingEnabled?: boolean | null
     quorumType?: string | null
     quorumValue?: number | null
+    allowBallotReplacement?: boolean | null
   }
 }
 
@@ -171,6 +172,7 @@ export default function ElectionForm({
     initialValues?.endsAt ? isEndOfDayLocal(initialValues.endsAt) : true
   )
   const [weightingEnabled, setWeightingEnabled] = useState(initialValues?.weightingEnabled ?? false)
+  const [allowBallotReplacement, setAllowBallotReplacement] = useState(initialValues?.allowBallotReplacement ?? true)
   const [quorumType, setQuorumType] = useState<"NONE" | "PERCENT" | "COUNT">(
     (initialValues?.quorumType as "NONE" | "PERCENT" | "COUNT") ?? "NONE"
   )
@@ -206,6 +208,7 @@ export default function ElectionForm({
       weightingEnabled,
       quorumType,
       quorumValue,
+      allowBallotReplacement,
     })
   }
 
@@ -242,6 +245,7 @@ export default function ElectionForm({
       weightingEnabled,
       quorumType,
       quorumValue: quorumType !== "NONE" && quorumValue !== "" ? parseInt(quorumValue, 10) : null,
+      allowBallotReplacement,
     }
 
     const url = electionId ? `/api/elections/${electionId}` : "/api/elections"
@@ -806,6 +810,32 @@ export default function ElectionForm({
                 : quorumType === "PERCENT"
                 ? "Results will show whether the required participation threshold was met. The election closes and results are reported either way — quorum is informational."
                 : "A fixed number of voters must participate for the quorum indicator to show as met."}
+            </p>
+          </div>
+        </VhCard>
+
+        {/* Ballot replacement */}
+        <VhCard title="Ballot replacement">
+          <div className="flex flex-col gap-3">
+            <label
+              className="flex items-center gap-2.5"
+              style={{ cursor: isCompleted ? "not-allowed" : "pointer", opacity: isCompleted ? 0.5 : 1 }}
+            >
+              <input
+                type="checkbox"
+                checked={allowBallotReplacement}
+                disabled={isCompleted}
+                onChange={(e) => setAllowBallotReplacement(e.target.checked)}
+                className="flex-shrink-0"
+              />
+              <span className="text-[13px]" style={{ color: "var(--vh-ink-soft)" }}>
+                Allow voters to replace their ballot until the election closes
+              </span>
+            </label>
+            <p className="text-[12.5px]" style={{ color: "var(--vh-muted)" }}>
+              {allowBallotReplacement
+                ? "Voters can submit a new ballot before the election closes by entering the receipt code from their original confirmation email. The old ballot is deleted and a new receipt code is issued."
+                : "Once submitted, a ballot is final. Voters cannot change their vote."}
             </p>
           </div>
         </VhCard>

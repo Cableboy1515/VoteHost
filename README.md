@@ -33,7 +33,8 @@ Copyright © 2026 Christopher Dewald. Licensed under the [AGPL-3.0-or-later](./L
 - **Election activation** — one-click activation sends invites immediately; elections with a scheduled start time activate and deliver invitations automatically
 - **Results exports** — download results as CSV, XLSX, or PDF; a full anonymised audit package (JSON) is also available for independent verification
 - **Activity log** — every admin and organizer action is recorded and viewable per election
-- **Voter ballot recovery** — voters who lose their magic link can request a fresh one without contacting an admin
+- **Voter ballot recovery** — voters who lose their magic link can request a fresh one without contacting an admin; requesting a fresh link invalidates all previous links for that voter
+- **Ballot replacement** — voters can replace their ballot before the election closes by entering the receipt code from their original confirmation email; the old ballot is deleted and a new receipt code is issued; enabled per-election (on by default, can be disabled in election settings)
 - **Admin controls** — admins can close an election early or archive completed elections
 
 ---

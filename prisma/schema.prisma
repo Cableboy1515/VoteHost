@@ -73,6 +73,8 @@ model Election {
 
   weightingEnabled Boolean    @default(false)
 
+  allowBallotReplacement Boolean @default(true)
+
   quorumType     QuorumType @default(NONE)
   quorumValue    Int?
 
@@ -205,11 +207,17 @@ model BallotReceipt {
   electionId  String
   receiptCode String   @unique
   ballotHash  String
+  ballotId    String?
   createdAt   DateTime @default(now())
+  // Set when this receipt's ballot is replaced. Superseded receipts are kept
+  // (not deleted) so the public /verify endpoint cannot reveal that a voter
+  // re-voted — see SECURITY.md "deniable replacement".
+  supersededAt DateTime?
 
   election Election @relation(fields: [electionId], references: [id], onDelete: Cascade)
 
   @@index([electionId])
+  @@index([ballotId])
 }
 
 // Non-destructive overlay: maps raw write-in text to a canonical candidate name.

@@ -73,6 +73,10 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
       firstReminderDays: true,
       autoActivate: true,
       heroColor: true,
+      weightingEnabled: true,
+      quorumType: true,
+      quorumValue: true,
+      allowBallotReplacement: true,
       _count: { select: { questions: true, voters: true } },
     },
   })
@@ -224,7 +228,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
   // but allows endsAt extension via the ACTIVE date guards above).
   if (before.firstVoteAt && before.status !== "COMPLETED") {
     const VOTING_STARTED_ALLOWED_KEYS = new Set([
-      "endsAt", "status", "archived", "autoSendResults", "heroColor",
+      "endsAt", "status", "archived", "autoSendResults", "heroColor", "allowBallotReplacement",
     ])
     const lockedKeys = changedKeysOutside(VOTING_STARTED_ALLOWED_KEYS)
     if (lockedKeys.length > 0) {

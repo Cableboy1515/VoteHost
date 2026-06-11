@@ -63,6 +63,30 @@ We aim to acknowledge reports within 48 hours and resolve critical issues within
 - **8-hour session TTL** — sessions expire after 8 hours of inactivity
 - **Session revocation** — token version bump immediately invalidates all active sessions
 
+## Ballot replacement and receipt codes
+
+When ballot replacement is enabled for an election (the default), a voter's receipt code is a **bearer credential**. The following properties must be understood:
+
+- Anyone who holds a receipt code can learn the content of that ballot by cross-referencing the code against the published audit export.
+- Anyone who holds a receipt code can replace the corresponding ballot **using any valid voting link for that election** — they do not need the original voter's own link. This means a leaked receipt code allows an attacker to silently delete another voter's ballot while the attacker's own ballot remains (effectively a double-count suppression). This cannot be prevented without breaking ballot anonymity, since the system cannot link a receipt to a specific voter at replacement time.
+- Voters should keep their receipt confirmation emails strictly private. A compromised mailbox typically exposes both the magic link and the receipt code, which together give full control of that ballot.
+- A voter is notified by email whenever their ballot is replaced — this is the detection channel for an unexpected replacement. (The `/verify` page deliberately does not reveal replacement; see below.)
+- This feature improves coercion resistance: a voter who was coerced into voting a certain way can privately replace their ballot using their own receipt code before the election closes.
+- The system does not provide receipt-freeness. Voters can prove how they voted to a third party by sharing their receipt code.
+- Organizers can disable ballot replacement mid-election (via the election settings) if a receipt leak is suspected — this is exactly when the kill switch matters.
+- There is **no recovery for a lost receipt code**. Receipts are not linked to voters (that is the anonymity guarantee), so an organizer cannot look one up or reset a single voter's ballot. The original ballot still counts; it simply can no longer be replaced. The only administrative remedy is the election-wide ballot reset, which deletes every ballot and re-invites every voter.
+
+### Deniable replacement
+
+When a ballot is replaced, the old receipt is **superseded, not deleted**: the public `/verify` endpoint keeps answering "found" for it, attesting only that *a ballot with this receipt was recorded* — never whether it is still the counted one. A coercer who collected a voter's receipt code at vote time therefore cannot detect, by polling the verify page, that the voter later replaced their ballot.
+
+Residual limitations, accepted and documented rather than solved (full coercion resistance would require JCJ-style fake credentials):
+
+- An **active** attacker holding the old receipt code *and* a valid voting link can learn of supersession by attempting a replacement, which fails with a distinct error. Replacement attempts are rate-limited (3/hour per voter) and require the voting-link credential, a far higher bar than polling a public endpoint.
+- The post-election **audit export** lists only current receipts (superseded receipts would reference deleted ballots and break the receipts↔ballots invariant; only an aggregate `supersededReceiptCount` is included). If an organizer publishes the audit export, a coercer can check whether a collected code appears in it. Deniability therefore holds during the voting window — when re-voting decisions are made — but not against an adversary who obtains a published post-election export.
+
+Organizers who want to eliminate the replacement credential risk entirely can disable ballot replacement in the election settings before or after voting starts.
+
 ## Known accepted advisories
 
 The following advisories appear in `npm audit` but have been triaged and accepted. Revisit when upstream packages release fixes.
