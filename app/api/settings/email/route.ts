@@ -4,6 +4,7 @@ import { requireRole } from "@/lib/auth"
 import { db } from "@/lib/db"
 import { csrfCheck } from "@/lib/csrf"
 import { recordActivity } from "@/lib/recordActivity"
+import { getStoredVerification } from "@/lib/emailVerify"
 
 const SECRET_KEYS = ["resend_api_key", "smtp_pass", "resend_webhook_secret"] as const
 const EMAIL_KEYS = [
@@ -28,9 +29,29 @@ export async function GET() {
   if (!session) return NextResponse.json({ error: "Forbidden" }, { status: 403 })
 
   try {
-    const rows = await db.setting.findMany({ where: { key: { in: [...EMAIL_KEYS] } } })
+    const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
+
+    const [rows, verification, failedVoters] = await Promise.all([
+      db.setting.findMany({ where: { key: { in: [...EMAIL_KEYS] } } }),
+      getStoredVerification(),
+      db.voter.findMany({
+        where: {
+          lastSendStatus: { in: ["permanent", "quota"] },
+          lastSendAttemptAt: { gte: sevenDaysAgo },
+        },
+        select: { lastSendAttemptAt: true, lastSendErrorMessage: true },
+        orderBy: { lastSendAttemptAt: "desc" },
+      }),
+    ])
+
     const s: Record<string, string> = {}
     for (const row of rows) s[row.key] = row.value
+
+    const sendHealth = {
+      recentFailures: failedVoters.length,
+      lastFailureAt: failedVoters[0]?.lastSendAttemptAt?.toISOString() ?? null,
+      lastErrorMessage: failedVoters[0]?.lastSendErrorMessage ?? null,
+    }
 
     return NextResponse.json({
       email_provider:          s.email_provider     ?? "resend",
@@ -45,6 +66,9 @@ export async function GET() {
       smtp_user:               s.smtp_user          ?? "",
       smtp_pass:               s.smtp_pass          ? SENTINEL : "",
       smtp_secure:             s.smtp_secure        ?? "false",
+      verification,
+      dryRun:                  !!process.env.EMAIL_DRY_RUN,
+      sendHealth,
     })
   } catch (err) {
     console.error("[settings/email GET]", err)

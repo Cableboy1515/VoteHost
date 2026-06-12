@@ -44,6 +44,8 @@ export type ActivityAction =
   | "user.delete"
   | "settings.general_update"
   | "settings.email_update"
+  | "settings.email_verify"
+  | "settings.email_verify_failed"
   | "settings.security_update"
   | "twofa.enable"
   | "twofa.disable"

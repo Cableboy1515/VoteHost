@@ -121,10 +121,15 @@ export default function EmailSetupWizard({
   })
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState("")
+  const [verifying, setVerifying] = useState(false)
+  const [verifyBanner, setVerifyBanner] = useState<"ok" | "failed" | null>(null)
+  const [verifyMessage, setVerifyMessage] = useState("")
+  const [verifyHint, setVerifyHint] = useState("")
   const [testTo, setTestTo] = useState(adminEmail)
   const [testing, setTesting] = useState(false)
   const [testResult, setTestResult] = useState<"idle" | "sent" | "error">("idle")
   const [testError, setTestError] = useState("")
+  const [testHint, setTestHint] = useState("")
   const [skipping, setSkipping] = useState(false)
 
   const [tz, setTz] = useState("UTC")
@@ -201,8 +206,13 @@ export default function EmailSetupWizard({
     setStep("welcome")
     setSaving(false)
     setSaveError("")
+    setVerifying(false)
+    setVerifyBanner(null)
+    setVerifyMessage("")
+    setVerifyHint("")
     setTestResult("idle")
     setTestError("")
+    setTestHint("")
     setSavingTz(false)
     setTzError("")
   }
@@ -234,6 +244,9 @@ export default function EmailSetupWizard({
     if (!form.preset) return
     setSaving(true)
     setSaveError("")
+    setVerifyBanner(null)
+    setVerifyMessage("")
+    setVerifyHint("")
     const preset = PRESETS[form.preset]
     const body: Record<string, string> = {
       email_provider: preset.provider,
@@ -256,16 +269,44 @@ export default function EmailSetupWizard({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
       })
-      if (res.ok) {
-        setStep("test")
-      } else {
+      if (!res.ok) {
         const d = await res.json().catch(() => ({}))
         setSaveError(d.error ?? `Server error ${res.status}`)
+        setSaving(false)
+        return
       }
     } catch (err) {
       setSaveError(String(err))
-    } finally {
       setSaving(false)
+      return
+    }
+    setSaving(false)
+
+    // Verify the connection before advancing
+    setVerifying(true)
+    try {
+      const vres = await fetch("/api/settings/email/verify", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      })
+      const vdata = await vres.json()
+      const ok = vdata.ok || vdata.code === "ok_restricted_key"
+      if (ok) {
+        setVerifyBanner("ok")
+        setVerifyMessage(vdata.message ?? "Connection verified.")
+        setStep("test")
+      } else {
+        // Stay on credentials step, show error + hint, offer "Continue anyway"
+        setVerifyBanner("failed")
+        setVerifyMessage(vdata.message ?? "Verification failed.")
+        setVerifyHint(vdata.hint ?? "")
+      }
+    } catch (err) {
+      setVerifyBanner("failed")
+      setVerifyMessage(String(err))
+    } finally {
+      setVerifying(false)
     }
   }
 
@@ -274,6 +315,7 @@ export default function EmailSetupWizard({
     setTesting(true)
     setTestResult("idle")
     setTestError("")
+    setTestHint("")
     try {
       const res = await fetch("/api/settings/email/test", {
         method: "POST",
@@ -286,6 +328,7 @@ export default function EmailSetupWizard({
       } else {
         setTestResult("error")
         setTestError(d.error ?? "Unknown error")
+        setTestHint(d.hint ?? "")
       }
     } catch (err) {
       setTestResult("error")
@@ -534,6 +577,32 @@ export default function EmailSetupWizard({
                 )}
               </>
             )}
+
+            {/* Verify connection banner (shown after save attempt on credentials step) */}
+            {verifyBanner === "ok" && (
+              <div
+                className="rounded-[10px] p-3 text-[13px]"
+                style={{ background: "var(--vh-success-soft, #eaf6f0)", border: "1px solid oklch(0.85 0.07 160)" }}
+              >
+                <span style={{ color: "var(--vh-success, #1a8f60)" }}>✓ {verifyMessage}</span>
+              </div>
+            )}
+            {verifyBanner === "failed" && (
+              <div
+                className="rounded-[10px] p-3 text-[13px] space-y-1"
+                style={{ background: "var(--vh-danger-soft, #fef2f2)", border: "1px solid oklch(0.85 0.05 15)" }}
+              >
+                <p className="font-medium" style={{ color: "var(--vh-danger, #dc2626)" }}>{verifyMessage}</p>
+                {verifyHint && <p style={{ color: "var(--vh-ink-soft)" }}>{verifyHint}</p>}
+                <button
+                  className="text-[12px] underline mt-1"
+                  style={{ color: "var(--vh-accent)" }}
+                  onClick={() => setStep("test")}
+                >
+                  Continue anyway →
+                </button>
+              </div>
+            )}
           </div>
         )}
 
@@ -645,11 +714,12 @@ export default function EmailSetupWizard({
             )}
             {testResult === "error" && (
               <div
-                className="rounded-[10px] p-3 text-[13px]"
+                className="rounded-[10px] p-3 text-[13px] space-y-1"
                 style={{ background: "var(--vh-danger-soft, #fef2f2)", border: "1px solid oklch(0.85 0.05 15)" }}
               >
                 <p className="font-medium" style={{ color: "var(--vh-danger, #dc2626)" }}>Send failed</p>
-                <p className="mt-0.5" style={{ color: "var(--vh-ink-soft)" }}>{testError}</p>
+                <p style={{ color: "var(--vh-ink-soft)" }}>{testError}</p>
+                {testHint && <p style={{ color: "var(--vh-ink-soft)" }}>{testHint}</p>}
                 <button
                   className="mt-2 text-[12.5px] underline"
                   style={{ color: "var(--vh-accent)" }}
@@ -732,8 +802,8 @@ export default function EmailSetupWizard({
               </Button>
             )}
             {step === "identity" && (
-              <Button onClick={handleSaveAndContinue} disabled={saving} size="lg">
-                {saving ? "Saving…" : "Save & continue"}
+              <Button onClick={handleSaveAndContinue} disabled={saving || verifying} size="lg">
+                {saving ? "Saving…" : verifying ? "Verifying…" : "Save & continue"}
               </Button>
             )}
             {step === "test" && testResult === "sent" && (

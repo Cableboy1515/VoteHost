@@ -6,6 +6,7 @@ import {
   sendElectionCompletedStaffNotice,
   sendDraftReminderStaffNotice,
   sendFullTurnoutStaffNotice,
+  isEmailConfigured,
 } from "@/lib/email"
 import { recordVoterSendResult } from "@/lib/recordVoterSendResult"
 import { getStaffRecipients, getViewerPlusRecipients } from "@/lib/staffRecipients"
@@ -14,6 +15,7 @@ import { autoCompleteElections } from "@/lib/autoCompleteElections"
 import { autoActivateElections } from "@/lib/autoActivateElections"
 import { generateVoterToken, appendVoterToken } from "@/lib/voterToken"
 import { recordActivity } from "@/lib/recordActivity"
+import { verifySmtp, verifyResend, emailConfigFingerprint, persistVerifyResult } from "@/lib/emailVerify"
 
 // Guards for sweeps that should run at most once per hour despite 1-minute cron frequency.
 let lastHeavySweepAt = 0
@@ -296,6 +298,78 @@ export async function POST(req: Request) {
       await Promise.allSettled(
         stale.map(async (e) => { await purgeElectionImages(e.id); purged++ })
       )
+    }
+  }
+
+  // ── Daily email config re-verify ─────────────────────────────────────────
+  if (runHeavy && !process.env.EMAIL_DRY_RUN) {
+    try {
+      const configured = await isEmailConfigured()
+      if (configured) {
+        const lastAutoRow = await db.setting.findUnique({ where: { key: "email_verify_last_auto_at" } })
+        const lastAutoAt = lastAutoRow?.value ? new Date(lastAutoRow.value).getTime() : 0
+        const oneDayMs = 24 * 60 * 60 * 1000
+
+        if (now.getTime() - lastAutoAt >= oneDayMs) {
+          const cfgRows = await db.setting.findMany({
+            where: {
+              key: {
+                in: ["email_provider", "smtp_host", "smtp_port", "smtp_user", "smtp_pass", "smtp_secure", "resend_api_key", "email_preset", "email_verify_status"],
+              },
+            },
+          })
+          const m: Record<string, string> = {}
+          for (const r of cfgRows) m[r.key] = r.value
+
+          const provider = m.email_provider ?? "resend"
+          const prevStatus = m.email_verify_status as "ok" | "failed" | undefined
+
+          let result
+          let fingerprint: string
+          if (provider === "smtp") {
+            fingerprint = emailConfigFingerprint({
+              provider,
+              host: m.smtp_host ?? "",
+              port: m.smtp_port ?? "587",
+              user: m.smtp_user ?? "",
+              pass: m.smtp_pass ?? "",
+              secure: m.smtp_secure ?? "false",
+            })
+            result = await verifySmtp(
+              {
+                host: m.smtp_host ?? "",
+                port: parseInt(m.smtp_port ?? "587", 10) || 587,
+                user: m.smtp_user ?? "",
+                pass: m.smtp_pass ?? "",
+                secure: m.smtp_secure === "true",
+              },
+              { preset: m.email_preset },
+            )
+          } else {
+            fingerprint = emailConfigFingerprint({ provider, apiKey: m.resend_api_key ?? "" })
+            result = await verifyResend(m.resend_api_key ?? "")
+          }
+
+          await persistVerifyResult(result, fingerprint)
+          await db.setting.upsert({
+            where: { key: "email_verify_last_auto_at" },
+            update: { value: now.toISOString() },
+            create: { key: "email_verify_last_auto_at", value: now.toISOString() },
+          })
+
+          const nowOk = result.ok || result.code === "ok_restricted_key"
+          if (!nowOk && prevStatus === "ok") {
+            await recordActivity({
+              system: true,
+              action: "settings.email_verify_failed",
+              targetType: "settings",
+              metadata: { provider, code: result.code, message: result.message },
+            })
+          }
+        }
+      }
+    } catch (err) {
+      console.error("[reminders/run] email re-verify failed:", err)
     }
   }
 
