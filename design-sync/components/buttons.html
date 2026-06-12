@@ -1,0 +1,93 @@
+<!-- @dsCard group="Components" -->
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --vh-ink:oklch(0.18 0.012 255);
+  --vh-ink-soft:oklch(0.32 0.012 255);
+  --vh-muted:oklch(0.52 0.008 255);
+  --vh-line:oklch(0.92 0.006 250);
+  --vh-line-strong:oklch(0.86 0.008 250);
+  --vh-bg:oklch(0.985 0.003 250);
+  --vh-surface:#ffffff;
+  --vh-surface-2:oklch(0.97 0.005 250);
+  --vh-surface-3:oklch(0.945 0.006 250);
+  --vh-accent:#3F66D9;
+  --vh-accent-strong:#2D4DBA;
+  --vh-danger:oklch(0.58 0.20 25);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Geist',ui-sans-serif,system-ui,sans-serif;background:var(--vh-bg);color:var(--vh-ink);letter-spacing:-0.005em;line-height:1.5;padding:28px}
+h2{font-size:13px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--vh-muted);margin:24px 0 10px}
+h2:first-of-type{margin-top:0}
+.rail{display:flex;flex-wrap:wrap;align-items:center;gap:10px}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;height:32px;padding:0 10px;font:inherit;font-size:14px;font-weight:500;border-radius:14px;border:1px solid transparent;white-space:nowrap;transition:all .15s;cursor:pointer}
+.btn:active{transform:translateY(1px)}
+.btn-default{background:var(--vh-accent);color:#fff}
+.btn-default:hover{background:color-mix(in srgb,var(--vh-accent) 80%,white)}
+.btn-outline{border-color:var(--vh-line);background:var(--vh-bg)}
+.btn-outline:hover{background:var(--vh-surface-3)}
+.btn-secondary{background:var(--vh-surface-2);color:var(--vh-ink-soft)}
+.btn-secondary:hover{background:color-mix(in srgb,var(--vh-surface-2) 80%,white)}
+.btn-ghost{background:transparent}
+.btn-ghost:hover{background:var(--vh-surface-3)}
+.btn-destructive{background:color-mix(in srgb,var(--vh-danger) 10%,transparent);color:var(--vh-danger)}
+.btn-destructive:hover{background:color-mix(in srgb,var(--vh-danger) 20%,transparent)}
+.btn-link{background:transparent;color:var(--vh-accent);text-underline-offset:4px}
+.btn-link:hover{text-decoration:underline}
+.btn-xs{height:24px;padding:0 8px;font-size:12px;border-radius:10px}
+.btn-sm{height:28px;padding:0 10px;font-size:12.8px;border-radius:12px}
+.btn-lg{height:36px;padding:0 10px}
+.btn-icon{width:32px;padding:0}
+.btn:disabled{pointer-events:none;opacity:.5}
+.btn-focus{border-color:var(--vh-accent);box-shadow:0 0 0 3px rgba(63,102,217,.3)}
+svg{flex-shrink:0}
+</style>
+</head>
+<body>
+  <h2>Variants</h2>
+  <div class="rail">
+    <button class="btn btn-default">Activate election</button>
+    <button class="btn btn-outline">Preview ballot</button>
+    <button class="btn btn-secondary">Save draft</button>
+    <button class="btn btn-ghost">Cancel</button>
+    <button class="btn btn-destructive">Delete election</button>
+    <button class="btn btn-link">View audit log</button>
+  </div>
+
+  <h2>Sizes</h2>
+  <div class="rail">
+    <button class="btn btn-default btn-xs">Extra small</button>
+    <button class="btn btn-default btn-sm">Small</button>
+    <button class="btn btn-default">Default</button>
+    <button class="btn btn-default btn-lg">Large</button>
+    <button class="btn btn-outline btn-icon" aria-label="Settings">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M12 1v4m0 14v4M4.2 4.2l2.8 2.8m10 10 2.8 2.8M1 12h4m14 0h4M4.2 19.8l2.8-2.8m10-10 2.8-2.8"/></svg>
+    </button>
+  </div>
+
+  <h2>With icon</h2>
+  <div class="rail">
+    <button class="btn btn-default">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2 11 13"/><path d="m22 2-7 20-4-9-9-4Z"/></svg>
+      Send invitations
+    </button>
+    <button class="btn btn-outline">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>
+      Export results
+    </button>
+  </div>
+
+  <h2>States</h2>
+  <div class="rail">
+    <button class="btn btn-default btn-focus">Focused</button>
+    <button class="btn btn-default" disabled>Disabled</button>
+    <button class="btn btn-outline" disabled>Disabled outline</button>
+  </div>
+</body>
+</html>

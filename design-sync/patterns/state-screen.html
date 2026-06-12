@@ -1,0 +1,53 @@
+<!-- @dsCard group="Voting Patterns" -->
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --vh-ink:oklch(0.18 0.012 255);
+  --vh-ink-soft:oklch(0.32 0.012 255);
+  --vh-muted:oklch(0.52 0.008 255);
+  --vh-line:oklch(0.92 0.006 250);
+  --vh-bg:oklch(0.985 0.003 250);
+  --vh-surface:#ffffff;
+  --vh-surface-2:oklch(0.97 0.005 250);
+  --vh-surface-3:oklch(0.945 0.006 250);
+  --vh-accent:#3F66D9;
+  --vh-accent-strong:#2D4DBA;
+  --vh-success-soft:oklch(0.95 0.04 155);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Geist',ui-sans-serif,system-ui,sans-serif;background:var(--vh-bg);color:var(--vh-ink);letter-spacing:-0.005em;line-height:1.5;min-height:100vh;display:flex;flex-direction:column}
+header{padding:20px 24px;border-bottom:1px solid var(--vh-line);background:var(--vh-surface);display:flex;align-items:center;gap:8px}
+.mark{display:inline-grid;place-items:center;width:28px;height:28px;border-radius:6px;background:var(--vh-accent)}
+.wordmark{font-size:16px;font-weight:600;letter-spacing:-0.02em}
+main{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:64px 24px;text-align:center}
+.icon{display:inline-grid;place-items:center;width:72px;height:72px;border-radius:18px;background:var(--vh-success-soft);font-size:36px;margin-bottom:24px}
+h1{font-size:24px;font-weight:600;letter-spacing:-0.02em;margin-bottom:12px;max-width:384px}
+p.body{font-size:15px;color:var(--vh-muted);max-width:320px;line-height:1.625}
+.primary{margin-top:32px;display:inline-flex;align-items:center;justify-content:center;font-size:14px;font-weight:500;color:#fff;background:var(--vh-accent);border-radius:10px;padding:10px 20px;text-decoration:none;transition:background .15s}
+.primary:hover{background:var(--vh-accent-strong)}
+.secondary{margin-top:16px;font-size:13px;color:var(--vh-muted)}
+</style>
+</head>
+<body>
+  <header>
+    <span class="mark">
+      <svg width="28" height="28" viewBox="0 0 24 24" fill="none"><path d="M6.5 12.5 L10.8 16.8 L18.5 7.2" stroke="#fff" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </span>
+    <span class="wordmark">VoteHost</span>
+  </header>
+
+  <main>
+    <span class="icon">🗳️</span>
+    <h1>Your ballot has been cast</h1>
+    <p class="body">Thank you for voting. Your ballot is secret — no one can see how you voted, including the election organizers.</p>
+    <a class="primary" href="#">Return to home</a>
+    <p class="secondary">Receipt code: VH-7K2M-XQ4P</p>
+  </main>
+</body>
+</html>

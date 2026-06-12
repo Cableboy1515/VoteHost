@@ -1,0 +1,65 @@
+<!-- @dsCard group="Components" -->
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --vh-ink:oklch(0.18 0.012 255);
+  --vh-ink-soft:oklch(0.32 0.012 255);
+  --vh-muted:oklch(0.52 0.008 255);
+  --vh-line:oklch(0.92 0.006 250);
+  --vh-bg:oklch(0.985 0.003 250);
+  --vh-surface-2:oklch(0.97 0.005 250);
+  --vh-accent:#3F66D9;
+  --vh-success:oklch(0.55 0.13 155);
+  --vh-success-soft:oklch(0.95 0.04 155);
+  --vh-warn:oklch(0.72 0.14 70);
+  --vh-warn-soft:oklch(0.96 0.05 80);
+  --vh-danger:oklch(0.58 0.20 25);
+  --vh-danger-soft:oklch(0.96 0.04 25);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Geist',ui-sans-serif,system-ui,sans-serif;background:var(--vh-bg);color:var(--vh-ink);letter-spacing:-0.005em;line-height:1.5;padding:28px}
+h2{font-size:13px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--vh-muted);margin:24px 0 10px}
+h2:first-of-type{margin-top:0}
+.rail{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
+.badge{display:inline-flex;align-items:center;justify-content:center;gap:4px;height:20px;padding:2px 8px;font-size:12px;font-weight:500;border-radius:999px;border:1px solid transparent;white-space:nowrap}
+.badge-default{background:var(--vh-accent);color:#fff}
+.badge-secondary{background:var(--vh-surface-2);color:var(--vh-ink-soft)}
+.badge-destructive{background:color-mix(in srgb,var(--vh-danger) 10%,transparent);color:var(--vh-danger)}
+.badge-outline{border-color:var(--vh-line);color:var(--vh-ink)}
+.badge-success{background:var(--vh-success-soft);color:var(--vh-success)}
+.badge-warn{background:var(--vh-warn-soft);color:oklch(0.52 0.14 70)}
+.dot{width:6px;height:6px;border-radius:999px;background:currentColor;flex-shrink:0}
+</style>
+</head>
+<body>
+  <h2>Variants</h2>
+  <div class="rail">
+    <span class="badge badge-default">Default</span>
+    <span class="badge badge-secondary">Secondary</span>
+    <span class="badge badge-outline">Outline</span>
+    <span class="badge badge-destructive">Destructive</span>
+  </div>
+
+  <h2>Election status</h2>
+  <div class="rail">
+    <span class="badge badge-secondary">Draft</span>
+    <span class="badge badge-success"><span class="dot"></span>Live</span>
+    <span class="badge badge-warn">Scheduled</span>
+    <span class="badge badge-outline">Closed</span>
+    <span class="badge badge-destructive">Sealed</span>
+  </div>
+
+  <h2>Counts</h2>
+  <div class="rail">
+    <span class="badge badge-default">142 voted</span>
+    <span class="badge badge-secondary">58 pending</span>
+    <span class="badge badge-outline">3 contests</span>
+  </div>
+</body>
+</html>

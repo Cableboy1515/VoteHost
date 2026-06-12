@@ -1,0 +1,47 @@
+<!-- @dsCard group="Components" -->
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --vh-ink:oklch(0.18 0.012 255);
+  --vh-muted:oklch(0.52 0.008 255);
+  --vh-bg:oklch(0.985 0.003 250);
+  --vh-surface-3:oklch(0.945 0.006 250);
+  --vh-accent:#3F66D9;
+  --vh-success:oklch(0.55 0.13 155);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Geist',ui-sans-serif,system-ui,sans-serif;background:var(--vh-bg);color:var(--vh-ink);letter-spacing:-0.005em;line-height:1.5;padding:28px;max-width:480px}
+.progress{display:flex;flex-wrap:wrap;gap:12px;margin-bottom:28px}
+.progress-label{font-size:14px;font-weight:500}
+.progress-value{margin-left:auto;font-size:14px;color:var(--vh-muted);font-variant-numeric:tabular-nums}
+.track{position:relative;display:flex;align-items:center;height:4px;width:100%;overflow:hidden;border-radius:999px;background:var(--vh-surface-3)}
+.indicator{height:100%;background:var(--vh-accent);border-radius:999px;transition:width .3s}
+.indicator-success{background:var(--vh-success)}
+</style>
+</head>
+<body>
+  <div class="progress">
+    <span class="progress-label">Turnout</span>
+    <span class="progress-value">71%</span>
+    <div class="track"><div class="indicator" style="width:71%"></div></div>
+  </div>
+
+  <div class="progress">
+    <span class="progress-label">Invitations delivered</span>
+    <span class="progress-value">200 / 200</span>
+    <div class="track"><div class="indicator indicator-success" style="width:100%"></div></div>
+  </div>
+
+  <div class="progress">
+    <span class="progress-label">Quorum (50% required)</span>
+    <span class="progress-value">34%</span>
+    <div class="track"><div class="indicator" style="width:34%"></div></div>
+  </div>
+</body>
+</html>

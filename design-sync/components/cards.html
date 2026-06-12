@@ -1,0 +1,71 @@
+<!-- @dsCard group="Components" -->
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --vh-ink:oklch(0.18 0.012 255);
+  --vh-ink-soft:oklch(0.32 0.012 255);
+  --vh-muted:oklch(0.52 0.008 255);
+  --vh-line:oklch(0.92 0.006 250);
+  --vh-bg:oklch(0.985 0.003 250);
+  --vh-surface:#ffffff;
+  --vh-surface-2:oklch(0.97 0.005 250);
+  --vh-surface-3:oklch(0.945 0.006 250);
+  --vh-accent:#3F66D9;
+  --vh-success:oklch(0.55 0.13 155);
+  --vh-success-soft:oklch(0.95 0.04 155);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Geist',ui-sans-serif,system-ui,sans-serif;background:var(--vh-bg);color:var(--vh-ink);letter-spacing:-0.005em;line-height:1.5;padding:28px;display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,380px));gap:20px;align-items:start}
+.card{display:flex;flex-direction:column;gap:16px;overflow:hidden;background:var(--vh-surface);border-radius:22px;padding:16px 0;font-size:14px;box-shadow:0 0 0 1px oklch(0.18 0.012 255 / 0.1)}
+.card-header{display:grid;grid-template-columns:1fr auto;gap:4px;padding:0 16px;align-items:start}
+.card-title{grid-column:1;font-size:16px;font-weight:500;letter-spacing:-0.02em;line-height:1.375}
+.card-desc{grid-column:1;font-size:14px;color:var(--vh-muted)}
+.card-action{grid-column:2;grid-row:1 / span 2}
+.card-content{padding:0 16px}
+.card-footer{display:flex;align-items:center;gap:8px;border-top:1px solid var(--vh-line);background:color-mix(in srgb,var(--vh-surface-3) 50%,transparent);padding:16px;margin-bottom:-16px}
+.badge{display:inline-flex;align-items:center;gap:4px;height:20px;padding:2px 8px;font-size:12px;font-weight:500;border-radius:999px;background:var(--vh-success-soft);color:var(--vh-success)}
+.dot{width:6px;height:6px;border-radius:999px;background:currentColor}
+.btn{display:inline-flex;align-items:center;justify-content:center;height:32px;padding:0 10px;font:inherit;font-size:14px;font-weight:500;border-radius:14px;border:1px solid transparent;cursor:pointer}
+.btn-default{background:var(--vh-accent);color:#fff}
+.btn-ghost{background:transparent;color:var(--vh-ink)}
+.btn-ghost:hover{background:var(--vh-surface-3)}
+.meter{height:4px;border-radius:999px;background:var(--vh-surface-3);overflow:hidden;margin-top:10px}
+.meter>div{height:100%;background:var(--vh-accent);border-radius:999px}
+.kv{display:flex;justify-content:space-between;font-size:13px;color:var(--vh-muted);margin-top:6px}
+.kv b{color:var(--vh-ink);font-weight:500;font-variant-numeric:tabular-nums}
+</style>
+</head>
+<body>
+  <div class="card">
+    <div class="card-header">
+      <div class="card-title">Annual Board Election 2026</div>
+      <div class="card-desc">3 contests · 200 invited voters</div>
+      <div class="card-action"><span class="badge"><span class="dot"></span>Live</span></div>
+    </div>
+    <div class="card-content">
+      <div class="kv"><span>Turnout</span><b>142 / 200 (71%)</b></div>
+      <div class="meter"><div style="width:71%"></div></div>
+    </div>
+    <div class="card-footer">
+      <button class="btn btn-default">View results</button>
+      <button class="btn btn-ghost">Manage voters</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-header">
+      <div class="card-title">Bylaw Amendment Vote</div>
+      <div class="card-desc">Draft — not yet activated</div>
+    </div>
+    <div class="card-content" style="color:var(--vh-muted)">
+      One yes/no question. Invitations are sent automatically when the election is activated.
+    </div>
+  </div>
+</body>
+</html>

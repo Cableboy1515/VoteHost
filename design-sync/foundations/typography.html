@@ -1,0 +1,46 @@
+<!-- @dsCard group="Type" -->
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --vh-ink:oklch(0.18 0.012 255);
+  --vh-ink-soft:oklch(0.32 0.012 255);
+  --vh-muted:oklch(0.52 0.008 255);
+  --vh-line:oklch(0.92 0.006 250);
+  --vh-bg:oklch(0.985 0.003 250);
+  --vh-accent:#3F66D9;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Geist',ui-sans-serif,system-ui,sans-serif;background:var(--vh-bg);color:var(--vh-ink);letter-spacing:-0.005em;line-height:1.5;padding:28px;max-width:720px}
+.row{display:flex;align-items:baseline;gap:20px;padding:14px 0;border-bottom:1px solid var(--vh-line)}
+.row:last-child{border-bottom:0}
+.spec{flex:0 0 200px;font-size:11px;color:var(--vh-muted);font-variant-numeric:tabular-nums}
+h1,h2,h3{letter-spacing:-0.02em}
+.h1{font-size:24px;font-weight:600;line-height:1.3}
+.h2{font-size:20px;font-weight:600;line-height:1.35}
+.h3{font-size:16px;font-weight:500;line-height:1.4}
+.body{font-size:14px;color:var(--vh-ink)}
+.body-lg{font-size:15px;color:var(--vh-muted);line-height:1.625}
+.caption{font-size:13px;color:var(--vh-muted)}
+.overline{font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.12em;color:var(--vh-muted)}
+.mono{font-family:'Geist Mono',ui-monospace,monospace;font-size:13px;color:var(--vh-ink-soft)}
+.link{font-size:14px;color:var(--vh-accent);text-decoration:underline;text-underline-offset:4px}
+</style>
+</head>
+<body>
+  <div class="row"><span class="spec">Geist 600 · 24px · -0.02em</span><span class="h1">Annual Board Election 2026</span></div>
+  <div class="row"><span class="spec">Geist 600 · 20px · -0.02em</span><span class="h2">Ballot results are sealed</span></div>
+  <div class="row"><span class="spec">Geist 500 · 16px · -0.02em</span><span class="h3">Card title — President of the Board</span></div>
+  <div class="row"><span class="spec">Geist 400 · 14px</span><span class="body">Body text. Voters receive a one-time link by email and cast a secret ballot from any device.</span></div>
+  <div class="row"><span class="spec">Geist 400 · 15px · muted</span><span class="body-lg">Lead / state-screen body copy reads at fifteen pixels with relaxed leading.</span></div>
+  <div class="row"><span class="spec">Geist 400 · 13px · muted</span><span class="caption">Caption — 142 of 200 ballots received</span></div>
+  <div class="row"><span class="spec">Geist 600 · 12px · caps</span><span class="overline">Election in progress</span></div>
+  <div class="row"><span class="spec">Geist Mono · 13px</span><span class="mono">VH-7K2M-XQ4P</span></div>
+  <div class="row"><span class="spec">Geist 400 · 14px · accent</span><span class="link">View the audit log</span></div>
+</body>
+</html>

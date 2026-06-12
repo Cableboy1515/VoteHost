@@ -1,0 +1,46 @@
+<!-- @dsCard group="Voting Patterns" -->
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --vh-ink:oklch(0.18 0.012 255);
+  --vh-bg:oklch(0.985 0.003 250);
+  --vh-accent:#3F66D9;
+  --vh-accent-strong:#2D4DBA;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Geist',ui-sans-serif,system-ui,sans-serif;background:var(--vh-bg);color:var(--vh-ink);letter-spacing:-0.005em;line-height:1.5;padding:28px;display:grid;gap:20px;max-width:640px}
+.hero{position:relative;overflow:hidden;color:#fff;background:linear-gradient(135deg,var(--vh-accent) 0%,var(--vh-accent-strong) 100%);border-radius:18px;padding:28px}
+.ring{pointer-events:none;position:absolute;top:-60px;right:-60px;width:240px;height:240px;border-radius:999px;border:1px solid rgba(255,255,255,.06)}
+.live{display:flex;align-items:center;gap:8px;margin-bottom:12px}
+.pulse{display:inline-block;width:7px;height:7px;border-radius:999px;background:#fff;animation:vhPulse 1.6s ease-in-out infinite}
+.overline{font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.12em;opacity:.85}
+.caption{font-size:14px;opacity:.85;margin-bottom:8px}
+h2{font-size:20px;font-weight:600;line-height:1.375;letter-spacing:-0.02em}
+.cta{margin-top:20px}
+.btn-onaccent{display:inline-flex;align-items:center;justify-content:center;height:36px;padding:0 18px;font:inherit;font-size:14px;font-weight:500;border-radius:10px;border:0;background:#fff;color:var(--vh-accent-strong);cursor:pointer}
+@keyframes vhPulse{0%,100%{opacity:1}50%{opacity:.4}}
+</style>
+</head>
+<body>
+  <!-- Live election -->
+  <div class="hero">
+    <div class="ring"></div>
+    <div class="live"><span class="pulse"></span><span class="overline">Election in progress</span></div>
+    <h2>Annual Board Election 2026</h2>
+    <div class="cta"><button class="btn-onaccent">Cast your ballot</button></div>
+  </div>
+
+  <!-- Upcoming -->
+  <div class="hero">
+    <div class="ring"></div>
+    <p class="caption">Opens Monday, June 15 at 9:00 AM</p>
+    <h2>Bylaw Amendment Vote</h2>
+  </div>
+</body>
+</html>

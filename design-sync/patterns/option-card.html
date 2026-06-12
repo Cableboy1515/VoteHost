@@ -1,0 +1,104 @@
+<!-- @dsCard group="Voting Patterns" -->
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --vh-ink:oklch(0.18 0.012 255);
+  --vh-ink-soft:oklch(0.32 0.012 255);
+  --vh-muted:oklch(0.52 0.008 255);
+  --vh-line:oklch(0.92 0.006 250);
+  --vh-line-strong:oklch(0.86 0.008 250);
+  --vh-bg:oklch(0.985 0.003 250);
+  --vh-surface:#ffffff;
+  --vh-surface-2:oklch(0.97 0.005 250);
+  --vh-surface-3:oklch(0.945 0.006 250);
+  --vh-accent:#3F66D9;
+  --vh-accent-soft:#EEF2FC;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Geist',ui-sans-serif,system-ui,sans-serif;background:var(--vh-bg);color:var(--vh-ink);letter-spacing:-0.005em;line-height:1.5;padding:28px;max-width:560px;display:grid;gap:12px}
+.option{background:var(--vh-surface);border:1.5px solid var(--vh-line-strong);border-radius:12px;cursor:pointer;transition:all .15s;user-select:none}
+.option.checked{background:var(--vh-accent-soft);border-color:var(--vh-accent);box-shadow:0 6px 20px oklch(0.36 0.10 255 / 0.15)}
+.option.disabled{opacity:.45;cursor:not-allowed}
+.row{display:flex;align-items:center;gap:14px;padding:10px 16px;min-height:84px}
+.avatar{display:inline-grid;place-items:center;flex-shrink:0;width:64px;height:64px;border-radius:999px;background:var(--vh-surface-3);color:var(--vh-ink-soft);font-weight:600;font-size:23px;border:1px solid var(--vh-line)}
+.who{flex:1;min-width:0}
+.name{font-size:17px;font-weight:500;overflow-wrap:break-word}
+.sub{font-size:13px;color:var(--vh-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tail{display:flex;align-items:center;gap:8px;flex-shrink:0}
+.details{display:inline-flex;align-items:center;gap:4px;font-size:13px;font-weight:500;padding:4px 10px;border-radius:8px;background:var(--vh-surface-3);border:1px solid var(--vh-line-strong);color:var(--vh-ink-soft);cursor:pointer;font-family:inherit}
+.details:hover{background:var(--vh-surface-2);color:var(--vh-ink)}
+.mark{display:inline-grid;place-items:center;flex-shrink:0;width:22px;height:22px;border:2px solid var(--vh-line-strong);background:transparent;transition:all .15s}
+.mark.radio{border-radius:50%}
+.mark.check{border-radius:6px}
+.option.checked .mark{border-color:var(--vh-accent);background:var(--vh-accent)}
+</style>
+</head>
+<body>
+  <!-- Single choice, unselected -->
+  <div class="option">
+    <div class="row">
+      <span class="avatar">AR</span>
+      <div class="who">
+        <p class="name">Alicia Reyes</p>
+        <p class="sub">Current treasurer · 2 terms</p>
+      </div>
+      <div class="tail">
+        <button class="details">Show details
+          <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M2 4L6 8L10 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>
+        <span class="mark radio"></span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Single choice, selected -->
+  <div class="option checked">
+    <div class="row">
+      <span class="avatar">MO</span>
+      <div class="who">
+        <p class="name">Marcus Okafor</p>
+        <p class="sub">Community volunteer</p>
+      </div>
+      <div class="tail">
+        <span class="mark radio">
+          <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M2 6L5 9L10 3" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Multi choice, selected -->
+  <div class="option checked">
+    <div class="row">
+      <span class="avatar">JT</span>
+      <div class="who">
+        <p class="name">June Tanaka</p>
+        <p class="sub">Approve the 2026 budget</p>
+      </div>
+      <div class="tail">
+        <span class="mark check">
+          <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M2 6L5 9L10 3" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Disabled -->
+  <div class="option disabled">
+    <div class="row">
+      <span class="avatar">WD</span>
+      <div class="who">
+        <p class="name">Withdrawn candidate</p>
+        <p class="sub">No longer running</p>
+      </div>
+      <div class="tail"><span class="mark radio"></span></div>
+    </div>
+  </div>
+</body>
+</html>
