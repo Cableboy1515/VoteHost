@@ -1204,12 +1204,11 @@ function buildBallotReceiptHtml(p: BallotReceiptPayload): string {
     intro: `Your vote in <strong style="color:${C.ink};">${title}</strong> has been recorded. Save the receipt code below to verify your ballot was counted.`,
     codeLabel: "Receipt code",
     footerNote: replaceable
-      ? `This code does not reveal what you voted for. It only proves your ballot was recorded.
-          Anyone can enter this code on the verification page to confirm it exists in the election ledger.
-          Keep this email private — anyone who obtains this code can look up your ballot in the published audit data and replace it (with any valid voting link for this election) until the election closes.`
-      : `This code does not reveal what you voted for. It only proves your ballot was recorded.
-          Anyone can enter this code on the verification page to confirm it exists in the election ledger.
-          Keep it private — it can be used to look up your ballot's contents in the published audit data.`,
+      ? `This code contains no information about your choices, and the public verification page only confirms that a ballot with this code was recorded — never what it says.
+          Treat it like a password: if the election's audit file is published after the close, your code identifies which ballot is yours, revealing your choices.
+          And until the election closes, anyone who has this code plus any valid voting link for this election can replace your ballot — you'll be notified by email if that happens.`
+      : `This code contains no information about your choices, and the public verification page only confirms that a ballot with this code was recorded — never what it says.
+          Treat it like a password: if the election's audit file is published after the close, your code identifies which ballot is yours, revealing your choices.`,
   })
 }
 
@@ -1230,7 +1229,7 @@ function buildBallotReplacedNoticeHtml(p: BallotReceiptPayload): string {
     intro: `Your previous ballot for <strong style="color:${C.ink};">${title}</strong> has been replaced. Your new receipt code is below. Your old receipt code is no longer valid.`,
     codeLabel: "New receipt code",
     footerNote: `If you did not do this, contact your election organizer immediately.
-          Keep this email private — anyone who obtains this code can look up your ballot in the published audit data and replace it again (with any valid voting link for this election) until the election closes.`,
+          Keep this email private — this new code, like the old one, identifies your ballot in the audit file if it is published, and can be used with any valid voting link to replace your ballot again until the election closes.`,
   })
 }
 
