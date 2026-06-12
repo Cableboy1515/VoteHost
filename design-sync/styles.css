@@ -1,0 +1,60 @@
+/* ============================================================
+   VoteHost Elections — Design System
+   Global stylesheet: self-hosted brand fonts + design tokens.
+   This file is the source of truth the compiler reads for
+   @font-face and :root tokens. Cards load it via ../styles.css.
+   ============================================================ */
+
+/* --- Brand fonts (self-hosted variable fonts) --- */
+@font-face {
+  font-family: 'Geist';
+  src: url('fonts/GeistVF.woff2') format('woff2-variations'),
+       url('fonts/GeistVF.woff2') format('woff2');
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Geist Mono';
+  src: url('fonts/GeistMonoVF.woff2') format('woff2-variations'),
+       url('fonts/GeistMonoVF.woff2') format('woff2');
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* --- Design tokens --- */
+:root {
+  /* Type families */
+  --vh-font-sans: 'Geist', ui-sans-serif, system-ui, sans-serif;
+  --vh-font-mono: 'Geist Mono', ui-monospace, 'SFMono-Regular', monospace;
+
+  /* Ink / text */
+  --vh-ink: oklch(0.18 0.012 255);
+  --vh-ink-soft: oklch(0.32 0.012 255);
+  --vh-muted: oklch(0.52 0.008 255);
+
+  /* Lines */
+  --vh-line: oklch(0.92 0.006 250);
+  --vh-line-strong: oklch(0.86 0.008 250);
+
+  /* Surfaces */
+  --vh-bg: oklch(0.985 0.003 250);
+  --vh-surface: #ffffff;
+  --vh-surface-2: oklch(0.97 0.005 250);
+  --vh-surface-3: oklch(0.945 0.006 250);
+
+  /* Accent — Cobalt */
+  --vh-accent: #3F66D9;
+  --vh-accent-strong: #2D4DBA;
+  --vh-accent-soft: #EEF2FC;
+
+  /* Status */
+  --vh-success: oklch(0.55 0.13 155);
+  --vh-success-soft: oklch(0.95 0.04 155);
+  --vh-warn: oklch(0.72 0.14 70);
+  --vh-warn-soft: oklch(0.96 0.05 80);
+  --vh-danger: oklch(0.58 0.20 25);
+  --vh-danger-soft: oklch(0.96 0.04 25);
+}
