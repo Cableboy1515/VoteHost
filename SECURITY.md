@@ -95,3 +95,10 @@ The following advisories appear in `npm audit` but have been triaged and accepte
 |---|---|---|
 | GHSA-w5hq-g745-h8pq (`uuid` bounds check) | `exceljs → uuid@8` | Only affects `uuid.v3/v5/v6` when a `buf` argument is provided. `exceljs` uses `uuid.v4` (random) internally; this code path is not reachable. |
 | GHSA-92pp-h63x-v22m (`@hono/node-server` path bypass) | `prisma → @prisma/dev → @hono/node-server` | `@prisma/dev` is the WASM-Postgres dev server used only by `prisma dev` (local development). Production deployments use `@prisma/client` + `prisma db push`, which do not load `@hono/node-server`. |
+| GHSA-wwfh-h76j-fc44 (`hono` serve-static Windows path traversal) | `prisma → @prisma/dev → hono` and `shadcn → @modelcontextprotocol/sdk → hono` | Both chains are dev tooling (`@prisma/dev` local dev server; `shadcn` is a devDependency). Neither loads in the production container. Windows-only path anyway. |
+| GHSA-88fw-hqm2-52qc (`hono` CORS wildcard reflects credentials) | same chains as above | Dev tooling only — not loaded in production. |
+| GHSA-j6c9-x7qj-28xf (`hono` AWS Lambda Set-Cookie merge) | same chains as above | Dev tooling only; also not applicable (not deployed on AWS Lambda). |
+| GHSA-wgpf-jwqj-8h8p (`hono` Lambda@Edge header dedup) | same chains as above | Dev tooling only; also not applicable (not deployed on Lambda@Edge). |
+| GHSA-rv63-4mwf-qqc2 (`hono` Body Limit bypass on Lambda) | same chains as above | Dev tooling only; also not applicable (not deployed on AWS Lambda). |
+| GHSA-4x5r-pxfx-6jf8 (`@babel/core` sourceMappingURL file read) | `eslint-config-next → eslint-plugin-react-hooks → @babel/core` and `shadcn → @babel/core` | Both chains are devDependencies (linting and scaffolding tooling). Not present in the production build or container image. |
+| GHSA-h67p-54hq-rp68 (`js-yaml` merge key DoS) | `eslint → @eslint/eslintrc → js-yaml` and `shadcn → cosmiconfig → js-yaml` | Both chains are devDependencies. Not present in the production build or container image. |
