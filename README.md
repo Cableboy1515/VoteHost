@@ -41,7 +41,7 @@ Copyright © 2026 Christopher Dewald. Licensed under the [AGPL-3.0-or-later](./L
 
 ## Requirements
 
-- A Linux machine (Raspberry Pi 4/5, mini PC, VPS, Proxmox LXC, etc.) with at least 2 GB RAM recommended (1 GB minimum)
+- A Linux machine (Raspberry Pi 4/5, mini PC, VPS, Proxmox LXC, etc.) with 4 GB RAM recommended (2 GB minimum) and 20 GB free disk recommended (12 GB minimum) — the Docker image is built on the machine, and the build needs more memory and disk than the running stack
 - Docker Engine and Docker Compose v2 (`docker compose version`)
 - For public access over the internet, one of:
   - A **Cloudflare Tunnel** token — requires a domain on Cloudflare DNS (free tunnel, ~$10/yr domain)
@@ -81,10 +81,10 @@ The script walks you through a short set of prompts (container ID, hostname, sto
 | Resource | Recommended | Minimum |
 |---|---|---|
 | vCPU | 2 | 1 |
-| RAM | 2 GB | 1 GB |
-| Disk | 15 GB | 8 GB |
+| RAM | 4 GB | 2 GB |
+| Disk | 20 GB | 12 GB |
 
-Docker images for this stack total around 3 GB. Postgres and uploaded images grow over time, so 15 GB gives comfortable headroom.
+The app image is built inside the container on first install and on every upgrade, so disk use is dominated by the Docker build cache (~4–5 GB) rather than the final images (~3.5 GB). Postgres and uploads add a little more over time. On a 12 GB container, run `docker image prune -f && docker builder prune -f --keep-storage 4GB` after each upgrade to reclaim space from the old dangling image and stale cache layers.
 
 **Access modes**
 
@@ -104,7 +104,7 @@ The script offers the same three access options as the standard install:
   ```
 - To enter the container: `pct exec <CTID> -- bash`
 - To view live logs: `pct exec <CTID> -- sh -c 'cd /opt/votehost && docker compose logs -f'`
-- To upgrade: `pct exec <CTID> -- sh -c 'cd /opt/votehost && git pull && docker compose up -d --build'`
+- To upgrade: `pct exec <CTID> -- sh -c 'cd /opt/votehost && git pull && docker compose up -d --build && docker image prune -f'`
 
 ---
 
@@ -354,6 +354,13 @@ Pull the latest code, rebuild the image, and restart. The entrypoint applies any
 git pull
 docker compose build
 docker compose up -d
+```
+
+Then prune the old dangling image and stale build-cache layers (keeps 4 GB of cache so the next build stays fast):
+
+```bash
+docker image prune -f
+docker builder prune -f --keep-storage 4GB
 ```
 
 Check the logs after restart to confirm the schema applied cleanly:

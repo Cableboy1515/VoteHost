@@ -93,12 +93,12 @@ prompt "IP address" CT_IP "dhcp"
 
 # ── Resources ─────────────────────────────────────────────────────────────────
 header "Resources"
-dim "Recommended: 2 vCPU / 2048 MB RAM / 15 GB disk"
-dim "Minimum:     1 vCPU / 1024 MB RAM /  8 GB disk"
+dim "Recommended: 2 vCPU / 4096 MB RAM / 20 GB disk"
+dim "Minimum:     1 vCPU / 2048 MB RAM / 12 GB disk"
 printf "\n"
 prompt "vCPU cores" CT_CORES "2"
-prompt "RAM (MB)"   CT_RAM   "2048"
-prompt "Disk (GB)"  CT_DISK  "15"
+prompt "RAM (MB)"   CT_RAM   "4096"
+prompt "Disk (GB)"  CT_DISK  "20"
 
 # ── Public access ─────────────────────────────────────────────────────────────
 header "Public Access"
@@ -365,5 +365,5 @@ esac
 printf "\n"
 dim "Enter container:  pct exec $CTID -- bash"
 dim "View logs:        pct exec $CTID -- sh -c 'cd /opt/votehost && docker compose logs -f'"
-dim "Update VoteHost:  pct exec $CTID -- sh -c 'cd /opt/votehost && git pull && docker compose up -d --build'"
+dim "Update VoteHost:  pct exec $CTID -- sh -c 'cd /opt/votehost && git pull && docker compose up -d --build && docker image prune -f'"
 printf "\n"
