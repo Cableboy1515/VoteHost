@@ -2,6 +2,7 @@ services:
 
   # ── Application ─────────────────────────────────────────────────────────────
   app:
+    image: ${VOTEHOST_IMAGE:-votehost:local}
     build:
       context: .
       args:
@@ -41,6 +42,7 @@ services:
 
   # ── Hourly reminder + retention cron ────────────────────────────────────────
   cron:
+    image: ${VOTEHOST_CRON_IMAGE:-votehost-cron:local}
     build: ./cron
     restart: unless-stopped
     env_file: .env

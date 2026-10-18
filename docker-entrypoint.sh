@@ -1,8 +1,20 @@
 #!/bin/sh
 set -e
 
-echo "Waiting for Postgres..."
-until nc -z db 5432 2>/dev/null; do
+# Derive host and port from DATABASE_URL (falls back to db:5432 if unset/unparseable).
+DB_HOSTPORT=$(node -e "
+try {
+  const u = new URL(process.env.DATABASE_URL);
+  console.log(u.hostname + ' ' + (u.port || 5432));
+} catch (e) {
+  console.log('db 5432');
+}
+")
+DB_HOST=${DB_HOSTPORT% *}
+DB_PORT=${DB_HOSTPORT#* }
+
+echo "Waiting for Postgres at ${DB_HOST}:${DB_PORT}..."
+until nc -z "$DB_HOST" "$DB_PORT" 2>/dev/null; do
   sleep 1
 done
 echo "Postgres is ready."
